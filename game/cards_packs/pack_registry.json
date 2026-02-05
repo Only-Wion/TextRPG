@@ -1,0 +1,13 @@
+{
+  "packs": {
+    "starter_kingdom": {
+      "name": "Starter Kingdom: Town, Forest, Sea",
+      "version": "0.1.0",
+      "author": "TextRPG Team",
+      "description": "A complete starter pack with town, forest, and sea regions.",
+      "cards_root": "cards",
+      "enabled": true,
+      "source": "local"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "pack_id": "starter_kingdom",
+  "name": "新手王国：城镇·森林·海洋",
+  "version": "0.1.0",
+  "author": "TextRPG Team",
+  "description": "包含城镇、森林、海洋三大区域的完整开箱即玩卡牌包。",
+  "requires": "0.1.0",
+  "entrypoints": {
+    "start_location": "tavern"
+  },
+  "cards_root": "cards"
+}

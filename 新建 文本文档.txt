@@ -1,0 +1,309 @@
+下面是严格基于你当前仓库代码的分析与梳理；不做任何代码修改。
+你在需求里同时写了“不要修改代码”与“在代码中添加注释”，两者冲突。我先完成全部解释与文档草稿，如需我落地添加注释，请你明确许可并指定范围（例如只加到 core/ 与 service/）。
+
+A) Top 10 必读文件（按优先级）
+
+graph.py：LangGraph 主编排，决定数据流与节点职责。
+api.py：UI/CLI 调用入口，承上启下，定义 session/state 管理。
+llm.py：prompt 与 LLM 交互，决定叙事/ops 生成与语言控制。
+card_repository.py：卡牌加载、检索、overlay ops 聚合。
+rule_engine.py：规则约束与派生动作，ops 校验的核心。
+ops.py：Pydantic ops schema，接口契约。
+world_store.py：动态属性持久化（SQLite）。
+kg_store.py：关系图谱持久化（SQLite）。
+rag_store.py：语义记忆向量库（Chroma）。
+app.py：UI 层与 service 的真实调用方式与状态展示。
+B) 逐文件总结（模板：职责 / 关键类与函数 / 输入输出 / 依赖 / 风险点）
+
+graph.py
+职责：LangGraph 节点定义与完整执行链路。
+关键：ingest_input, load_overlays, retrieve_context, plan_ops, validate_ops, apply_updates, narrate, checkpoint, build_graph.
+I/O：输入 state（dict 或 GameState）；输出合并后的 partial state。
+依赖：RuleEngine, CardRepository, RAGStore, WorldStore, KGStore, llm.py, ops.py.
+风险：state 中 recent_messages 结构、overlay 合并顺序、RuleEngine 自动移除边的副作用。
+api.py
+职责：稳定服务层 API，UI/CLI 唯一依赖入口。
+关键：start_new_game, load_game, step, get_current_state_view, set_language, pack 管理 & 卡牌编辑 API。
+I/O：step(input_text) 返回 dict（含 narration/validated_ops/etc）。
+依赖：PackManager, CardRepository, RuleEngine, WorldStore, KGStore, RAGStore, build_graph.
+风险：state 是 dict（非 Pydantic），需要与 graph _get 兼容；recent_messages/chat_history 格式约束。
+llm.py
+职责：LLM/Embedding 获取、prompt 构建、JSON ops 解析与重试。
+关键：build_plan_prompt, build_narrate_prompt, llm_plan_ops, llm_narrate, MockLLM.
+I/O：输入 state，输出 JSON ops 或 narration 文本。
+依赖：langchain_openai, langchain_community, SETTINGS.
+风险：LLM 返回 JSON 不稳定；prompt 对 recent_messages 的格式化依赖；embedding 基础 URL 兼容性。
+card_repository.py
+职责：加载 cards 与 packs，解析 YAML frontmatter，检索，加载 overlay ops。
+关键：load, search, load_overlays, parse_frontmatter.
+I/O：Card 对象集合；load_overlays 返回 ops list（按 priority 归并）。
+依赖：yaml, CARDS_DIR.
+风险：同 ID 卡牌覆盖顺序依赖 root 遍历顺序；frontmatter 缺失被跳过。
+rule_engine.py
+职责：读取 card_logic.md 规则，校验 ops 与派生 actions。
+关键：load_rule_config, validate_ops, allowed_actions.
+I/O：输入 ops 与当前 edges；输出 valid_ops + errors。
+依赖：OpsPayload, card_logic.md.
+风险：未知 relation 直接拒绝；超限关系会自动生成 RemoveEdge 并报错提示。
+ops.py
+职责：定义 ops 的 Pydantic schema 与 payload 结构。
+关键：AddEdge, RemoveEdge, SetAttr, LogMemory, OpsPayload.
+I/O：结构化 JSON 解析入口。
+依赖：pydantic.
+风险：ops JSON 必须严格匹配字段；类型/缺字段直接失败。
+world_store.py
+职责：SQLite 持久化实体属性。
+关键：set_attr, all_attrs.
+I/O：输入 entity/key/value；输出聚合 attrs dict。
+依赖：sqlite3, WORLD_DB_PATH.
+风险：每次 set 会 delete+insert，可能丢历史。
+kg_store.py
+职责：SQLite 持久化关系边。
+关键：add_edge, remove_edge, all_edges.
+I/O：输入 edge；输出 edges list。
+依赖：sqlite3, time.
+风险：无唯一约束，重复边可积累；remove 是精确匹配。
+rag_store.py
+职责：Chroma 向量库保存/检索长期记忆。
+关键：add_memory, search.
+I/O：输入文本+tags；输出 top-k 文档列表。
+依赖：Chroma, Document, get_embeddings.
+风险：tags 被 join 成字符串；query 为空返回空。
+app.py
+职责：Streamlit UI 三页（Play/Pack Manager/Card Designer）。
+关键：page_play, page_pack_manager, page_card_designer.
+I/O：通过 GameService 驱动；展示 narration/chat_history/world_facts。
+依赖：streamlit, yaml, GameService.
+风险：lang_options 中中文显示乱码（编码问题）；UI 仅展示 state_view 字段。
+（如你还希望我覆盖 config.py, main.py, game/packs/*, tests/* 的逐文件模板，我已读过并在后续交付物中引用。）
+
+1) 项目总览（Architecture Overview, 10~20 行）
+
+UI 入口：app.py 通过 GameService 调用引擎；支持 Play/Pack Manager/Card Designer。
+CLI 入口：main.py 直接构建 repo/world/kg/rag/graph 并循环输入。
+服务层：api.py 负责 session/state 管理、pack 管理与卡牌编辑。
+编排层：graph.py 用 LangGraph 定义节点链。
+卡牌层：card_repository.py 扫描 game/cards 与 packs 卡牌，解析 frontmatter。
+规则层：rule_engine.py 读取 card_logic.md，校验 ops 与派生 actions。
+动态状态：WorldStore（属性）+ KGStore（关系边）落盘 SQLite。
+语义记忆：RAGStore 使用 Chroma，落盘 data/saves/<slot>/rag/。
+LLM/Prompt：llm.py 生成 ops/narration，并支持 mock 模式。
+Source of Truth：动态状态在 SQLite（world/edges），卡牌是静态内容源；overlay 只是每回合注入 ops。
+Pack Registry：pack_registry.json 记录安装与启用状态。
+2) 运行主链路（End-to-End Execution Trace）
+下面给出 UI 路径与 CLI 路径的时序步骤：
+
+UI 路径（app.py）
+
+UI 启动，get_service() 生成 GameService。
+点击 Start New Game：GameService.start_new_game(save_slot, pack_ids, language)
+_build_session：
+PackManager 读取 registry → get_enabled_cards_roots()
+CardRepository.load() 扫描 game/cards + packs
+初始化 WorldStore/KGStore/RAGStore（SQLite/Chroma）
+构造 RuleEngine（读取 card_logic.md）
+如 KG 为空，bootstrap 初始关系
+build_graph(...) 生成 LangGraph app
+每次输入 step(input_text)：
+更新 state.turn_id/player_input
+app.invoke(state) 进入 LangGraph
+LangGraph 节点顺序：
+ingest_input → 修剪 recent_messages
+load_overlays → 汇总 overlay ops
+retrieve_context → 卡牌检索 + RAG + world facts + allowed_actions
+plan_ops → admin 指令优先，否则 LLM 输出 ops JSON
+validate_ops → RuleEngine 校验与冲突处理
+apply_updates → 写 World/KG/RAG
+narrate → LLM 输出故事
+checkpoint → 写 snapshot + 记忆摘要
+step 将 narration 和输入追加到 chat_history，并更新 recent_messages。
+UI 通过 get_current_state_view() 展示 narration/chat_history/world_facts 等。
+CLI 路径（python -m game.main）
+
+CardRepository.load() + WorldStore/KGStore/RAGStore 初始化
+RuleEngine 读取 card_logic.md
+build_graph 构建 LangGraph
+循环输入 → app.invoke(state) → 输出 narration → 维护 chat_history/recent_messages
+3) 核心数据结构与状态模型（State & Data Model）
+
+State 字段（state.py）
+
+turn_id：写入者 service.step / CLI loop；读者 graph 节点；跨回合。
+player_input：每回合输入；读者 retrieve_context/plan_ops/narrate；回合内。
+recent_messages：由 chat_history 截断形成；读者 LLM prompt；跨回合。
+chat_history：service.step 追加 user/assistant；UI 展示；跨回合。
+retrieved_cards：retrieve_context 写入；plan_ops/narrate 读；回合内。
+retrieved_memories：retrieve_context 写入；LLM 读；回合内。
+draft_ops：plan_ops 写入；validate_ops 读；回合内。
+overlay_ops：load_overlays 写入；validate_ops 读；回合内。
+validated_ops：validate_ops 写入；apply_updates 读；回合内。
+world_facts：retrieve_context 写入；LLM 读；回合内。
+narration：narrate 写入；UI/CLI 读；回合内。
+allowed_actions：retrieve_context 写入；LLM 读；回合内。
+errors：validate_ops 写入；UI debug 读；回合内。
+save_slot/snapshot_dir/enabled_packs/language：session 初始化时写；跨回合。
+Ops Schema（ops.py）
+
+AddEdge: 添加关系边（subject_id, relation, object_id, confidence, source）
+RemoveEdge: 删除关系边
+SetAttr: 设置实体属性（entity_id, key, value）
+LogMemory: 写入语义记忆（text, tags, entities）
+失败模式：
+Pydantic 校验失败 → validate_ops 返回空 ops + errors
+RuleEngine：未知实体/非法关系 → 丢弃该 op + errors
+关系约束超限 → 自动加 RemoveEdge 修正 + errors
+静态卡牌 vs 动态状态合并
+
+静态卡牌：game/cards + packs，加载到 CardRepository
+动态状态：WorldStore(attrs) + KGStore(edges) 作为运行中真值
+Overlay：每回合 load_overlays 注入 ops，再统一校验/应用
+优先级：动态 DB 永久状态 > overlay ops（本回合增量） > packs/built-in 只提供内容与 initial_relations
+4) 存储与持久化（Persistence）
+
+存储位置
+
+Save Slot 目录：data/saves/<slot>/
+World attrs：world.sqlite 表 attrs(entity_id,key,value,source,ts)
+KG edges：kg.sqlite 表 edges(sub,rel,obj,ts,confidence,source)
+RAG：data/saves/<slot>/rag/（Chroma 持久化）
+Snapshot：*.md
+Pack registry：pack_registry.json
+不可重复/不可回放因素
+
+LLM 输出非确定性（temperature=0.2）
+RAG embeddings 与相似度检索具有随机性/近似性
+KG edge ts / RAG memory ts 使用当前时间
+固定方式（代码建议）
+将 temperature 设为 0
+固定模型版本与 embeddings 版本
+记录请求/响应日志并可回放
+在测试时使用 MockLLM
+5) 调试与可观测性（Debugging & Observability）
+
+最小调试路径（至少 8 个断点）
+
+app.py：page_play() 中 service.step(...) 前后
+api.py：start_new_game → _build_session
+graph.py：retrieve_context
+graph.py：plan_ops
+graph.py：validate_ops
+graph.py：apply_updates
+llm.py：llm_plan_ops（查看 prompt 与 response）
+llm.py：llm_narrate
+world_store.py：set_attr（属性落盘）
+kg_store.py：add_edge（关系落盘）
+每个断点建议观察变量
+
+state：player_input, recent_messages, retrieved_cards, world_facts
+payload/ops：draft_ops, validated_ops, errors
+数据库存储：attrs / edges 的当前快照
+LLM 返回：response.content 是否是合法 JSON
+已有 debug 开关
+
+UI Play 页：Show Debug Info
+显示 retrieved_cards, validated_ops, errors
+日志增强建议（不改代码，仅建议）
+
+在 plan_ops/narrate 前后记录 prompt 与 raw response
+在 validate_ops 输出 errors 时记录 ops 原文
+在 apply_updates 输出写入的 attrs/edges/memory
+6) 易错点与改进路线图（Pitfalls & Next Improvements）
+
+潜在问题（按严重程度排序）
+
+LLM JSON 输出不稳定 → ops 解析失败或丢失。
+RuleEngine 对未知关系直接拒绝，导致剧情动作被忽略。
+CardRepository 重名卡覆盖顺序不透明（pack 优先级不稳定）。
+KG 无去重约束，重复 AddEdge 会膨胀。
+World attrs 会覆盖同 key 历史，无法追踪变化。
+RAG 记忆用摘要 + tags join，长期污染与冗余。
+Overlay ops 每回合重复注入，易造成状态叠加。
+模型/Embedding base_url 变化导致线上不可复现。
+recent_messages 结构变化（list[str] → list[dict]）对 prompt 格式敏感。
+packs manifest 只做 basic 校验，缺少 schema 版本与依赖管理。
+UI 语言选项中文显示乱码（编码问题）。
+pack 安装无签名与来源校验，仍有供应链风险。
+三阶段改进路线图
+
+Phase 1（1~3 天，小改动）
+
+强化 prompt 解析容错（LLM schema 约束 + fallback）
+增加 pack 优先级显示与手动排序
+RAG 去噪：过滤无效或重复日志
+涉及：llm.py, registry.py, rag_store.py
+验证：手动跑 5 回合、检查 ops 落盘与 UI debug 输出
+Phase 2（1~2 周，中等重构）
+
+引入统一事件日志（ops + result + state diff）
+KG 与 World 增量历史表或 audit log
+引入 deterministic test harness（MockLLM + fixed embeddings）
+涉及：game/core/*, api.py, tests/*
+验证：新增回放测试与数据一致性测试
+Phase 3（1~2 月，产品级能力）
+
+Pack 生态：签名验证、版本依赖、语义兼容检查
+State 分层：运行态/持久态/临时态明确分离
+UI/服务解耦：API 层独立包与协议文档
+涉及：game/packs/*, game/service/*, ui/*, docs/*
+验证：pack 安全测试 + 回放一致性 + 多端 UI
+7) 文档输出（docs/ARCHITECTURE.md 草稿，仅内容）
+
+# TextRPG Architecture
+
+## Overview
+TextRPG is a LangChain + LangGraph based text RPG engine with a service layer API and a Streamlit UI. The system is split into static card content, dynamic runtime state, and memory.
+
+## Entry Points
+- UI: `ui/app.py` (Streamlit)
+- CLI: `game/main.py` (terminal loop)
+- Service API: `game/service/api.py`
+
+## Data Sources (Source of Truth)
+- Dynamic state: SQLite (`world.sqlite`, `kg.sqlite`)
+- Semantic memory: Chroma (`data/saves/<slot>/rag/`)
+- Static content: Markdown cards under `game/cards` and enabled packs
+- Overlay ops: Markdown files under `_overlay/` applied per turn
+
+## Runtime Flow (LangGraph)
+1) ingest_input: trim recent messages
+2) load_overlays: load overlay ops
+3) retrieve_context: cards + rag + world facts + allowed actions
+4) plan_ops: admin command or LLM JSON ops
+5) validate_ops: RuleEngine validates + fixes conflicts
+6) apply_updates: persist to World/KG/RAG
+7) narrate: LLM narrates
+8) checkpoint: snapshot + turn summary memory
+
+## State Model (GameState)
+Key fields: `player_input`, `chat_history`, `recent_messages`, `retrieved_cards`,
+`retrieved_memories`, `draft_ops`, `validated_ops`, `world_facts`, `narration`,
+`allowed_actions`, `errors`, `save_slot`, `language`.
+
+## Persistence Layout
+data/saves/<slot>/
+
+world.sqlite
+kg.sqlite
+rag/
+state_snapshot/
+
+## Packs
+- Registry: `game/cards_packs/pack_registry.json`
+- Packs installed at: `game/cards_packs/<pack_id>/<version>/`
+- Manifest: `pack.json` or `pack.yaml`
+
+## Debugging
+- UI: enable “Show Debug Info”
+- Breakpoints: `game/core/graph.py` nodes, `game/llm.py` prompt+response, stores (`world_store`, `kg_store`, `rag_store`)
+
+## Known Risks
+- LLM JSON instability
+- Pack priority ambiguity
+- RAG noise & memory pollution
+关于“加注释”
+你要求“在代码中添加适当的注释”，但同时又要求“不要修改代码”。请确认是否现在就允许我改代码：
+
+只在 game/core/* 与 api.py 加注释
+全项目关键函数都加注释
+暂时不加注释，仅输出解释文档
+回复编号即可。
