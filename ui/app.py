@@ -7,6 +7,7 @@ from typing import Dict, Any
 import html
 
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -50,24 +51,27 @@ def _render_custom_ui_panels(state_view: Dict[str, Any]) -> None:
 
     html_parts = [
         "<style>",
-        ".custom-ui-layer{position:fixed; inset:0; pointer-events:none; z-index:996;}",
-        ".custom-ui-panel{position:fixed; border:1px solid #ddd; border-radius:10px; background:rgba(255,255,255,0.95); box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:auto; resize:both; pointer-events:auto;}",
-        ".custom-ui-header{padding:8px 10px; font-weight:700; background:#f7f7f9; cursor:move; border-bottom:1px solid #e8e8ef;}",
+        "html, body { margin:0; padding:0; background:transparent; }",
+        ".custom-ui-layer{position:relative; width:100%; height:100%; pointer-events:none;}",
+        ".custom-ui-panel{position:absolute; border:1px solid #ddd; border-radius:10px; background:rgba(255,255,255,0.95); box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:auto; resize:both; pointer-events:auto;}",
+        ".custom-ui-header{padding:8px 10px; font-weight:700; background:#f7f7f9; cursor:move; border-bottom:1px solid #e8e8ef; user-select:none;}",
         ".custom-ui-body{padding:8px 10px; font-size:13px;}",
         ".custom-ui-section{margin-bottom:10px;}",
         ".custom-ui-section h5{margin:2px 0 6px 0; font-size:13px;}",
         ".custom-ui-item{padding:2px 0; border-bottom:1px dashed #f0f0f0;}",
         ".custom-ui-empty{color:#888; font-style:italic;}",
         "</style>",
-        "<div class='custom-ui-layer'>",
+        "<div id='custom-ui-layer' class='custom-ui-layer'>",
     ]
 
+    max_bottom = 400
     for panel in floating:
         layout = panel.get('layout', {})
         x = int(layout.get('x', 20))
         y = int(layout.get('y', 120))
         w = int(layout.get('width', 360))
         h = int(layout.get('height', 280))
+        max_bottom = max(max_bottom, y + h + 24)
         panel_id = html.escape(str(panel.get('panel_id', 'panel')))
         title = html.escape(str(panel.get('title', panel_id)))
 
@@ -98,17 +102,20 @@ def _render_custom_ui_panels(state_view: Dict[str, Any]) -> None:
     html_parts.append('</div>')
     html_parts.append(
         "<script>"
+        "const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));"
         "document.querySelectorAll('.custom-ui-panel').forEach((panel)=>{"
         "const header=panel.querySelector('.custom-ui-header');"
         "let dragging=false,offsetX=0,offsetY=0;"
-        "header.onmousedown=(e)=>{dragging=true;offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;};"
-        "document.onmousemove=(e)=>{if(!dragging)return;panel.style.left=(e.clientX-offsetX)+'px';panel.style.top=(e.clientY-offsetY)+'px';};"
-        "document.onmouseup=()=>{dragging=false;};"
+        "header.addEventListener('pointerdown',(e)=>{dragging=true;header.setPointerCapture(e.pointerId);offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;});"
+        "header.addEventListener('pointermove',(e)=>{if(!dragging)return;const parent=panel.parentElement;const maxX=Math.max(0,parent.clientWidth-panel.offsetWidth);const maxY=Math.max(0,parent.clientHeight-panel.offsetHeight);panel.style.left=clamp(e.clientX-offsetX,0,maxX)+'px';panel.style.top=clamp(e.clientY-offsetY,0,maxY)+'px';});"
+        "const stop=()=>{dragging=false;};"
+        "header.addEventListener('pointerup',stop);"
+        "header.addEventListener('pointercancel',stop);"
         "});"
         "</script>"
     )
 
-    st.markdown(''.join(html_parts), unsafe_allow_html=True)
+    components.html(''.join(html_parts), height=max_bottom, scrolling=False)
 
 def page_play() -> None:
     """Play page: start/load game, show history, send input."""
