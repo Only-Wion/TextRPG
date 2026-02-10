@@ -4,7 +4,7 @@ import tempfile
 import sys
 from pathlib import Path
 from typing import Dict, Any
-import html
+import json
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -29,8 +29,6 @@ def get_service() -> GameService:
 def _render_custom_ui_panels(state_view: Dict[str, Any]) -> None:
     """渲染自定义 UI 面板（浮窗，支持拖拽与缩放）。"""
     panels = state_view.get('custom_ui_panels', [])
-    if not panels:
-        return
 
     st.sidebar.markdown('---')
     st.sidebar.subheader('Custom UI Panels')
@@ -46,76 +44,134 @@ def _render_custom_ui_panels(state_view: Dict[str, Any]) -> None:
         )
 
     floating = [p for p in panels if st.session_state.get(f"panel_visible_{p.get('panel_id')}", True)]
-    if not floating:
-        return
+    payload = json.dumps(floating, ensure_ascii=False)
 
-    html_parts = [
-        "<style>",
-        "html, body { margin:0; padding:0; background:transparent; }",
-        ".custom-ui-layer{position:relative; width:100%; height:100%; pointer-events:none;}",
-        ".custom-ui-panel{position:absolute; border:1px solid #ddd; border-radius:10px; background:rgba(255,255,255,0.95); box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:auto; resize:both; pointer-events:auto;}",
-        ".custom-ui-header{padding:8px 10px; font-weight:700; background:#f7f7f9; cursor:move; border-bottom:1px solid #e8e8ef; user-select:none;}",
-        ".custom-ui-body{padding:8px 10px; font-size:13px;}",
-        ".custom-ui-section{margin-bottom:10px;}",
-        ".custom-ui-section h5{margin:2px 0 6px 0; font-size:13px;}",
-        ".custom-ui-item{padding:2px 0; border-bottom:1px dashed #f0f0f0;}",
-        ".custom-ui-empty{color:#888; font-style:italic;}",
-        "</style>",
-        "<div id='custom-ui-layer' class='custom-ui-layer'>",
-    ]
+    components.html(
+        f"""
+        <script>
+        const panels = {payload};
+        const doc = window.parent.document;
+        const ROOT_ID = 'textrpg-custom-ui-root';
+        const STYLE_ID = 'textrpg-custom-ui-style';
 
-    max_bottom = 400
-    for panel in floating:
-        layout = panel.get('layout', {})
-        x = int(layout.get('x', 20))
-        y = int(layout.get('y', 120))
-        w = int(layout.get('width', 360))
-        h = int(layout.get('height', 280))
-        max_bottom = max(max_bottom, y + h + 24)
-        panel_id = html.escape(str(panel.get('panel_id', 'panel')))
-        title = html.escape(str(panel.get('title', panel_id)))
+        const oldRoot = doc.getElementById(ROOT_ID);
+        if (oldRoot) oldRoot.remove();
 
-        sections_html = []
-        for section in panel.get('sections', []):
-            sec_title = html.escape(str(section.get('title', 'Section')))
-            entries = section.get('entries', [])
-            if entries:
-                items = []
-                for entry in entries:
-                    if isinstance(entry, dict) and 'key' in entry:
-                        item = f"<div class='custom-ui-item'><b>{html.escape(str(entry.get('key')))}</b>: {html.escape(str(entry.get('value')))}</div>"
-                    else:
-                        item = f"<div class='custom-ui-item'>{html.escape(str(entry))}</div>"
-                    items.append(item)
-                entries_html = ''.join(items)
-            else:
-                entries_html = f"<div class='custom-ui-empty'>{html.escape(str(section.get('empty_text', 'No data')))}</div>"
-            sections_html.append(f"<div class='custom-ui-section'><h5>{sec_title}</h5>{entries_html}</div>")
+        let style = doc.getElementById(STYLE_ID);
+        if (!style) {{
+          style = doc.createElement('style');
+          style.id = STYLE_ID;
+          style.textContent = `
+            #${{ROOT_ID}} {{ position: fixed; inset: 0; pointer-events: none; z-index: 996; }}
+            #${{ROOT_ID}} .custom-ui-panel {{
+              position: fixed; border: 1px solid #ddd; border-radius: 10px;
+              background: rgba(255,255,255,0.95); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+              overflow: auto; resize: both; pointer-events: auto;
+            }}
+            #${{ROOT_ID}} .custom-ui-header {{
+              padding: 8px 10px; font-weight: 700; background: #f7f7f9;
+              cursor: move; border-bottom: 1px solid #e8e8ef; user-select: none;
+            }}
+            #${{ROOT_ID}} .custom-ui-body {{ padding: 8px 10px; font-size: 13px; }}
+            #${{ROOT_ID}} .custom-ui-section {{ margin-bottom: 10px; }}
+            #${{ROOT_ID}} .custom-ui-section h5 {{ margin: 2px 0 6px 0; font-size: 13px; }}
+            #${{ROOT_ID}} .custom-ui-item {{ padding: 2px 0; border-bottom: 1px dashed #f0f0f0; }}
+            #${{ROOT_ID}} .custom-ui-empty {{ color: #888; font-style: italic; }}
+          `;
+          doc.head.appendChild(style);
+        }}
 
-        html_parts.append(
-            f"<div id='panel-{panel_id}' class='custom-ui-panel' style='left:{x}px;top:{y}px;width:{w}px;height:{h}px;'>"
-            f"<div class='custom-ui-header'>{title}</div>"
-            f"<div class='custom-ui-body'>{''.join(sections_html)}</div>"
-            "</div>"
-        )
+        const root = doc.createElement('div');
+        root.id = ROOT_ID;
+        doc.body.appendChild(root);
 
-    html_parts.append('</div>')
-    html_parts.append(
-        "<script>"
-        "const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));"
-        "document.querySelectorAll('.custom-ui-panel').forEach((panel)=>{"
-        "const header=panel.querySelector('.custom-ui-header');"
-        "let dragging=false,offsetX=0,offsetY=0;"
-        "header.addEventListener('pointerdown',(e)=>{dragging=true;header.setPointerCapture(e.pointerId);offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;});"
-        "header.addEventListener('pointermove',(e)=>{if(!dragging)return;const parent=panel.parentElement;const maxX=Math.max(0,parent.clientWidth-panel.offsetWidth);const maxY=Math.max(0,parent.clientHeight-panel.offsetHeight);panel.style.left=clamp(e.clientX-offsetX,0,maxX)+'px';panel.style.top=clamp(e.clientY-offsetY,0,maxY)+'px';});"
-        "const stop=()=>{dragging=false;};"
-        "header.addEventListener('pointerup',stop);"
-        "header.addEventListener('pointercancel',stop);"
-        "});"
-        "</script>"
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+        for (const panel of panels) {{
+          const layout = panel.layout || {{}};
+          const x = Number(layout.x ?? 20);
+          const y = Number(layout.y ?? 120);
+          const w = Number(layout.width ?? 360);
+          const h = Number(layout.height ?? 280);
+
+          const panelEl = doc.createElement('div');
+          panelEl.className = 'custom-ui-panel';
+          panelEl.style.left = `${{x}}px`;
+          panelEl.style.top = `${{y}}px`;
+          panelEl.style.width = `${{w}}px`;
+          panelEl.style.height = `${{h}}px`;
+
+          const header = doc.createElement('div');
+          header.className = 'custom-ui-header';
+          header.textContent = String(panel.title ?? panel.panel_id ?? 'panel');
+
+          const body = doc.createElement('div');
+          body.className = 'custom-ui-body';
+
+          for (const section of (panel.sections || [])) {{
+            const sectionWrap = doc.createElement('div');
+            sectionWrap.className = 'custom-ui-section';
+
+            const h5 = doc.createElement('h5');
+            h5.textContent = String(section.title ?? 'Section');
+            sectionWrap.appendChild(h5);
+
+            const entries = section.entries || [];
+            if (!entries.length) {{
+              const empty = doc.createElement('div');
+              empty.className = 'custom-ui-empty';
+              empty.textContent = String(section.empty_text ?? 'No data');
+              sectionWrap.appendChild(empty);
+            }} else {{
+              for (const entry of entries) {{
+                const item = doc.createElement('div');
+                item.className = 'custom-ui-item';
+                if (entry && typeof entry === 'object' && ('key' in entry)) {{
+                  const keyStrong = doc.createElement('b');
+                  keyStrong.textContent = String(entry.key);
+                  item.appendChild(keyStrong);
+                  item.appendChild(doc.createTextNode(': ' + String(entry.value)));
+                }} else {{
+                  item.textContent = String(entry);
+                }}
+                sectionWrap.appendChild(item);
+              }}
+            }}
+            body.appendChild(sectionWrap);
+          }}
+
+          panelEl.appendChild(header);
+          panelEl.appendChild(body);
+          root.appendChild(panelEl);
+
+          let dragging = false;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          header.addEventListener('pointerdown', (e) => {{
+            dragging = true;
+            header.setPointerCapture(e.pointerId);
+            offsetX = e.clientX - panelEl.offsetLeft;
+            offsetY = e.clientY - panelEl.offsetTop;
+          }});
+
+          header.addEventListener('pointermove', (e) => {{
+            if (!dragging) return;
+            const maxX = Math.max(0, window.parent.innerWidth - panelEl.offsetWidth);
+            const maxY = Math.max(0, window.parent.innerHeight - panelEl.offsetHeight);
+            panelEl.style.left = `${{clamp(e.clientX - offsetX, 0, maxX)}}px`;
+            panelEl.style.top = `${{clamp(e.clientY - offsetY, 0, maxY)}}px`;
+          }});
+
+          const stopDragging = () => {{ dragging = false; }};
+          header.addEventListener('pointerup', stopDragging);
+          header.addEventListener('pointercancel', stopDragging);
+        }}
+        </script>
+        """,
+        height=0,
+        scrolling=False,
     )
-
-    components.html(''.join(html_parts), height=max_bottom, scrolling=False)
 
 def page_play() -> None:
     """Play page: start/load game, show history, send input."""

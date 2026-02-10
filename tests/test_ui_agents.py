@@ -77,3 +77,31 @@ def test_ui_state_agent_tracks_quest_attrs() -> None:
     assert 'quest.join_guild.status' in keys
     assert 'quest.find_weapon_master.status' in keys
     assert 'player.hp' not in keys
+
+
+def test_ui_state_agent_uses_quest_cards_when_no_quest_attrs() -> None:
+    updater = UIPanelStateAgent()
+    panel_defs = [
+        {
+            'panel_id': 'quest_tracker_main',
+            'title': '任务推进',
+            'panel_type': 'quest_tracker',
+            'visible_by_default': True,
+            'layout': {'x': 10, 'y': 20, 'width': 400, 'height': 300},
+            'sections': [{'title': '可推进任务', 'attr_prefix': 'quest.'}],
+        }
+    ]
+    world_facts = {'attrs': {'player.hp': 95}, 'edges': []}
+    quest_cards = [
+        {'id': 'quest_join_guild', 'summary': '触发：在工会会长对话。'},
+        {'id': 'quest_tavern_rumors', 'summary': '触发：在酒馆问询。'},
+    ]
+
+    panels = updater.update(panel_defs, world_facts, chat_history=[], quest_cards=quest_cards)
+
+    entries = panels[0]['sections'][0]['entries']
+    keys = [e['key'] for e in entries]
+    assert 'quest.quest_join_guild.status' in keys
+    assert 'quest.quest_tavern_rumors.status' in keys
+    values = {e['key']: e['value'] for e in entries}
+    assert values['quest.quest_join_guild.status'].startswith('available')

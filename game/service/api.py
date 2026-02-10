@@ -215,6 +215,7 @@ class GameService:
         app = build_graph(repo, rag, world, kg, rules)
         ui_cards = list(repo.by_type('ui'))
         ui_panel_defs = self.ui_planner.plan(ui_cards)
+        quest_catalog = self._collect_quest_catalog(repo)
         state = {
             'turn_id': 0,
             'recent_messages': [],
@@ -225,6 +226,7 @@ class GameService:
             'language': language or 'zh',
             'custom_ui_panel_defs': ui_panel_defs,
             'custom_ui_panels': [],
+            'quest_catalog': quest_catalog,
         }
         history = self._load_chat_history(paths['chat_history_path'])
         if history:
@@ -256,7 +258,24 @@ class GameService:
         panel_defs = session.state.get('custom_ui_panel_defs', [])
         world_facts = session.state.get('world_facts', {})
         history = session.state.get('chat_history', [])
-        session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history)
+        quest_catalog = session.state.get('quest_catalog', [])
+        session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history, quest_catalog)
+
+
+    def _collect_quest_catalog(self, repo: CardRepository) -> List[Dict[str, Any]]:
+        """收集卡牌仓库中的 quest 卡牌用于任务面板展示。"""
+        quests: List[Dict[str, Any]] = []
+        for card in repo.by_type('quest'):
+            summary = ''
+            content = card.content.strip()
+            if content:
+                summary = content.splitlines()[0].strip()
+            quests.append({
+                'id': card.id,
+                'tags': list(card.tags),
+                'summary': summary,
+            })
+        return quests
 
     def _pack_cards_root(self, pack_id: str) -> Path:
         """解析某个卡包的 cards 根目录。"""

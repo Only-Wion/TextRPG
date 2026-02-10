@@ -1,22 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, List
 import json
 import yaml
 
 from ..core.card_repository import Card
-
-
-@dataclass
-class UIPanel:
-    """运行时 UI 面板定义。"""
-    panel_id: str
-    title: str
-    panel_type: str
-    visible_by_default: bool
-    layout: Dict[str, int]
-    sections: List[Dict[str, Any]]
 
 
 class UICardPlannerAgent:
@@ -64,16 +52,24 @@ class UICardPlannerAgent:
 class UIPanelStateAgent:
     """根据世界状态实时计算每个面板的显示数据。"""
 
-    def update(self, panel_defs: List[Dict[str, Any]], world_facts: Dict[str, Any], chat_history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    def update(
+        self,
+        panel_defs: List[Dict[str, Any]],
+        world_facts: Dict[str, Any],
+        chat_history: List[Dict[str, str]],
+        quest_cards: List[Dict[str, Any]] | None = None,
+    ) -> List[Dict[str, Any]]:
         attrs = world_facts.get('attrs', {}) if isinstance(world_facts, dict) else {}
         edges = world_facts.get('edges', []) if isinstance(world_facts, dict) else []
+        quest_cards = quest_cards or []
+
         panels: List[Dict[str, Any]] = []
         for panel in panel_defs:
             panel_type = panel.get('panel_type', 'facts_list')
             sections = panel.get('sections', [])
             rendered_sections: List[Dict[str, Any]] = []
             if panel_type == 'quest_tracker':
-                rendered_sections = self._build_quest_sections(sections, attrs)
+                rendered_sections = self._build_quest_sections(sections, attrs, quest_cards)
             elif panel_type == 'relation_board':
                 rendered_sections = self._build_relation_sections(sections, edges)
             else:
@@ -87,14 +83,37 @@ class UIPanelStateAgent:
             })
         return panels
 
-    def _build_quest_sections(self, sections: List[Dict[str, Any]], attrs: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _build_quest_sections(
+        self,
+        sections: List[Dict[str, Any]],
+        attrs: Dict[str, Any],
+        quest_cards: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
         rendered: List[Dict[str, Any]] = []
+        quest_status = _extract_quest_status(attrs)
+
         for section in sections:
             prefix = str(section.get('attr_prefix', 'quest.'))
-            entries = []
+            entries: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+
             for key, value in attrs.items():
                 if key.startswith(prefix):
                     entries.append({'key': key, 'value': value})
+                    seen_keys.add(key)
+
+            for quest in quest_cards:
+                quest_id = str(quest.get('id', '')).strip()
+                if not quest_id:
+                    continue
+                status = quest_status.get(quest_id, 'available')
+                key = f'quest.{quest_id}.status'
+                if key in seen_keys:
+                    continue
+                summary = str(quest.get('summary', '')).strip()
+                value = status if not summary else f'{status} | {summary}'
+                entries.append({'key': key, 'value': value})
+
             entries.sort(key=lambda x: x['key'])
             rendered.append({
                 'title': section.get('title', 'Quests'),
@@ -141,6 +160,18 @@ class UIPanelStateAgent:
                 'empty_text': section.get('empty_text', '暂无状态'),
             })
         return rendered
+
+
+def _extract_quest_status(attrs: Dict[str, Any]) -> Dict[str, str]:
+    status: Dict[str, str] = {}
+    for key, value in attrs.items():
+        if key.startswith('quest.') and key.endswith('.status'):
+            quest_id = key[len('quest.'):-len('.status')]
+            status[quest_id] = str(value)
+        elif key.startswith('quest_status.'):
+            quest_id = key[len('quest_status.'):]
+            status[quest_id] = str(value)
+    return status
 
 
 def _split_frontmatter_and_body(text: str) -> tuple[str, str]:
