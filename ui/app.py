@@ -4,6 +4,7 @@ import tempfile
 import sys
 from pathlib import Path
 from typing import Dict, Any
+import html
 
 import streamlit as st
 import yaml
@@ -21,6 +22,93 @@ def get_service() -> GameService:
         st.session_state.service = GameService()
     return st.session_state.service
 
+
+
+
+def _render_custom_ui_panels(state_view: Dict[str, Any]) -> None:
+    """渲染自定义 UI 面板（浮窗，支持拖拽与缩放）。"""
+    panels = state_view.get('custom_ui_panels', [])
+    if not panels:
+        return
+
+    st.sidebar.markdown('---')
+    st.sidebar.subheader('Custom UI Panels')
+
+    for panel in panels:
+        key = f"panel_visible_{panel.get('panel_id')}"
+        if key not in st.session_state:
+            st.session_state[key] = bool(panel.get('visible_by_default', True))
+        st.session_state[key] = st.sidebar.checkbox(
+            panel.get('title', panel.get('panel_id', 'panel')),
+            value=st.session_state[key],
+            key=f"checkbox_{panel.get('panel_id')}"
+        )
+
+    floating = [p for p in panels if st.session_state.get(f"panel_visible_{p.get('panel_id')}", True)]
+    if not floating:
+        return
+
+    html_parts = [
+        "<style>",
+        ".custom-ui-layer{position:fixed; inset:0; pointer-events:none; z-index:996;}",
+        ".custom-ui-panel{position:fixed; border:1px solid #ddd; border-radius:10px; background:rgba(255,255,255,0.95); box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:auto; resize:both; pointer-events:auto;}",
+        ".custom-ui-header{padding:8px 10px; font-weight:700; background:#f7f7f9; cursor:move; border-bottom:1px solid #e8e8ef;}",
+        ".custom-ui-body{padding:8px 10px; font-size:13px;}",
+        ".custom-ui-section{margin-bottom:10px;}",
+        ".custom-ui-section h5{margin:2px 0 6px 0; font-size:13px;}",
+        ".custom-ui-item{padding:2px 0; border-bottom:1px dashed #f0f0f0;}",
+        ".custom-ui-empty{color:#888; font-style:italic;}",
+        "</style>",
+        "<div class='custom-ui-layer'>",
+    ]
+
+    for panel in floating:
+        layout = panel.get('layout', {})
+        x = int(layout.get('x', 20))
+        y = int(layout.get('y', 120))
+        w = int(layout.get('width', 360))
+        h = int(layout.get('height', 280))
+        panel_id = html.escape(str(panel.get('panel_id', 'panel')))
+        title = html.escape(str(panel.get('title', panel_id)))
+
+        sections_html = []
+        for section in panel.get('sections', []):
+            sec_title = html.escape(str(section.get('title', 'Section')))
+            entries = section.get('entries', [])
+            if entries:
+                items = []
+                for entry in entries:
+                    if isinstance(entry, dict) and 'key' in entry:
+                        item = f"<div class='custom-ui-item'><b>{html.escape(str(entry.get('key')))}</b>: {html.escape(str(entry.get('value')))}</div>"
+                    else:
+                        item = f"<div class='custom-ui-item'>{html.escape(str(entry))}</div>"
+                    items.append(item)
+                entries_html = ''.join(items)
+            else:
+                entries_html = f"<div class='custom-ui-empty'>{html.escape(str(section.get('empty_text', 'No data')))}</div>"
+            sections_html.append(f"<div class='custom-ui-section'><h5>{sec_title}</h5>{entries_html}</div>")
+
+        html_parts.append(
+            f"<div id='panel-{panel_id}' class='custom-ui-panel' style='left:{x}px;top:{y}px;width:{w}px;height:{h}px;'>"
+            f"<div class='custom-ui-header'>{title}</div>"
+            f"<div class='custom-ui-body'>{''.join(sections_html)}</div>"
+            "</div>"
+        )
+
+    html_parts.append('</div>')
+    html_parts.append(
+        "<script>"
+        "document.querySelectorAll('.custom-ui-panel').forEach((panel)=>{"
+        "const header=panel.querySelector('.custom-ui-header');"
+        "let dragging=false,offsetX=0,offsetY=0;"
+        "header.onmousedown=(e)=>{dragging=true;offsetX=e.clientX-panel.offsetLeft;offsetY=e.clientY-panel.offsetTop;};"
+        "document.onmousemove=(e)=>{if(!dragging)return;panel.style.left=(e.clientX-offsetX)+'px';panel.style.top=(e.clientY-offsetY)+'px';};"
+        "document.onmouseup=()=>{dragging=false;};"
+        "});"
+        "</script>"
+    )
+
+    st.markdown(''.join(html_parts), unsafe_allow_html=True)
 
 def page_play() -> None:
     """Play page: start/load game, show history, send input."""
@@ -106,6 +194,7 @@ def page_play() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     state_view = service.get_current_state_view()
+    _render_custom_ui_panels(state_view)
 
     history = state_view.get('chat_history', [])
     if history:
@@ -222,7 +311,7 @@ def page_card_designer() -> None:
     left, right = st.columns([3, 1])
     with left:
         st.subheader('Create / Edit Card')
-        card_type = st.selectbox('Type', options=['character', 'item', 'location', 'event', 'memory'])
+        card_type = st.selectbox('Type', options=['character', 'item', 'location', 'event', 'memory', 'ui'])
         card_id = st.text_input('Card ID')
 
         if st.button('Generate Template'):

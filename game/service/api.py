@@ -16,6 +16,7 @@ from ..packs.manager import PackManager
 from ..packs.registry import PackRecord
 from ..packs.card_editor import CARD_TYPES, parse_card, render_card, validate_card
 from ..packs.validator import validate_manifest
+from .ui_agents import UICardPlannerAgent, UIPanelStateAgent
 
 
 @dataclass
@@ -36,6 +37,8 @@ class GameService:
     def __init__(self, packs_root: Path | None = None):
         self.pack_manager = PackManager(packs_root=packs_root) if packs_root else PackManager()
         self._session: GameSession | None = None
+        self.ui_planner = UICardPlannerAgent()
+        self.ui_state_agent = UIPanelStateAgent()
 
     def start_new_game(self, save_slot: str, pack_ids: Optional[List[str]] = None, language: Optional[str] = None) -> None:
         """开启新游戏会话，可选启用指定卡包。"""
@@ -63,6 +66,8 @@ class GameService:
         history.append({'role': 'assistant', 'content': narration})
         session.state['chat_history'] = history
         session.state['recent_messages'] = history[-10:]
+        self._refresh_world_facts(session)
+        self._refresh_custom_ui_panels(session)
         self._save_chat_history(session)
         return result
 
@@ -87,6 +92,7 @@ class GameService:
             'retrieved_cards': [c.get('id') for c in state.get('retrieved_cards', [])],
             'validated_ops': state.get('validated_ops', []),
             'errors': state.get('errors', []),
+            'custom_ui_panels': state.get('custom_ui_panels', []),
         }
 
     def list_packs(self) -> List[Dict[str, Any]]:
@@ -207,6 +213,8 @@ class GameService:
                 for rel in card.initial_relations:
                     kg.add_edge(rel['subject_id'], rel['relation'], rel['object_id'], 0.9, 'bootstrap')
         app = build_graph(repo, rag, world, kg, rules)
+        ui_cards = list(repo.by_type('ui'))
+        ui_panel_defs = self.ui_planner.plan(ui_cards)
         state = {
             'turn_id': 0,
             'recent_messages': [],
@@ -215,12 +223,14 @@ class GameService:
             'snapshot_dir': str(paths['snapshot_dir']),
             'enabled_packs': [r.pack_id for r in self.pack_manager.list_packs() if r.enabled],
             'language': language or 'zh',
+            'custom_ui_panel_defs': ui_panel_defs,
+            'custom_ui_panels': [],
         }
         history = self._load_chat_history(paths['chat_history_path'])
         if history:
             state['chat_history'] = history
             state['recent_messages'] = history[-10:]
-        return GameSession(
+        session = GameSession(
             save_slot=save_slot,
             repo=repo,
             world=world,
@@ -230,6 +240,23 @@ class GameService:
             app=app,
             state=state,
         )
+        self._refresh_world_facts(session)
+        self._refresh_custom_ui_panels(session)
+        return session
+
+    def _refresh_world_facts(self, session: GameSession) -> None:
+        """同步最新世界状态到会话视图。"""
+        session.state['world_facts'] = {
+            'attrs': session.world.all_attrs(),
+            'edges': session.kg.all_edges(),
+        }
+
+    def _refresh_custom_ui_panels(self, session: GameSession) -> None:
+        """基于 UI 卡牌定义刷新面板展示数据。"""
+        panel_defs = session.state.get('custom_ui_panel_defs', [])
+        world_facts = session.state.get('world_facts', {})
+        history = session.state.get('chat_history', [])
+        session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history)
 
     def _pack_cards_root(self, pack_id: str) -> Path:
         """解析某个卡包的 cards 根目录。"""

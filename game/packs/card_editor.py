@@ -6,7 +6,7 @@ import yaml
 
 from .validator import validate_card_frontmatter
 
-CARD_TYPES = ['character', 'item', 'location', 'event', 'memory']
+CARD_TYPES = ['character', 'item', 'location', 'event', 'memory', 'ui']
 
 
 def render_card(frontmatter: Dict[str, Any], body: str) -> str:
