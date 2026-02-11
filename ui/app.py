@@ -585,27 +585,54 @@ def page_card_designer() -> None:
 
     pack_id = st.selectbox('Pack', options=pack_ids)
 
+    if 'editing_card_path' not in st.session_state:
+        st.session_state.editing_card_path = ''
+    if 'editing_card_id' not in st.session_state:
+        st.session_state.editing_card_id = ''
+    if 'editing_card_type' not in st.session_state:
+        st.session_state.editing_card_type = ''
+
     left, right = st.columns([3, 2])
     with left:
         st.subheader('Create / Edit Card')
         type_options = service.list_pack_card_types(pack_id) or ['card']
-        selected_type = st.selectbox('Type (select existing/default)', options=type_options, index=0)
+        default_type = st.session_state.get('editing_card_type')
+        default_type_index = type_options.index(default_type) if default_type in type_options else 0
+        selected_type = st.selectbox('Type (select existing/default)', options=type_options, index=default_type_index)
         custom_type = st.text_input('Or input custom Type', placeholder='e.g. quest, faction, skill_tree')
         card_type = custom_type.strip() or selected_type
 
-        card_id = st.text_input('Card ID')
+        card_id = st.text_input('Card ID', value=st.session_state.get('editing_card_id', ''))
 
         if st.button('Generate Template'):
             template = service.get_card_template(card_type)
-            st.session_state.card_frontmatter = yaml.safe_dump(template, sort_keys=False)
+            st.session_state.card_frontmatter = yaml.safe_dump(template, sort_keys=False, allow_unicode=True)
 
         frontmatter_text = st.text_area('YAML frontmatter', value=st.session_state.get('card_frontmatter', ''))
         body_text = st.text_area('Body (Markdown)', value=st.session_state.get('card_body', ''))
 
         if st.button('Save Card'):
             frontmatter = yaml.safe_load(frontmatter_text) or {}
-            service.create_card(pack_id, card_type, card_id, frontmatter, body_text)
+            original_path = Path(st.session_state.editing_card_path) if st.session_state.get('editing_card_path') else None
+            saved_path = service.save_card(pack_id, card_type, card_id, frontmatter, body_text, original_path=original_path)
+            st.session_state.editing_card_path = str(saved_path)
+            st.session_state.editing_card_id = card_id
+            st.session_state.editing_card_type = card_type
             st.success('Saved.')
+
+        if st.button('Delete Card'):
+            original_path = st.session_state.get('editing_card_path')
+            if not original_path:
+                st.warning('Please load/select a card before deleting.')
+            else:
+                service.delete_card(pack_id, Path(original_path))
+                st.session_state.editing_card_path = ''
+                st.session_state.editing_card_id = ''
+                st.session_state.editing_card_type = ''
+                st.session_state.card_frontmatter = ''
+                st.session_state.card_body = ''
+                st.success('Deleted.')
+                st.rerun()
 
         if st.button('Validate'):
             frontmatter = yaml.safe_load(frontmatter_text) or {}
@@ -637,8 +664,11 @@ def page_card_designer() -> None:
             if st.button('Load Selected Card'):
                 path = card_paths[quick_options.index(quick_pick)]
                 card = service.load_card(path)
-                st.session_state.card_frontmatter = yaml.safe_dump(card['frontmatter'], sort_keys=False)
+                st.session_state.card_frontmatter = yaml.safe_dump(card['frontmatter'], sort_keys=False, allow_unicode=True)
                 st.session_state.card_body = card['body']
+                st.session_state.editing_card_path = str(path)
+                st.session_state.editing_card_id = str(card['frontmatter'].get('id', path.stem))
+                st.session_state.editing_card_type = str(card['frontmatter'].get('type', ''))
                 st.rerun()
         else:
             st.info('No cards matched current filter.')

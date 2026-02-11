@@ -123,6 +123,18 @@ class GameService:
 
     def create_card(self, pack_id: str, card_type: str, card_id: str, frontmatter: Dict[str, Any], body: str) -> Path:
         """在卡包内创建一张新卡牌文件。"""
+        return self.save_card(pack_id, card_type, card_id, frontmatter, body)
+
+    def save_card(
+        self,
+        pack_id: str,
+        card_type: str,
+        card_id: str,
+        frontmatter: Dict[str, Any],
+        body: str,
+        original_path: Path | None = None,
+    ) -> Path:
+        """创建或更新卡牌；若 id/type 变化则自动重命名并删除旧文件。"""
         frontmatter = dict(frontmatter)
         frontmatter['id'] = card_id
         frontmatter['type'] = card_type
@@ -132,6 +144,11 @@ class GameService:
         card_dir.mkdir(parents=True, exist_ok=True)
         path = card_dir / f'{card_id}.md'
         path.write_text(render_card(frontmatter, body), encoding='utf-8')
+
+        if original_path:
+            old_path = Path(original_path)
+            if old_path != path and old_path.exists() and self._is_within(old_path, pack_root):
+                old_path.unlink()
         return path
 
     def update_card(self, path: Path, frontmatter: Dict[str, Any], body: str) -> None:
@@ -210,6 +227,16 @@ class GameService:
         """加载卡牌文件并返回 frontmatter 与正文。"""
         fm, body = parse_card(path)
         return {'frontmatter': fm, 'body': body}
+
+    def delete_card(self, pack_id: str, path: Path) -> None:
+        """删除卡包内指定卡牌文件。"""
+        pack_root = self._pack_cards_root(pack_id)
+        target = Path(path)
+        if not target.exists():
+            return
+        if not self._is_within(target, pack_root):
+            raise ValueError('card path is outside pack root')
+        target.unlink()
 
     def _build_session(self, save_slot: str, language: Optional[str] = None) -> GameSession:
         """构建包含仓库与存储的 GameSession。"""
@@ -312,6 +339,14 @@ class GameService:
         if (pack_root / plural).exists():
             return plural
         return plural
+
+    def _is_within(self, path: Path, root: Path) -> bool:
+        """判断 path 是否位于 root 子树内。"""
+        try:
+            path.resolve().relative_to(root.resolve())
+            return True
+        except Exception:
+            return False
 
     def _load_chat_history(self, path: Path) -> List[Dict[str, str]]:
         """从存档中读取聊天记录。"""
