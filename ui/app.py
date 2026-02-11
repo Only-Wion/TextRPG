@@ -349,7 +349,6 @@ def _render_card_designer_splitter() -> None:
 
         const byText = (selector, text) => Array.from(doc.querySelectorAll(selector)).find((el) => el.textContent.trim() === text);
 
-        // 优先用标题定位，失败则用字段标签兜底（你截图里标题可能不在当前视口）。
         const leftAnchor = byText('h3', 'Create / Edit Card') || byText('label', 'Type (select existing/default)');
         const rightAnchor = byText('h3', 'Existing Cards') || byText('label', 'Category');
         if (!leftAnchor || !rightAnchor) return;
@@ -366,23 +365,6 @@ def _render_card_designer_splitter() -> None:
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-        const applyRatio = (ratio) => {
-          const r = clamp(ratio, 0.2, 0.8);
-          leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
-          rightCol.style.flex = `0 0 calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
-          rightCol.style.maxWidth = `calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.minWidth = '320px';
-          rightCol.style.minWidth = '280px';
-
-          const divider = doc.getElementById(DIVIDER_ID);
-          if (divider) divider.style.left = `calc(${r * 100}% - 5px)`;
-          localStorage.setItem(KEY, String(r));
-        };
-
-        const initial = parseFloat(localStorage.getItem(KEY) || '0.62');
-        applyRatio(initial);
-
         let divider = doc.getElementById(DIVIDER_ID);
         if (!divider) {
           divider = doc.createElement('div');
@@ -391,21 +373,36 @@ def _render_card_designer_splitter() -> None:
           divider.style.position = 'absolute';
           divider.style.top = '0';
           divider.style.bottom = '0';
-          divider.style.width = '10px';
+          divider.style.width = '12px';
           divider.style.cursor = 'col-resize';
-          divider.style.background = 'linear-gradient(180deg, #8f8f8f, #6f6f6f)';
-          divider.style.opacity = '0.72';
+          divider.style.background = 'linear-gradient(180deg, #ff8080, #e34040)';
+          divider.style.opacity = '0.85';
           divider.style.borderRadius = '10px';
-          divider.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.55), 0 2px 8px rgba(0,0,0,0.18)';
-          divider.style.zIndex = '50';
+          divider.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.65), 0 2px 8px rgba(0,0,0,0.2)';
+          divider.style.zIndex = '80';
           divider.style.pointerEvents = 'auto';
           row.appendChild(divider);
         }
 
+        const applyRatio = (ratio) => {
+          const r = clamp(ratio, 0.2, 0.8);
+          leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
+          rightCol.style.flex = `0 0 calc(${(1 - r) * 100}% - 6px)`;
+          leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
+          rightCol.style.maxWidth = `calc(${(1 - r) * 100}% - 6px)`;
+          leftCol.style.minWidth = '320px';
+          rightCol.style.minWidth = '280px';
+          divider.style.left = `calc(${r * 100}% - 6px)`;
+          localStorage.setItem(KEY, String(r));
+        };
+
+        const initial = parseFloat(localStorage.getItem(KEY) || '0.62');
+        applyRatio(initial);
+
         let dragging = false;
         divider.onpointerdown = (e) => {
           dragging = true;
-          divider.style.opacity = '0.95';
+          divider.style.opacity = '1';
           divider.setPointerCapture(e.pointerId);
           e.preventDefault();
         };
@@ -420,7 +417,7 @@ def _render_card_designer_splitter() -> None:
 
         const stop = () => {
           dragging = false;
-          divider.style.opacity = '0.72';
+          divider.style.opacity = '0.85';
         };
         divider.onpointerup = stop;
         divider.onpointercancel = stop;
