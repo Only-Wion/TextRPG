@@ -14,7 +14,7 @@ from ..core.world_store import WorldStore
 from ..core.graph import build_graph
 from ..packs.manager import PackManager
 from ..packs.registry import PackRecord
-from ..packs.card_editor import CARD_TYPES, parse_card, render_card, validate_card
+from ..packs.card_editor import DEFAULT_CARD_TYPES, parse_card, render_card, validate_card
 from ..packs.validator import validate_manifest
 from .ui_agents import UICardPlannerAgent, UIPanelStateAgent
 
@@ -123,15 +123,12 @@ class GameService:
 
     def create_card(self, pack_id: str, card_type: str, card_id: str, frontmatter: Dict[str, Any], body: str) -> Path:
         """在卡包内创建一张新卡牌文件。"""
-        if card_type not in CARD_TYPES:
-            raise ValueError('invalid type')
         frontmatter = dict(frontmatter)
         frontmatter['id'] = card_id
         frontmatter['type'] = card_type
         validate_card(frontmatter, body)
         pack_root = self._pack_cards_root(pack_id)
-        plural = 'memories' if card_type == 'memory' else f'{card_type}s'
-        card_dir = pack_root / plural
+        card_dir = pack_root / self._resolve_card_type_dir(pack_root, card_type)
         card_dir.mkdir(parents=True, exist_ok=True)
         path = card_dir / f'{card_id}.md'
         path.write_text(render_card(frontmatter, body), encoding='utf-8')
@@ -177,15 +174,32 @@ class GameService:
 
     def get_card_template(self, card_type: str) -> Dict[str, Any]:
         """返回指定卡牌类型的最小 frontmatter 模板。"""
-        if card_type not in CARD_TYPES:
-            raise ValueError('invalid type')
+        normalized_type = str(card_type).strip() or 'card'
         return {
             'id': 'new_id',
-            'type': card_type,
+            'type': normalized_type,
             'tags': [],
             'initial_relations': [],
             'hooks': [],
         }
+
+    def list_pack_card_types(self, pack_id: str) -> List[str]:
+        """按“已有类型优先 + 默认类型补充”返回可选 type。"""
+        root = self._pack_cards_root(pack_id)
+        existing: List[str] = []
+        seen: set[str] = set()
+        for path in root.rglob('*.md'):
+            fm, _ = parse_card(path)
+            t = str(fm.get('type', '')).strip()
+            if t and t not in seen:
+                seen.add(t)
+                existing.append(t)
+
+        merged = list(existing)
+        for t in DEFAULT_CARD_TYPES:
+            if t not in seen:
+                merged.append(t)
+        return merged
 
     def list_pack_cards(self, pack_id: str) -> List[Path]:
         """列出卡包内所有卡牌文件。"""
@@ -283,6 +297,21 @@ class GameService:
         if not record:
             raise ValueError('pack not found')
         return self.pack_manager.packs_root / record.pack_id / record.version / record.cards_root
+
+    def _resolve_card_type_dir(self, pack_root: Path, card_type: str) -> str:
+        """根据 pack 现状推断某个 type 应写入的目录名。"""
+        normalized = str(card_type).strip()
+        if not normalized:
+            return 'cards'
+        singular = normalized
+        plural = 'memories' if normalized == 'memory' else f'{normalized}s'
+
+        # 优先复用已存在目录，兼容作者自定义命名。
+        if (pack_root / singular).exists():
+            return singular
+        if (pack_root / plural).exists():
+            return plural
+        return plural
 
     def _load_chat_history(self, path: Path) -> List[Dict[str, str]]:
         """从存档中读取聊天记录。"""

@@ -374,7 +374,11 @@ def page_card_designer() -> None:
     left, right = st.columns([3, 1])
     with left:
         st.subheader('Create / Edit Card')
-        card_type = st.selectbox('Type', options=['character', 'item', 'location', 'event', 'memory', 'ui'])
+        type_options = service.list_pack_card_types(pack_id) or ['card']
+        selected_type = st.selectbox('Type (select existing/default)', options=type_options, index=0)
+        custom_type = st.text_input('Or input custom Type', placeholder='e.g. quest, faction, skill_tree')
+        card_type = custom_type.strip() or selected_type
+
         card_id = st.text_input('Card ID')
 
         if st.button('Generate Template'):
