@@ -336,6 +336,199 @@ def page_pack_manager() -> None:
                 st.download_button('Download ZIP', data=out.read_bytes(), file_name=out.name)
 
 
+
+
+def _render_card_designer_splitter() -> None:
+    """给 Card Designer 两栏注入可拖拽分割线（前端增强）。"""
+    components.html(
+        """
+        <script>
+        const doc = window.parent.document;
+        const KEY = 'textrpg_card_designer_split_ratio';
+
+        const leftTitle = Array.from(doc.querySelectorAll('h3')).find((el) => el.textContent.trim() === 'Create / Edit Card');
+        const rightTitle = Array.from(doc.querySelectorAll('h3')).find((el) => el.textContent.trim() === 'Existing Cards');
+        if (!leftTitle || !rightTitle) { return; }
+
+        const leftCol = leftTitle.closest('[data-testid="column"]');
+        const rightCol = rightTitle.closest('[data-testid="column"]');
+        if (!leftCol || !rightCol || leftCol.parentElement !== rightCol.parentElement) { return; }
+
+        const row = leftCol.parentElement;
+        row.style.position = 'relative';
+        row.style.display = 'flex';
+
+        const applyRatio = (ratio) => {
+          const r = Math.max(0.2, Math.min(0.8, ratio));
+          leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
+          rightCol.style.flex = `0 0 calc(${(1-r) * 100}% - 6px)`;
+          rightCol.style.maxWidth = `calc(${(1-r) * 100}% - 6px)`;
+          leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
+          const divider = doc.getElementById('textrpg-card-designer-divider');
+          if (divider) divider.style.left = `calc(${r * 100}% - 3px)`;
+          localStorage.setItem(KEY, String(r));
+        };
+
+        const initial = parseFloat(localStorage.getItem(KEY) || '0.75');
+        applyRatio(initial);
+
+        let divider = doc.getElementById('textrpg-card-designer-divider');
+        if (!divider) {
+          divider = doc.createElement('div');
+          divider.id = 'textrpg-card-designer-divider';
+          divider.style.position = 'absolute';
+          divider.style.top = '0';
+          divider.style.bottom = '0';
+          divider.style.width = '6px';
+          divider.style.cursor = 'col-resize';
+          divider.style.background = 'linear-gradient(180deg, #dcdcdc, #cfcfcf)';
+          divider.style.borderRadius = '4px';
+          divider.style.zIndex = '5';
+          row.appendChild(divider);
+        }
+
+        let dragging = false;
+        divider.onpointerdown = (e) => {
+          dragging = true;
+          divider.setPointerCapture(e.pointerId);
+        };
+        divider.onpointermove = (e) => {
+          if (!dragging) return;
+          const rect = row.getBoundingClientRect();
+          const ratio = (e.clientX - rect.left) / rect.width;
+          applyRatio(ratio);
+        };
+        divider.onpointerup = () => { dragging = false; };
+        divider.onpointercancel = () => { dragging = false; };
+        </script>
+        """,
+        height=0,
+        scrolling=False,
+    )
+
+
+def _render_existing_cards_mindmap(card_paths: list[Path]) -> None:
+    """以思维导图风格可视化 Existing Cards，支持滚轮按鼠标点缩放。"""
+    data: dict[str, list[str]] = {}
+    for path in card_paths:
+        key = path.parent.name
+        data.setdefault(key, []).append(path.stem)
+    for k in data:
+        data[k].sort()
+
+    payload = json.dumps(data, ensure_ascii=False)
+    components.html(
+        f"""
+        <div id="mindmap-wrap" style="width:100%;height:420px;border:1px solid #ddd;border-radius:10px;overflow:hidden;background:#fff;">
+          <svg id="mindmap-svg" width="100%" height="100%" style="display:block;touch-action:none;"></svg>
+        </div>
+        <script>
+        const data = {payload};
+        const svg = document.getElementById('mindmap-svg');
+        const wrap = document.getElementById('mindmap-wrap');
+        const NS = 'http://www.w3.org/2000/svg';
+
+        const width = wrap.clientWidth || 680;
+        const height = wrap.clientHeight || 420;
+
+        const root = document.createElementNS(NS, 'g');
+        svg.appendChild(root);
+
+        const edges = document.createElementNS(NS, 'g');
+        const nodes = document.createElementNS(NS, 'g');
+        root.appendChild(edges);
+        root.appendChild(nodes);
+
+        const categories = Object.keys(data).sort();
+        const rootNode = {{ x: 120, y: height / 2, label: 'Cards' }};
+
+        function mkText(x, y, t, bold=false) {{
+          const txt = document.createElementNS(NS, 'text');
+          txt.setAttribute('x', x); txt.setAttribute('y', y);
+          txt.setAttribute('font-size', bold ? '15' : '13');
+          txt.setAttribute('font-weight', bold ? '700' : '500');
+          txt.setAttribute('fill', '#222');
+          txt.textContent = t;
+          return txt;
+        }}
+
+        function mkRect(x,y,w,h,fill='#f7f7fb',stroke='#ddd',r=8) {{
+          const rect = document.createElementNS(NS, 'rect');
+          rect.setAttribute('x',x); rect.setAttribute('y',y);
+          rect.setAttribute('width',w); rect.setAttribute('height',h);
+          rect.setAttribute('rx',r); rect.setAttribute('fill',fill);
+          rect.setAttribute('stroke',stroke);
+          return rect;
+        }}
+
+        function mkLine(x1,y1,x2,y2) {{
+          const line = document.createElementNS(NS, 'line');
+          line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+          line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+          line.setAttribute('stroke','#c9ced6'); line.setAttribute('stroke-width','1.5');
+          return line;
+        }}
+
+        nodes.appendChild(mkRect(rootNode.x-50, rootNode.y-18, 100, 36, '#e8f0ff', '#9bb7ff', 10));
+        nodes.appendChild(mkText(rootNode.x-22, rootNode.y+5, rootNode.label, true));
+
+        const catGap = Math.max(90, height / Math.max(1, categories.length));
+        categories.forEach((cat, i) => {{
+          const cy = (i + 0.5) * catGap;
+          const cx = 320;
+          edges.appendChild(mkLine(rootNode.x + 50, rootNode.y, cx - 90, cy));
+          nodes.appendChild(mkRect(cx - 80, cy - 16, 160, 32, '#f3f8f3', '#b8d6b8', 9));
+          nodes.appendChild(mkText(cx - 60, cy + 5, cat, true));
+
+          const cards = data[cat] || [];
+          const cardGap = 30;
+          const startY = cy - ((cards.length - 1) * cardGap) / 2;
+          cards.forEach((name, idx) => {{
+            const nx = 560;
+            const ny = startY + idx * cardGap;
+            edges.appendChild(mkLine(cx + 80, cy, nx - 95, ny));
+            nodes.appendChild(mkRect(nx - 90, ny - 13, 180, 26, '#fafafa', '#d9d9d9', 7));
+            const label = name.length > 24 ? name.slice(0, 22) + '…' : name;
+            nodes.appendChild(mkText(nx - 80, ny + 5, label, false));
+          }});
+        }});
+
+        let scale = 1;
+        let tx = 0;
+        let ty = 0;
+        function applyTransform() {{
+          root.setAttribute('transform', `translate(${{tx}},${{ty}}) scale(${{scale}})`);
+        }}
+        applyTransform();
+
+        wrap.addEventListener('wheel', (e) => {{
+          e.preventDefault();
+          const rect = wrap.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+
+          const oldScale = scale;
+          const factor = e.deltaY < 0 ? 1.1 : 0.9;
+          scale = Math.max(0.4, Math.min(2.8, scale * factor));
+
+          tx = mx - (mx - tx) * (scale / oldScale);
+          ty = my - (my - ty) * (scale / oldScale);
+          applyTransform();
+        }}, {{ passive: false }});
+
+        let dragging = false;
+        let sx = 0;
+        let sy = 0;
+        wrap.addEventListener('pointerdown', (e) => {{ dragging = true; sx = e.clientX - tx; sy = e.clientY - ty; }});
+        wrap.addEventListener('pointermove', (e) => {{ if (!dragging) return; tx = e.clientX - sx; ty = e.clientY - sy; applyTransform(); }});
+        wrap.addEventListener('pointerup', () => dragging = false);
+        wrap.addEventListener('pointerleave', () => dragging = false);
+        </script>
+        """,
+        height=430,
+        scrolling=False,
+    )
+
 def page_card_designer() -> None:
     """卡牌设计页：创建/编辑/校验卡牌。"""
     st.title('Card Designer')
@@ -371,7 +564,7 @@ def page_card_designer() -> None:
 
     pack_id = st.selectbox('Pack', options=pack_ids)
 
-    left, right = st.columns([3, 1])
+    left, right = st.columns([3, 2])
     with left:
         st.subheader('Create / Edit Card')
         type_options = service.list_pack_card_types(pack_id) or ['card']
@@ -403,25 +596,33 @@ def page_card_designer() -> None:
 
     with right:
         st.subheader('Existing Cards')
-        card_paths = service.list_pack_cards(pack_id)
-        categories = sorted({p.parent.name for p in card_paths})
+        all_paths = service.list_pack_cards(pack_id)
+        categories = sorted({p.parent.name for p in all_paths})
         category = st.selectbox('Category', options=['All'] + categories)
         keyword = st.text_input('Search', placeholder='filename or keyword')
 
+        card_paths = list(all_paths)
         if category != 'All':
             card_paths = [p for p in card_paths if p.parent.name == category]
         if keyword.strip():
             needle = keyword.strip().lower()
             card_paths = [p for p in card_paths if needle in p.name.lower()]
 
-        with st.container(height=600, border=True):
-            for path in card_paths:
-                label = f'{path.parent.name}/{path.name}'
-                if st.button(f'Load {label}', key=f'load_{path}'):
-                    card = service.load_card(path)
-                    st.session_state.card_frontmatter = yaml.safe_dump(card['frontmatter'], sort_keys=False)
-                    st.session_state.card_body = card['body']
-                    st.rerun()
+        _render_existing_cards_mindmap(card_paths)
+
+        quick_options = [f"{p.parent.name}/{p.name}" for p in card_paths]
+        if quick_options:
+            quick_pick = st.selectbox('Quick Load from filtered cards', options=quick_options)
+            if st.button('Load Selected Card'):
+                path = card_paths[quick_options.index(quick_pick)]
+                card = service.load_card(path)
+                st.session_state.card_frontmatter = yaml.safe_dump(card['frontmatter'], sort_keys=False)
+                st.session_state.card_body = card['body']
+                st.rerun()
+        else:
+            st.info('No cards matched current filter.')
+
+    _render_card_designer_splitter()
 
 
 def main() -> None:
