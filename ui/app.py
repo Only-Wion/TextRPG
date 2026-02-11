@@ -345,61 +345,85 @@ def _render_card_designer_splitter() -> None:
         <script>
         const doc = window.parent.document;
         const KEY = 'textrpg_card_designer_split_ratio';
+        const DIVIDER_ID = 'textrpg-card-designer-divider';
 
-        const leftTitle = Array.from(doc.querySelectorAll('h3')).find((el) => el.textContent.trim() === 'Create / Edit Card');
-        const rightTitle = Array.from(doc.querySelectorAll('h3')).find((el) => el.textContent.trim() === 'Existing Cards');
-        if (!leftTitle || !rightTitle) { return; }
+        const byText = (selector, text) => Array.from(doc.querySelectorAll(selector)).find((el) => el.textContent.trim() === text);
 
-        const leftCol = leftTitle.closest('[data-testid="column"]');
-        const rightCol = rightTitle.closest('[data-testid="column"]');
-        if (!leftCol || !rightCol || leftCol.parentElement !== rightCol.parentElement) { return; }
+        // 优先用标题定位，失败则用字段标签兜底（你截图里标题可能不在当前视口）。
+        const leftAnchor = byText('h3', 'Create / Edit Card') || byText('label', 'Type (select existing/default)');
+        const rightAnchor = byText('h3', 'Existing Cards') || byText('label', 'Category');
+        if (!leftAnchor || !rightAnchor) return;
+
+        const leftCol = leftAnchor.closest('[data-testid="column"]');
+        const rightCol = rightAnchor.closest('[data-testid="column"]');
+        if (!leftCol || !rightCol || leftCol.parentElement !== rightCol.parentElement) return;
 
         const row = leftCol.parentElement;
         row.style.position = 'relative';
         row.style.display = 'flex';
+        row.style.alignItems = 'stretch';
+        row.style.minHeight = '420px';
+
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
         const applyRatio = (ratio) => {
-          const r = Math.max(0.2, Math.min(0.8, ratio));
+          const r = clamp(ratio, 0.2, 0.8);
           leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
-          rightCol.style.flex = `0 0 calc(${(1-r) * 100}% - 6px)`;
-          rightCol.style.maxWidth = `calc(${(1-r) * 100}% - 6px)`;
+          rightCol.style.flex = `0 0 calc(${(1 - r) * 100}% - 6px)`;
           leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
-          const divider = doc.getElementById('textrpg-card-designer-divider');
-          if (divider) divider.style.left = `calc(${r * 100}% - 3px)`;
+          rightCol.style.maxWidth = `calc(${(1 - r) * 100}% - 6px)`;
+          leftCol.style.minWidth = '320px';
+          rightCol.style.minWidth = '280px';
+
+          const divider = doc.getElementById(DIVIDER_ID);
+          if (divider) divider.style.left = `calc(${r * 100}% - 5px)`;
           localStorage.setItem(KEY, String(r));
         };
 
-        const initial = parseFloat(localStorage.getItem(KEY) || '0.75');
+        const initial = parseFloat(localStorage.getItem(KEY) || '0.62');
         applyRatio(initial);
 
-        let divider = doc.getElementById('textrpg-card-designer-divider');
+        let divider = doc.getElementById(DIVIDER_ID);
         if (!divider) {
           divider = doc.createElement('div');
-          divider.id = 'textrpg-card-designer-divider';
+          divider.id = DIVIDER_ID;
+          divider.setAttribute('title', 'Drag to resize columns');
           divider.style.position = 'absolute';
           divider.style.top = '0';
           divider.style.bottom = '0';
-          divider.style.width = '6px';
+          divider.style.width = '10px';
           divider.style.cursor = 'col-resize';
-          divider.style.background = 'linear-gradient(180deg, #dcdcdc, #cfcfcf)';
-          divider.style.borderRadius = '4px';
-          divider.style.zIndex = '5';
+          divider.style.background = 'linear-gradient(180deg, #8f8f8f, #6f6f6f)';
+          divider.style.opacity = '0.72';
+          divider.style.borderRadius = '10px';
+          divider.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.55), 0 2px 8px rgba(0,0,0,0.18)';
+          divider.style.zIndex = '50';
+          divider.style.pointerEvents = 'auto';
           row.appendChild(divider);
         }
 
         let dragging = false;
         divider.onpointerdown = (e) => {
           dragging = true;
+          divider.style.opacity = '0.95';
           divider.setPointerCapture(e.pointerId);
+          e.preventDefault();
         };
+
         divider.onpointermove = (e) => {
           if (!dragging) return;
           const rect = row.getBoundingClientRect();
+          if (!rect.width) return;
           const ratio = (e.clientX - rect.left) / rect.width;
           applyRatio(ratio);
         };
-        divider.onpointerup = () => { dragging = false; };
-        divider.onpointercancel = () => { dragging = false; };
+
+        const stop = () => {
+          dragging = false;
+          divider.style.opacity = '0.72';
+        };
+        divider.onpointerup = stop;
+        divider.onpointercancel = stop;
         </script>
         """,
         height=0,
