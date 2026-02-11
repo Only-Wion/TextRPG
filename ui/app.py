@@ -591,6 +591,8 @@ def page_card_designer() -> None:
         st.session_state.editing_card_id = ''
     if 'editing_card_type' not in st.session_state:
         st.session_state.editing_card_type = ''
+    if 'card_designer_notice' not in st.session_state:
+        st.session_state.card_designer_notice = None
 
     left, right = st.columns([3, 2])
     with left:
@@ -611,36 +613,65 @@ def page_card_designer() -> None:
         frontmatter_text = st.text_area('YAML frontmatter', value=st.session_state.get('card_frontmatter', ''))
         body_text = st.text_area('Body (Markdown)', value=st.session_state.get('card_body', ''))
 
-        if st.button('Save Card'):
-            frontmatter = yaml.safe_load(frontmatter_text) or {}
-            original_path = Path(st.session_state.editing_card_path) if st.session_state.get('editing_card_path') else None
-            saved_path = service.save_card(pack_id, card_type, card_id, frontmatter, body_text, original_path=original_path)
-            st.session_state.editing_card_path = str(saved_path)
-            st.session_state.editing_card_id = card_id
-            st.session_state.editing_card_type = card_type
-            st.success('Saved.')
+        b_new, b_save, b_delete, b_validate = st.columns(4)
 
-        if st.button('Delete Card'):
-            original_path = st.session_state.get('editing_card_path')
-            if not original_path:
-                st.warning('Please load/select a card before deleting.')
-            else:
-                service.delete_card(pack_id, Path(original_path))
+        with b_new:
+            if st.button('New Card', use_container_width=True):
                 st.session_state.editing_card_path = ''
                 st.session_state.editing_card_id = ''
                 st.session_state.editing_card_type = ''
                 st.session_state.card_frontmatter = ''
                 st.session_state.card_body = ''
-                st.success('Deleted.')
+                st.session_state.card_designer_notice = ('info', 'Switched to new card mode.')
                 st.rerun()
 
-        if st.button('Validate'):
-            frontmatter = yaml.safe_load(frontmatter_text) or {}
-            try:
-                service.validate_card(frontmatter, body_text)
-                st.success('Valid.')
-            except Exception as exc:
-                st.error(str(exc))
+        with b_save:
+            if st.button('Save Card', use_container_width=True):
+                frontmatter = yaml.safe_load(frontmatter_text) or {}
+                original_path = Path(st.session_state.editing_card_path) if st.session_state.get('editing_card_path') else None
+                saved_path = service.save_card(pack_id, card_type, card_id, frontmatter, body_text, original_path=original_path)
+                st.session_state.editing_card_path = str(saved_path)
+                st.session_state.editing_card_id = card_id
+                st.session_state.editing_card_type = card_type
+                st.session_state.card_designer_notice = ('success', 'Saved.')
+                st.rerun()
+
+        with b_delete:
+            if st.button('Delete Card', use_container_width=True):
+                original_path = st.session_state.get('editing_card_path')
+                if not original_path:
+                    st.session_state.card_designer_notice = ('warning', 'Please load/select a card before deleting.')
+                else:
+                    service.delete_card(pack_id, Path(original_path))
+                    st.session_state.editing_card_path = ''
+                    st.session_state.editing_card_id = ''
+                    st.session_state.editing_card_type = ''
+                    st.session_state.card_frontmatter = ''
+                    st.session_state.card_body = ''
+                    st.session_state.card_designer_notice = ('success', 'Deleted.')
+                st.rerun()
+
+        with b_validate:
+            if st.button('Validate', use_container_width=True):
+                frontmatter = yaml.safe_load(frontmatter_text) or {}
+                try:
+                    service.validate_card(frontmatter, body_text)
+                    st.session_state.card_designer_notice = ('success', 'Valid.')
+                except Exception as exc:
+                    st.session_state.card_designer_notice = ('error', str(exc))
+                st.rerun()
+
+        notice = st.session_state.get('card_designer_notice')
+        if notice:
+            level, message = notice
+            if level == 'success':
+                st.success(message)
+            elif level == 'warning':
+                st.warning(message)
+            elif level == 'error':
+                st.error(message)
+            else:
+                st.info(message)
 
     with right:
         st.subheader('Existing Cards')
