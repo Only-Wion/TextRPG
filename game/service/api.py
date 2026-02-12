@@ -14,8 +14,9 @@ from ..core.world_store import WorldStore
 from ..core.graph import build_graph
 from ..packs.manager import PackManager
 from ..packs.registry import PackRecord
-from ..packs.card_editor import CARD_TYPES, parse_card, render_card, validate_card
+from ..packs.card_editor import DEFAULT_CARD_TYPES, parse_card, render_card, validate_card
 from ..packs.validator import validate_manifest
+from .ui_agents import UICardPlannerAgent, UIPanelStateAgent
 
 
 @dataclass
@@ -36,6 +37,8 @@ class GameService:
     def __init__(self, packs_root: Path | None = None):
         self.pack_manager = PackManager(packs_root=packs_root) if packs_root else PackManager()
         self._session: GameSession | None = None
+        self.ui_planner = UICardPlannerAgent()
+        self.ui_state_agent = UIPanelStateAgent()
 
     def start_new_game(self, save_slot: str, pack_ids: Optional[List[str]] = None, language: Optional[str] = None) -> None:
         """开启新游戏会话，可选启用指定卡包。"""
@@ -63,6 +66,8 @@ class GameService:
         history.append({'role': 'assistant', 'content': narration})
         session.state['chat_history'] = history
         session.state['recent_messages'] = history[-10:]
+        self._refresh_world_facts(session)
+        self._refresh_custom_ui_panels(session)
         self._save_chat_history(session)
         return result
 
@@ -87,6 +92,7 @@ class GameService:
             'retrieved_cards': [c.get('id') for c in state.get('retrieved_cards', [])],
             'validated_ops': state.get('validated_ops', []),
             'errors': state.get('errors', []),
+            'custom_ui_panels': state.get('custom_ui_panels', []),
         }
 
     def list_packs(self) -> List[Dict[str, Any]]:
@@ -117,18 +123,32 @@ class GameService:
 
     def create_card(self, pack_id: str, card_type: str, card_id: str, frontmatter: Dict[str, Any], body: str) -> Path:
         """在卡包内创建一张新卡牌文件。"""
-        if card_type not in CARD_TYPES:
-            raise ValueError('invalid type')
+        return self.save_card(pack_id, card_type, card_id, frontmatter, body)
+
+    def save_card(
+        self,
+        pack_id: str,
+        card_type: str,
+        card_id: str,
+        frontmatter: Dict[str, Any],
+        body: str,
+        original_path: Path | None = None,
+    ) -> Path:
+        """创建或更新卡牌；若 id/type 变化则自动重命名并删除旧文件。"""
         frontmatter = dict(frontmatter)
         frontmatter['id'] = card_id
         frontmatter['type'] = card_type
         validate_card(frontmatter, body)
         pack_root = self._pack_cards_root(pack_id)
-        plural = 'memories' if card_type == 'memory' else f'{card_type}s'
-        card_dir = pack_root / plural
+        card_dir = pack_root / self._resolve_card_type_dir(pack_root, card_type)
         card_dir.mkdir(parents=True, exist_ok=True)
         path = card_dir / f'{card_id}.md'
         path.write_text(render_card(frontmatter, body), encoding='utf-8')
+
+        if original_path:
+            old_path = Path(original_path)
+            if old_path != path and old_path.exists() and self._is_within(old_path, pack_root):
+                old_path.unlink()
         return path
 
     def update_card(self, path: Path, frontmatter: Dict[str, Any], body: str) -> None:
@@ -171,15 +191,32 @@ class GameService:
 
     def get_card_template(self, card_type: str) -> Dict[str, Any]:
         """返回指定卡牌类型的最小 frontmatter 模板。"""
-        if card_type not in CARD_TYPES:
-            raise ValueError('invalid type')
+        normalized_type = str(card_type).strip() or 'card'
         return {
             'id': 'new_id',
-            'type': card_type,
+            'type': normalized_type,
             'tags': [],
             'initial_relations': [],
             'hooks': [],
         }
+
+    def list_pack_card_types(self, pack_id: str) -> List[str]:
+        """按“已有类型优先 + 默认类型补充”返回可选 type。"""
+        root = self._pack_cards_root(pack_id)
+        existing: List[str] = []
+        seen: set[str] = set()
+        for path in root.rglob('*.md'):
+            fm, _ = parse_card(path)
+            t = str(fm.get('type', '')).strip()
+            if t and t not in seen:
+                seen.add(t)
+                existing.append(t)
+
+        merged = list(existing)
+        for t in DEFAULT_CARD_TYPES:
+            if t not in seen:
+                merged.append(t)
+        return merged
 
     def list_pack_cards(self, pack_id: str) -> List[Path]:
         """列出卡包内所有卡牌文件。"""
@@ -190,6 +227,16 @@ class GameService:
         """加载卡牌文件并返回 frontmatter 与正文。"""
         fm, body = parse_card(path)
         return {'frontmatter': fm, 'body': body}
+
+    def delete_card(self, pack_id: str, path: Path) -> None:
+        """删除卡包内指定卡牌文件。"""
+        pack_root = self._pack_cards_root(pack_id)
+        target = Path(path)
+        if not target.exists():
+            return
+        if not self._is_within(target, pack_root):
+            raise ValueError('card path is outside pack root')
+        target.unlink()
 
     def _build_session(self, save_slot: str, language: Optional[str] = None) -> GameSession:
         """构建包含仓库与存储的 GameSession。"""
@@ -207,6 +254,9 @@ class GameService:
                 for rel in card.initial_relations:
                     kg.add_edge(rel['subject_id'], rel['relation'], rel['object_id'], 0.9, 'bootstrap')
         app = build_graph(repo, rag, world, kg, rules)
+        ui_cards = list(repo.by_type('ui'))
+        ui_panel_defs = self.ui_planner.plan(ui_cards)
+        quest_catalog = self._collect_quest_catalog(repo)
         state = {
             'turn_id': 0,
             'recent_messages': [],
@@ -215,12 +265,15 @@ class GameService:
             'snapshot_dir': str(paths['snapshot_dir']),
             'enabled_packs': [r.pack_id for r in self.pack_manager.list_packs() if r.enabled],
             'language': language or 'zh',
+            'custom_ui_panel_defs': ui_panel_defs,
+            'custom_ui_panels': [],
+            'quest_catalog': quest_catalog,
         }
         history = self._load_chat_history(paths['chat_history_path'])
         if history:
             state['chat_history'] = history
             state['recent_messages'] = history[-10:]
-        return GameSession(
+        session = GameSession(
             save_slot=save_slot,
             repo=repo,
             world=world,
@@ -230,6 +283,40 @@ class GameService:
             app=app,
             state=state,
         )
+        self._refresh_world_facts(session)
+        self._refresh_custom_ui_panels(session)
+        return session
+
+    def _refresh_world_facts(self, session: GameSession) -> None:
+        """同步最新世界状态到会话视图。"""
+        session.state['world_facts'] = {
+            'attrs': session.world.all_attrs(),
+            'edges': session.kg.all_edges(),
+        }
+
+    def _refresh_custom_ui_panels(self, session: GameSession) -> None:
+        """基于 UI 卡牌定义刷新面板展示数据。"""
+        panel_defs = session.state.get('custom_ui_panel_defs', [])
+        world_facts = session.state.get('world_facts', {})
+        history = session.state.get('chat_history', [])
+        quest_catalog = session.state.get('quest_catalog', [])
+        session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history, quest_catalog)
+
+
+    def _collect_quest_catalog(self, repo: CardRepository) -> List[Dict[str, Any]]:
+        """收集卡牌仓库中的 quest 卡牌用于任务面板展示。"""
+        quests: List[Dict[str, Any]] = []
+        for card in repo.by_type('quest'):
+            summary = ''
+            content = card.content.strip()
+            if content:
+                summary = content.splitlines()[0].strip()
+            quests.append({
+                'id': card.id,
+                'tags': list(card.tags),
+                'summary': summary,
+            })
+        return quests
 
     def _pack_cards_root(self, pack_id: str) -> Path:
         """解析某个卡包的 cards 根目录。"""
@@ -237,6 +324,29 @@ class GameService:
         if not record:
             raise ValueError('pack not found')
         return self.pack_manager.packs_root / record.pack_id / record.version / record.cards_root
+
+    def _resolve_card_type_dir(self, pack_root: Path, card_type: str) -> str:
+        """根据 pack 现状推断某个 type 应写入的目录名。"""
+        normalized = str(card_type).strip()
+        if not normalized:
+            return 'cards'
+        singular = normalized
+        plural = 'memories' if normalized == 'memory' else f'{normalized}s'
+
+        # 优先复用已存在目录，兼容作者自定义命名。
+        if (pack_root / singular).exists():
+            return singular
+        if (pack_root / plural).exists():
+            return plural
+        return plural
+
+    def _is_within(self, path: Path, root: Path) -> bool:
+        """判断 path 是否位于 root 子树内。"""
+        try:
+            path.resolve().relative_to(root.resolve())
+            return True
+        except Exception:
+            return False
 
     def _load_chat_history(self, path: Path) -> List[Dict[str, str]]:
         """从存档中读取聊天记录。"""

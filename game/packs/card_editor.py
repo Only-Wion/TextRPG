@@ -6,7 +6,7 @@ import yaml
 
 from .validator import validate_card_frontmatter
 
-CARD_TYPES = ['character', 'item', 'location', 'event', 'memory']
+DEFAULT_CARD_TYPES = ['character', 'item', 'location', 'event', 'memory', 'ui']
 
 
 def render_card(frontmatter: Dict[str, Any], body: str) -> str:
@@ -27,6 +27,7 @@ def parse_card(path: Path) -> tuple[Dict[str, Any], str]:
 
 def validate_card(frontmatter: Dict[str, Any], body: str) -> None:
     """校验卡牌类型与基础 frontmatter/body 规则。"""
-    if frontmatter.get('type') not in CARD_TYPES:
-        raise ValueError('type is invalid')
+    card_type = frontmatter.get('type')
+    if not isinstance(card_type, str) or not card_type.strip():
+        raise ValueError('type must be a non-empty string')
     validate_card_frontmatter(frontmatter, body)

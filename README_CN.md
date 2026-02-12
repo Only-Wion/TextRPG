@@ -206,3 +206,39 @@ scripts/run_ui.sh
 ```
 pytest
 ```
+
+
+## 自定义 UI 卡牌（新增）
+
+支持在卡牌包中加入 `type: ui` 的卡牌，系统会自动在 Play 页面渲染为可拖拽、可缩放的浮窗，并支持多卡并存。
+
+建议格式：
+
+```md
+---
+id: quest_tracker_main
+type: ui
+tags: [ui, quest]
+ui_schema:
+  panel_id: quest_tracker_main
+  title: 任务推进
+  panel_type: quest_tracker
+  visible_by_default: true
+  layout:
+    x: 24
+    y: 120
+    width: 360
+    height: 320
+  sections:
+    - title: 可推进任务
+      attr_prefix: quest.
+      empty_text: 暂无可推进任务
+---
+
+可在正文补充说明。
+```
+
+说明：
+- `panel_type` 可用：`quest_tracker`、`relation_board`、`facts_list`。
+- `sections` 会由 UI 更新 agent 按回合实时刷新。
+- Play 页面侧栏新增面板总开关，每个面板可独立显示/隐藏。
