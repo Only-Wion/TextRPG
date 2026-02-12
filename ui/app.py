@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from game.service.api import GameService
+from game.service.pack_builder_agent import PackBuilderAgent
 
 
 def get_service() -> GameService:
@@ -550,8 +551,45 @@ def _render_existing_cards_mindmap(card_paths: list[Path]) -> None:
         scrolling=False,
     )
 
+
+def _get_pack_builder_agent(service: GameService) -> PackBuilderAgent:
+    """返回卡牌包构建 agent 的缓存实例。"""
+    if 'pack_builder_agent' not in st.session_state:
+        st.session_state.pack_builder_agent = PackBuilderAgent(service)
+    return st.session_state.pack_builder_agent
+
+
+def _ensure_pack_builder_state() -> dict[str, Any]:
+    """初始化 card designer 的 agent 对话状态。"""
+    if 'pack_builder_state' not in st.session_state:
+        st.session_state.pack_builder_state = {
+            'history': [],
+            'memory': '',
+            'question_mode': True,
+            'creation_started': False,
+            'selected_pack_id': '',
+        }
+    return st.session_state.pack_builder_state
+
+
+def _render_pack_builder_chat_column() -> None:
+    """在右侧渲染卡牌包构建 agent 聊天记录。"""
+    st.subheader('Pack Builder Chat')
+    st.caption('聊天记录会保留在当前浏览器会话，并用于后续创建记忆。')
+    state = _ensure_pack_builder_state()
+    history = state.get('history', [])
+    if not history:
+        st.info('暂无对话，先在底部输入你的卡牌包需求。')
+        return
+    for msg in history:
+        role = msg.get('role', 'user')
+        content = msg.get('content', '')
+        with st.chat_message('user' if role == 'user' else 'assistant'):
+            st.write(content)
+
+
 def page_card_designer() -> None:
-    """卡牌设计页：创建/编辑/校验卡牌。"""
+    """卡牌设计页：创建/编辑/校验卡牌 + Agent 辅助创建卡包。"""
     st.title('Card Designer')
     service = get_service()
     packs = service.list_packs()
@@ -576,6 +614,8 @@ def page_card_designer() -> None:
                 'cards_root': cards_root,
             }
             service.create_pack(manifest)
+            state = _ensure_pack_builder_state()
+            state['selected_pack_id'] = pack_id
             st.rerun()
         return
 
@@ -594,8 +634,12 @@ def page_card_designer() -> None:
     if 'card_designer_notice' not in st.session_state:
         st.session_state.card_designer_notice = None
 
-    left, right = st.columns([3, 2])
-    with left:
+    agent_state = _ensure_pack_builder_state()
+    if not agent_state.get('selected_pack_id'):
+        agent_state['selected_pack_id'] = pack_id
+
+    edit_col, cards_col, chat_col = st.columns([3, 2, 2])
+    with edit_col:
         st.subheader('Create / Edit Card')
         type_options = service.list_pack_card_types(pack_id) or ['card']
         default_type = st.session_state.get('editing_card_type')
@@ -673,7 +717,7 @@ def page_card_designer() -> None:
             else:
                 st.info(message)
 
-    with right:
+    with cards_col:
         st.subheader('Existing Cards')
         all_paths = service.list_pack_cards(pack_id)
         categories = sorted({p.parent.name for p in all_paths})
@@ -704,7 +748,21 @@ def page_card_designer() -> None:
         else:
             st.info('No cards matched current filter.')
 
+    with chat_col:
+        _render_pack_builder_chat_column()
+
     _render_card_designer_splitter()
+
+    st.markdown('---')
+    st.caption('Pack Builder Agent：在底部输入需求，可自动调用工具创建/修改卡牌包。')
+    prompt = st.chat_input('描述你要创建的卡牌包（支持询问模式，回复“开始创建”进入执行）', key='card_designer_agent_input')
+    if prompt and prompt.strip():
+        agent = _get_pack_builder_agent(service)
+        result = agent.process(prompt.strip(), agent_state)
+        st.session_state.pack_builder_state = result['state']
+        st.rerun()
+
+
 
 
 def main() -> None:
