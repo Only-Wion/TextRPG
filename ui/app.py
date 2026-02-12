@@ -552,7 +552,6 @@ def _render_existing_cards_mindmap(card_paths: list[Path]) -> None:
     )
 
 
-
 def _get_pack_builder_agent(service: GameService) -> PackBuilderAgent:
     """返回卡牌包构建 agent 的缓存实例。"""
     if 'pack_builder_agent' not in st.session_state:
@@ -587,6 +586,7 @@ def _render_pack_builder_chat_column() -> None:
         content = msg.get('content', '')
         with st.chat_message('user' if role == 'user' else 'assistant'):
             st.write(content)
+
 
 def page_card_designer() -> None:
     """卡牌设计页：创建/编辑/校验卡牌 + Agent 辅助创建卡包。"""
@@ -761,6 +761,7 @@ def page_card_designer() -> None:
         result = agent.process(prompt.strip(), agent_state)
         st.session_state.pack_builder_state = result['state']
         st.rerun()
+
 
 
 
