@@ -18,6 +18,38 @@ from game.service.api import GameService
 from game.service.pack_builder_agent import PackBuilderAgent
 
 
+LLM_PROVIDER_PRESETS = {
+    'deepseek': {
+        'label': 'DeepSeek',
+        'base_url': 'https://api.deepseek.com/v1',
+        'model_name': 'deepseek-chat',
+        'embedding_model': 'text-embedding-3-small',
+        'force_fake_embeddings': True,
+    },
+    'alibaba': {
+        'label': '阿里通义',
+        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'model_name': 'qwen-plus',
+        'embedding_model': 'text-embedding-v4',
+        'force_fake_embeddings': False,
+    },
+    'bytedance': {
+        'label': '字节豆包',
+        'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
+        'model_name': 'doubao-pro-32k-241215',
+        'embedding_model': 'doubao-embedding-text-240715',
+        'force_fake_embeddings': False,
+    },
+    'custom': {
+        'label': '自定义 OpenAI Compatible',
+        'base_url': '',
+        'model_name': 'gpt-4o-mini',
+        'embedding_model': 'text-embedding-3-small',
+        'force_fake_embeddings': False,
+    },
+}
+
+
 def get_service() -> GameService:
     """返回 UI 使用的 GameService 缓存实例。"""
     if 'service' not in st.session_state:
@@ -764,17 +796,98 @@ def page_card_designer() -> None:
 
 
 
+def page_settings() -> None:
+    """设置页：配置多平台 LLM 接入参数。"""
+    st.title('Settings')
+    st.caption('配置后会立即用于后续对话、叙事与卡包构建任务。')
+
+    service = get_service()
+    current = service.get_llm_settings()
+
+    provider_keys = list(LLM_PROVIDER_PRESETS.keys())
+    if current.get('provider') not in provider_keys:
+        provider_keys.append(str(current.get('provider')))
+        LLM_PROVIDER_PRESETS[str(current.get('provider'))] = {
+            'label': f"Custom ({current.get('provider')})",
+            'base_url': current.get('base_url', ''),
+            'model_name': current.get('model_name', ''),
+            'embedding_model': current.get('embedding_model', ''),
+            'force_fake_embeddings': current.get('force_fake_embeddings', False),
+        }
+
+    provider_index = provider_keys.index(current.get('provider', 'custom')) if current.get('provider', 'custom') in provider_keys else provider_keys.index('custom')
+    provider = st.selectbox(
+        'LLM Platform',
+        options=provider_keys,
+        index=provider_index,
+        format_func=lambda key: LLM_PROVIDER_PRESETS.get(key, {}).get('label', key),
+    )
+
+    preset = LLM_PROVIDER_PRESETS.get(provider, LLM_PROVIDER_PRESETS['custom'])
+
+    with st.form('llm_settings_form'):
+        api_key = st.text_input('API Key', value='', type='password', placeholder='请输入对应平台的 API Key')
+        keep_existing_key = st.checkbox('保留当前密钥（不覆盖）', value=True)
+        base_url = st.text_input('Base URL', value=current.get('base_url') or preset.get('base_url', ''))
+        model_name = st.text_input('Chat Model', value=current.get('model_name') or preset.get('model_name', ''))
+        embedding_model = st.text_input('Embedding Model', value=current.get('embedding_model') or preset.get('embedding_model', ''))
+        use_mock_llm = st.checkbox('启用 Mock LLM（离线测试）', value=bool(current.get('use_mock_llm', False)))
+        force_fake_embeddings = st.checkbox(
+            '强制 Fake Embeddings',
+            value=bool(current.get('force_fake_embeddings', preset.get('force_fake_embeddings', False))),
+        )
+        submitted = st.form_submit_button('保存设置')
+
+    if submitted:
+        payload = {
+            'provider': provider,
+            'base_url': base_url.strip(),
+            'model_name': model_name.strip(),
+            'embedding_model': embedding_model.strip(),
+            'use_mock_llm': use_mock_llm,
+            'force_fake_embeddings': force_fake_embeddings,
+        }
+        if api_key.strip():
+            payload['api_key'] = api_key.strip()
+        elif keep_existing_key and current.get('api_key_set'):
+            payload['api_key'] = load_api_key_for_update()
+        else:
+            payload['api_key'] = ''
+
+        saved = service.update_llm_settings(payload)
+        st.success(f"已保存：{LLM_PROVIDER_PRESETS.get(saved.get('provider', ''), {}).get('label', saved.get('provider'))}")
+
+    st.markdown('---')
+    st.subheader('当前配置状态')
+    st.json(current)
+
+
+def load_api_key_for_update() -> str:
+    """读取磁盘中已保存 API Key，用于“保留当前密钥”场景。"""
+    settings_path = PROJECT_ROOT / 'data' / 'llm_settings.json'
+    if not settings_path.exists():
+        return ''
+    try:
+        payload = json.loads(settings_path.read_text(encoding='utf-8'))
+        if isinstance(payload, dict):
+            return str(payload.get('api_key', ''))
+    except Exception:
+        return ''
+    return ''
+
 
 def main() -> None:
     """Streamlit 页面路由入口。"""
     st.sidebar.title('TextRPG UI')
-    page = st.sidebar.radio('Page', ['Play', 'Pack Manager', 'Card Designer'])
+    page = st.sidebar.radio('Page', ['Play', 'Pack Manager', 'Card Designer', 'Settings'])
     if page == 'Play':
         page_play()
     elif page == 'Pack Manager':
         page_pack_manager()
-    else:
+    elif page == 'Card Designer':
         page_card_designer()
+    else:
+        page_settings()
 
 
 if __name__ == '__main__':
