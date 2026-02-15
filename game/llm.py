@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from .config import SETTINGS
+from .config import load_runtime_llm_settings
 
 class MockLLM:
     """无 API Key 时的确定性规划/叙事替代实现。"""
@@ -38,23 +38,29 @@ class MockLLM:
 
 def get_llm() -> ChatOpenAI | MockLLM:
     """根据配置返回聊天模型或 MockLLM。"""
-    if SETTINGS.use_mock_llm:
+    runtime = load_runtime_llm_settings()
+    if runtime.use_mock_llm:
         return MockLLM()
-    kwargs = {'model': SETTINGS.model_name, 'temperature': 0.2}
-    if SETTINGS.base_url:
-        kwargs['base_url'] = SETTINGS.base_url
+    kwargs = {'model': runtime.model_name, 'temperature': 0.2}
+    if runtime.base_url:
+        kwargs['base_url'] = runtime.base_url
+    if runtime.api_key:
+        kwargs['api_key'] = runtime.api_key
     return ChatOpenAI(**kwargs)
 
 
 def get_embeddings():
     """根据配置返回 Embeddings 客户端或离线假向量。"""
-    if SETTINGS.use_mock_llm:
+    runtime = load_runtime_llm_settings()
+    if runtime.use_mock_llm:
         return FakeEmbeddings(size=384)
-    if SETTINGS.force_fake_embeddings:
+    if runtime.force_fake_embeddings:
         return FakeEmbeddings(size=384)
-    kwargs = {'model': SETTINGS.embedding_model}
-    if SETTINGS.base_url:
-        kwargs['base_url'] = SETTINGS.base_url
+    kwargs = {'model': runtime.embedding_model}
+    if runtime.base_url:
+        kwargs['base_url'] = runtime.base_url
+    if runtime.api_key:
+        kwargs['api_key'] = runtime.api_key
     return OpenAIEmbeddings(**kwargs)
 
 
