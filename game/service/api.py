@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import json
 
-from ..config import CARDS_DIR, get_slot_paths
+from ..config import CARDS_DIR, get_slot_paths, load_runtime_llm_settings, save_runtime_llm_settings
 from ..core.card_repository import CardRepository
 from ..core.rule_engine import RuleEngine
 from ..core.rag_store import RAGStore
@@ -94,6 +94,17 @@ class GameService:
             'errors': state.get('errors', []),
             'custom_ui_panels': state.get('custom_ui_panels', []),
         }
+
+
+
+    def get_llm_settings(self) -> Dict[str, Any]:
+        """获取当前生效的 LLM 配置（不返回明文密钥）。"""
+        return load_runtime_llm_settings().to_public_dict()
+
+    def update_llm_settings(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """更新并持久化 LLM 配置。"""
+        settings = save_runtime_llm_settings(payload)
+        return settings.to_public_dict()
 
     def list_packs(self) -> List[Dict[str, Any]]:
         """从注册表列出已安装卡包。"""
