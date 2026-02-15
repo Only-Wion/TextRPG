@@ -104,3 +104,46 @@ def test_start_create_triggers_tool_execution(tmp_path: Path) -> None:
     assert result['state']['question_mode'] is False
     assert result['state']['creation_started'] is True
     assert any('save_card' in line for line in result['tool_logs'])
+
+
+def test_create_pack_fills_missing_manifest_fields(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    agent = PackBuilderAgent(service)
+    state = {'history': [], 'selected_pack_id': 'roommate_apartment_game'}
+
+    logs = agent._execute_actions(
+        [{'tool': 'create_pack', 'args': {'manifest': {'description': 'test only'}}}],
+        state,
+    )
+
+    pack_ids = {p['pack_id'] for p in service.list_packs()}
+    assert 'roommate_apartment_game' in pack_ids
+    assert any('create_pack -> roommate_apartment_game' in line for line in logs)
+
+
+def test_batch_save_cards_auto_fills_required_frontmatter(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    agent = PackBuilderAgent(service)
+    state = {'history': [], 'selected_pack_id': 'demo_pack'}
+
+    logs = agent._execute_actions(
+        [
+            {
+                'tool': 'batch_save_cards',
+                'args': {
+                    'pack_id': 'demo_pack',
+                    'cards': [
+                        {'card_type': 'event', 'card_id': 'e1', 'frontmatter': {'title': 'No tags'}, 'body': '事件内容'},
+                    ],
+                },
+            }
+        ],
+        state,
+    )
+
+    path = service._pack_cards_root('demo_pack') / 'events' / 'e1.md'
+    card = service.load_card(path)
+    assert card['frontmatter']['tags'] == []
+    assert card['frontmatter']['id'] == 'e1'
+    assert card['frontmatter']['type'] == 'event'
+    assert any('batch_save_cards -> demo_pack, count=1' in line for line in logs)
