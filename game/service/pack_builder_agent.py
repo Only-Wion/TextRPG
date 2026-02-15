@@ -43,12 +43,24 @@ class PackBuilderAgent:
         if question_mode and not creation_started:
             if normalized in self.START_CREATE_WORDS:
                 state['creation_started'] = True
-                assistant = '好的，已结束询问模式，开始执行创建/修改。你可以继续描述需求，我会调用工具完成。'
+                state['question_mode'] = False
+                bootstrap_input = self._build_bootstrap_input(state)
+                plan = self._plan(bootstrap_input, state)
+                tool_logs = self._execute_actions(plan.actions, state)
+
+                assistant = plan.reply.strip() or '已切换到执行模式，并开始按已确认需求创建/修改。'
+                if tool_logs:
+                    assistant += '\n\n执行记录：\n' + '\n'.join(f'- {x}' for x in tool_logs)
+                elif plan.actions:
+                    assistant += '\n\n（已规划动作，但未生成执行日志，请继续补充具体需求。）'
+                else:
+                    assistant += '\n\n（尚未生成可执行动作，请补充更具体的卡包/卡牌需求。）'
+
                 history.append({'role': 'user', 'content': user_input})
                 history.append({'role': 'assistant', 'content': assistant})
                 state['history'] = history
                 state['memory'] = self._update_memory(history)
-                return {'assistant': assistant, 'state': state, 'tool_logs': []}
+                return {'assistant': assistant, 'state': state, 'tool_logs': tool_logs}
 
             assistant = self._question_mode_reply(user_input, state)
             history.append({'role': 'user', 'content': user_input})
@@ -69,6 +81,26 @@ class PackBuilderAgent:
         state['history'] = history
         state['memory'] = self._update_memory(history)
         return {'assistant': assistant, 'state': state, 'tool_logs': tool_logs}
+
+
+    def _build_bootstrap_input(self, state: Dict[str, Any]) -> str:
+        """从历史中提炼需求，在“开始创建”时立即触发一次执行计划。"""
+        history = list(state.get('history', []))
+        user_lines: List[str] = []
+        for msg in history:
+            if msg.get('role') != 'user':
+                continue
+            content = str(msg.get('content', '')).strip()
+            if not content:
+                continue
+            if content.lower() in self.START_CREATE_WORDS:
+                continue
+            user_lines.append(content)
+
+        if user_lines:
+            recent = '\n'.join(f'- {line}' for line in user_lines[-5:])
+            return '请根据以下已确认需求，立即调用工具开始创建/修改：\n' + recent
+        return '现在进入执行模式。请基于当前上下文立即调用工具开始创建。'
 
     def _question_mode_reply(self, user_input: str, state: Dict[str, Any]) -> str:
         llm = get_llm()
@@ -132,6 +164,13 @@ class PackBuilderAgent:
         ]
         resp = llm.invoke(messages)
         parsed = self._parse_json(str(resp.content))
+        if not parsed:
+            retry_messages = [
+                SystemMessage(content='Return STRICT JSON only: {"reply":"...","actions":[{"tool":"...","args":{}}]}'),
+                HumanMessage(content=str(resp.content)),
+            ]
+            retry = llm.invoke(retry_messages)
+            parsed = self._parse_json(str(retry.content))
         if not parsed:
             return ActionPlan(reply=str(resp.content), actions=[])
         return ActionPlan(reply=str(parsed.get('reply', '')), actions=list(parsed.get('actions', [])))
@@ -225,6 +264,17 @@ class PackBuilderAgent:
                 stripped = stripped[4:].strip()
             try:
                 data = json.loads(stripped)
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+
+        l = stripped.find('{')
+        r = stripped.rfind('}')
+        if l != -1 and r != -1 and r > l:
+            snippet = stripped[l:r+1]
+            try:
+                data = json.loads(snippet)
                 if isinstance(data, dict):
                     return data
             except Exception:
