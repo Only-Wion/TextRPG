@@ -372,88 +372,141 @@ def page_pack_manager() -> None:
 
 
 def _render_card_designer_splitter() -> None:
-    """给 Card Designer 两栏注入可拖拽分割线（前端增强）。"""
+    """给 Card Designer 三栏注入可拖拽分割线（前端增强）。"""
     components.html(
         """
         <script>
         const doc = window.parent.document;
-        const KEY = 'textrpg_card_designer_split_ratio';
-        const DIVIDER_ID = 'textrpg-card-designer-divider';
+        const KEY = 'textrpg_card_designer_three_col_ratios';
+        const DIVIDER_A_ID = 'textrpg-card-designer-divider-a';
+        const DIVIDER_B_ID = 'textrpg-card-designer-divider-b';
 
         const byText = (selector, text) => Array.from(doc.querySelectorAll(selector)).find((el) => el.textContent.trim() === text);
-
-        const leftAnchor = byText('h3', 'Create / Edit Card') || byText('label', 'Type (select existing/default)');
-        const rightAnchor = byText('h3', 'Existing Cards') || byText('label', 'Category');
-        if (!leftAnchor || !rightAnchor) return;
+        const leftAnchor = byText('h3', 'Create / Edit Card');
+        const middleAnchor = byText('h3', 'Existing Cards');
+        const rightAnchor = byText('h3', 'Pack Builder Chat');
+        if (!leftAnchor || !middleAnchor || !rightAnchor) return;
 
         const leftCol = leftAnchor.closest('[data-testid="column"]');
+        const middleCol = middleAnchor.closest('[data-testid="column"]');
         const rightCol = rightAnchor.closest('[data-testid="column"]');
-        if (!leftCol || !rightCol || leftCol.parentElement !== rightCol.parentElement) return;
+        if (!leftCol || !middleCol || !rightCol) return;
+        if (leftCol.parentElement !== middleCol.parentElement || middleCol.parentElement !== rightCol.parentElement) return;
 
         const row = leftCol.parentElement;
         row.style.position = 'relative';
         row.style.display = 'flex';
+        row.style.flexWrap = 'nowrap';
         row.style.alignItems = 'stretch';
-        row.style.minHeight = '420px';
+        row.style.gap = '12px';
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-        let divider = doc.getElementById(DIVIDER_ID);
-        if (!divider) {
-          divider = doc.createElement('div');
-          divider.id = DIVIDER_ID;
-          divider.setAttribute('title', 'Drag to resize columns');
-          divider.style.position = 'absolute';
-          divider.style.top = '0';
-          divider.style.bottom = '0';
-          divider.style.width = '12px';
-          divider.style.cursor = 'col-resize';
-          divider.style.background = 'linear-gradient(180deg, #ff8080, #e34040)';
-          divider.style.opacity = '0.85';
-          divider.style.borderRadius = '10px';
-          divider.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.65), 0 2px 8px rgba(0,0,0,0.2)';
-          divider.style.zIndex = '80';
-          divider.style.pointerEvents = 'auto';
-          row.appendChild(divider);
+        let ratios = [0.42, 0.30, 0.28];
+        try {
+          const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
+          if (Array.isArray(saved) && saved.length === 3) {
+            const total = Number(saved[0]) + Number(saved[1]) + Number(saved[2]);
+            if (total > 0.99 && total < 1.01) {
+              ratios = [Number(saved[0]), Number(saved[1]), Number(saved[2])];
+            }
+          }
+        } catch (_) {}
+
+        let dividerA = doc.getElementById(DIVIDER_A_ID);
+        if (!dividerA) {
+          dividerA = doc.createElement('div');
+          dividerA.id = DIVIDER_A_ID;
+          dividerA.style.position = 'absolute';
+          dividerA.style.top = '0';
+          dividerA.style.bottom = '0';
+          dividerA.style.width = '12px';
+          dividerA.style.cursor = 'col-resize';
+          dividerA.style.background = 'linear-gradient(180deg, #ff8f8f, #e84b4b)';
+          dividerA.style.borderRadius = '10px';
+          dividerA.style.zIndex = '80';
+          row.appendChild(dividerA);
         }
 
-        const applyRatio = (ratio) => {
-          const r = clamp(ratio, 0.2, 0.8);
-          leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
-          rightCol.style.flex = `0 0 calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
-          rightCol.style.maxWidth = `calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.minWidth = '320px';
-          rightCol.style.minWidth = '280px';
-          divider.style.left = `calc(${r * 100}% - 6px)`;
-          localStorage.setItem(KEY, String(r));
+        let dividerB = doc.getElementById(DIVIDER_B_ID);
+        if (!dividerB) {
+          dividerB = doc.createElement('div');
+          dividerB.id = DIVIDER_B_ID;
+          dividerB.style.position = 'absolute';
+          dividerB.style.top = '0';
+          dividerB.style.bottom = '0';
+          dividerB.style.width = '12px';
+          dividerB.style.cursor = 'col-resize';
+          dividerB.style.background = 'linear-gradient(180deg, #80b8ff, #3d7fe0)';
+          dividerB.style.borderRadius = '10px';
+          dividerB.style.zIndex = '80';
+          row.appendChild(dividerB);
+        }
+
+        const apply = () => {
+          const total = ratios[0] + ratios[1] + ratios[2];
+          ratios = ratios.map((x) => x / total);
+
+          leftCol.style.flex = `0 0 calc(${ratios[0] * 100}% - 8px)`;
+          middleCol.style.flex = `0 0 calc(${ratios[1] * 100}% - 8px)`;
+          rightCol.style.flex = `0 0 calc(${ratios[2] * 100}% - 8px)`;
+
+          leftCol.style.minWidth = '360px';
+          middleCol.style.minWidth = '320px';
+          rightCol.style.minWidth = '300px';
+
+          dividerA.style.left = `calc(${ratios[0] * 100}% - 6px)`;
+          dividerB.style.left = `calc(${(ratios[0] + ratios[1]) * 100}% - 6px)`;
+          localStorage.setItem(KEY, JSON.stringify(ratios));
         };
 
-        const initial = parseFloat(localStorage.getItem(KEY) || '0.62');
-        applyRatio(initial);
+        apply();
 
-        let dragging = false;
-        divider.onpointerdown = (e) => {
-          dragging = true;
-          divider.style.opacity = '1';
-          divider.setPointerCapture(e.pointerId);
-          e.preventDefault();
-        };
+        let dragA = false;
+        let dragB = false;
 
-        divider.onpointermove = (e) => {
-          if (!dragging) return;
+        dividerA.onpointerdown = (e) => { dragA = true; dividerA.setPointerCapture(e.pointerId); e.preventDefault(); };
+        dividerB.onpointerdown = (e) => { dragB = true; dividerB.setPointerCapture(e.pointerId); e.preventDefault(); };
+
+        const onMove = (e) => {
           const rect = row.getBoundingClientRect();
           if (!rect.width) return;
-          const ratio = (e.clientX - rect.left) / rect.width;
-          applyRatio(ratio);
+          const x = (e.clientX - rect.left) / rect.width;
+
+          if (dragA) {
+            const r0 = clamp(x, 0.24, 0.68);
+            const r12 = 1 - r0;
+            const old12 = ratios[1] + ratios[2];
+            const keep = old12 > 0 ? ratios[1] / old12 : 0.5;
+            ratios[0] = r0;
+            ratios[1] = r12 * keep;
+            ratios[2] = r12 * (1 - keep);
+            apply();
+          }
+
+          if (dragB) {
+            const r01 = ratios[0];
+            const r2 = clamp(1 - x, 0.18, 0.55);
+            const remain = 1 - r2;
+            const r0 = clamp(ratios[0], 0.24, remain - 0.18);
+            ratios[0] = r0;
+            ratios[1] = remain - r0;
+            ratios[2] = r2;
+            if (ratios[1] < 0.18) {
+              ratios[1] = 0.18;
+              ratios[0] = remain - 0.18;
+            }
+            apply();
+          }
         };
 
-        const stop = () => {
-          dragging = false;
-          divider.style.opacity = '0.85';
-        };
-        divider.onpointerup = stop;
-        divider.onpointercancel = stop;
+        const stop = () => { dragA = false; dragB = false; };
+        dividerA.onpointermove = onMove;
+        dividerB.onpointermove = onMove;
+        dividerA.onpointerup = stop;
+        dividerB.onpointerup = stop;
+        dividerA.onpointercancel = stop;
+        dividerB.onpointercancel = stop;
         </script>
         """,
         height=0,
@@ -605,24 +658,37 @@ def _ensure_pack_builder_state() -> dict[str, Any]:
 
 
 def _render_pack_builder_chat_column() -> None:
-    """在右侧渲染卡牌包构建 agent 聊天记录。"""
+    """在右侧渲染卡牌包构建 agent 聊天记录（独立滚动区域）。"""
     st.subheader('Pack Builder Chat')
     st.caption('聊天记录会保留在当前浏览器会话，并用于后续创建记忆。')
     state = _ensure_pack_builder_state()
     history = state.get('history', [])
-    if not history:
-        st.info('暂无对话，先在底部输入你的卡牌包需求。')
-        return
-    for msg in history:
-        role = msg.get('role', 'user')
-        content = msg.get('content', '')
-        with st.chat_message('user' if role == 'user' else 'assistant'):
-            st.write(content)
+    with st.container(height=620, border=True):
+        if not history:
+            st.info('暂无对话，先在底部输入你的卡牌包需求。')
+            return
+        for msg in history:
+            role = msg.get('role', 'user')
+            content = msg.get('content', '')
+            with st.chat_message('user' if role == 'user' else 'assistant'):
+                st.write(content)
 
 
 def page_card_designer() -> None:
     """卡牌设计页：创建/编辑/校验卡牌 + Agent 辅助创建卡包。"""
     st.title('Card Designer')
+    st.markdown(
+        """
+        <style>
+        .main .block-container {
+            max-width: 1880px;
+            padding-left: 1.2rem;
+            padding-right: 1.2rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     service = get_service()
     packs = service.list_packs()
     pack_ids = [p['pack_id'] for p in packs]
@@ -670,7 +736,7 @@ def page_card_designer() -> None:
     if not agent_state.get('selected_pack_id'):
         agent_state['selected_pack_id'] = pack_id
 
-    edit_col, cards_col, chat_col = st.columns([3, 2, 2])
+    edit_col, cards_col, chat_col = st.columns([4.0, 2.9, 3.1])
     with edit_col:
         st.subheader('Create / Edit Card')
         type_options = service.list_pack_card_types(pack_id) or ['card']
