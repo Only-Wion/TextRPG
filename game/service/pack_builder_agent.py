@@ -7,6 +7,7 @@ import json
 import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import StructuredTool
 
 from ..llm import MockLLM, get_llm
 from .api import GameService
@@ -34,6 +35,16 @@ class PackBuilderAgent:
         prompts_dir = Path(__file__).resolve().parents[1] / 'prompts'
         self.system_prompt = (prompts_dir / 'pack_builder_system.md').read_text(encoding='utf-8')
         self.question_prompt = (prompts_dir / 'pack_builder_question_mode.md').read_text(encoding='utf-8')
+        self.tool_schemas = [
+            {'name': 'list_packs', 'args': {}},
+            {'name': 'create_pack', 'args': {'manifest': 'dict'}},
+            {'name': 'select_pack', 'args': {'pack_id': 'str'}},
+            {'name': 'list_pack_cards', 'args': {'pack_id': 'str'}},
+            {'name': 'save_card', 'args': {'pack_id': 'str', 'card_type': 'str', 'card_id': 'str', 'frontmatter': 'dict', 'body': 'str'}},
+            {'name': 'delete_card', 'args': {'pack_id': 'str', 'card_path': 'str'}},
+            {'name': 'batch_save_cards', 'args': {'pack_id': 'str', 'cards': 'list[dict]'}},
+            {'name': 'audit_pack', 'args': {'pack_id': 'str'}},
+        ]
 
     def process(self, user_input: str, state: Dict[str, Any]) -> Dict[str, Any]:
         history = list(state.get('history', []))
@@ -131,18 +142,7 @@ class PackBuilderAgent:
                 actions=[],
             )
 
-        tool_schema = {
-            'tools': [
-                {'name': 'list_packs', 'args': {}},
-                {'name': 'create_pack', 'args': {'manifest': 'dict'}},
-                {'name': 'select_pack', 'args': {'pack_id': 'str'}},
-                {'name': 'list_pack_cards', 'args': {'pack_id': 'str'}},
-                {'name': 'save_card', 'args': {'pack_id': 'str', 'card_type': 'str', 'card_id': 'str', 'frontmatter': 'dict', 'body': 'str'}},
-                {'name': 'delete_card', 'args': {'pack_id': 'str', 'card_path': 'str'}},
-                {'name': 'batch_save_cards', 'args': {'pack_id': 'str', 'cards': 'list[dict]'}},
-                {'name': 'audit_pack', 'args': {'pack_id': 'str'}},
-            ]
-        }
+        tool_schema = {'tools': self.tool_schemas}
         messages = [
             SystemMessage(
                 content=(
@@ -214,72 +214,120 @@ class PackBuilderAgent:
 
     def _execute_actions(self, actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[str]:
         logs: List[str] = []
+        tools = self._build_runtime_tools(state)
         for action in actions:
-            tool = str(action.get('tool', '')).strip()
+            tool_name = str(action.get('tool', '')).strip()
             args = action.get('args', {}) or {}
+            handler = tools.get(tool_name)
+            if not handler:
+                logs.append(f'unknown tool: {tool_name}')
+                continue
             try:
-                if tool == 'list_packs':
-                    packs = self.service.list_packs()
-                    logs.append(f'list_packs -> {len(packs)} packs')
-                elif tool == 'create_pack':
-                    manifest = self._build_manifest_with_defaults(dict(args.get('manifest', {})), state)
-                    self.service.create_pack(manifest)
-                    state['selected_pack_id'] = manifest['pack_id']
-                    logs.append(f'create_pack -> {manifest.get("pack_id", "")}')
-                elif tool == 'select_pack':
-                    target_pack = self._safe_pack_id(str(args.get('pack_id', '')).strip())
-                    existing = {p.get('pack_id', '') for p in self.service.list_packs()}
-                    if target_pack in existing:
-                        state['selected_pack_id'] = target_pack
-                        logs.append(f'select_pack -> {target_pack}')
-                    else:
-                        logs.append(f'select_pack skipped: pack not found -> {target_pack}')
-                elif tool == 'list_pack_cards':
-                    pack_id = self._safe_pack_id(str(args.get('pack_id') or state.get('selected_pack_id', '')))
-                    cards = self.service.list_pack_cards(pack_id)
-                    logs.append(f'list_pack_cards({pack_id}) -> {len(cards)} cards')
-                elif tool == 'save_card':
-                    pack_id = self._safe_pack_id(str(args.get('pack_id') or state.get('selected_pack_id', '')))
-                    card_payload = self._normalize_card_payload(args)
-                    self.service.save_card(
-                        pack_id=pack_id,
-                        card_type=card_payload['card_type'],
-                        card_id=card_payload['card_id'],
-                        frontmatter=card_payload['frontmatter'],
-                        body=card_payload['body'],
-                    )
-                    logs.append(f"save_card -> {pack_id}/{card_payload['card_type']}/{card_payload['card_id']}")
-                elif tool == 'batch_save_cards':
-                    pack_id = self._safe_pack_id(str(args.get('pack_id') or state.get('selected_pack_id', '')))
-                    cards = list(args.get('cards', []))
-                    saved = 0
-                    for card in cards:
-                        card_payload = self._normalize_card_payload(card)
-                        self.service.save_card(
-                            pack_id=pack_id,
-                            card_type=card_payload['card_type'],
-                            card_id=card_payload['card_id'],
-                            frontmatter=card_payload['frontmatter'],
-                            body=card_payload['body'],
-                        )
-                        saved += 1
-                    logs.append(f'batch_save_cards -> {pack_id}, count={saved}')
-                elif tool == 'delete_card':
-                    pack_id = self._safe_pack_id(str(args.get('pack_id') or state.get('selected_pack_id', '')))
-                    path = Path(str(args.get('card_path', '')))
-                    self.service.delete_card(pack_id, path)
-                    logs.append(f'delete_card -> {path.name}')
-                elif tool == 'audit_pack':
-                    pack_id = self._safe_pack_id(str(args.get('pack_id') or state.get('selected_pack_id', '')))
-                    if pack_id not in {p.get('pack_id', '') for p in self.service.list_packs()}:
-                        logs.append(f'audit_pack skipped: pack not found -> {pack_id}')
-                    else:
-                        logs.append(self._audit_pack(pack_id))
-                else:
-                    logs.append(f'unknown tool: {tool}')
+                logs.append(str(handler.invoke(args)))
             except Exception as exc:
-                logs.append(f'{tool} failed: {exc}')
+                logs.append(f'{tool_name} failed: {exc}')
         return logs
+
+    def _build_runtime_tools(self, state: Dict[str, Any]) -> Dict[str, StructuredTool]:
+        return {
+            'list_packs': StructuredTool.from_function(
+                name='list_packs',
+                description='列出当前已注册的卡牌包。',
+                func=lambda: f'list_packs -> {len(self.service.list_packs())} packs',
+            ),
+            'create_pack': StructuredTool.from_function(
+                name='create_pack',
+                description='创建一个新的卡牌包。',
+                func=lambda manifest: self._tool_create_pack(manifest, state),
+            ),
+            'select_pack': StructuredTool.from_function(
+                name='select_pack',
+                description='选择后续操作要使用的卡牌包。',
+                func=lambda pack_id: self._tool_select_pack(pack_id, state),
+            ),
+            'list_pack_cards': StructuredTool.from_function(
+                name='list_pack_cards',
+                description='列出某个卡牌包中的全部卡牌文件。',
+                func=lambda pack_id='': self._tool_list_pack_cards(pack_id, state),
+            ),
+            'save_card': StructuredTool.from_function(
+                name='save_card',
+                description='保存单张卡牌。',
+                func=lambda pack_id='', card_type='card', card_id='new_card', frontmatter=None, body='': self._tool_save_card(
+                    {'pack_id': pack_id, 'card_type': card_type, 'card_id': card_id, 'frontmatter': frontmatter or {}, 'body': body},
+                    state,
+                ),
+            ),
+            'batch_save_cards': StructuredTool.from_function(
+                name='batch_save_cards',
+                description='批量保存卡牌。',
+                func=lambda pack_id='', cards=None: self._tool_batch_save_cards(pack_id, cards or [], state),
+            ),
+            'delete_card': StructuredTool.from_function(
+                name='delete_card',
+                description='删除指定卡牌文件。',
+                func=lambda pack_id='', card_path='': self._tool_delete_card(pack_id, card_path, state),
+            ),
+            'audit_pack': StructuredTool.from_function(
+                name='audit_pack',
+                description='审计卡牌包中的重复 ID 和解析错误。',
+                func=lambda pack_id='': self._tool_audit_pack(pack_id, state),
+            ),
+        }
+
+    def _resolve_pack_id(self, raw_pack_id: str, state: Dict[str, Any]) -> str:
+        return self._safe_pack_id(str(raw_pack_id or state.get('selected_pack_id', '')))
+
+    def _tool_create_pack(self, manifest: Dict[str, Any], state: Dict[str, Any]) -> str:
+        normalized = self._build_manifest_with_defaults(dict(manifest or {}), state)
+        self.service.create_pack(normalized)
+        state['selected_pack_id'] = normalized['pack_id']
+        return f'create_pack -> {normalized.get("pack_id", "")}'
+
+    def _tool_select_pack(self, pack_id: str, state: Dict[str, Any]) -> str:
+        target_pack = self._safe_pack_id(str(pack_id).strip())
+        existing = {p.get('pack_id', '') for p in self.service.list_packs()}
+        if target_pack in existing:
+            state['selected_pack_id'] = target_pack
+            return f'select_pack -> {target_pack}'
+        return f'select_pack skipped: pack not found -> {target_pack}'
+
+    def _tool_list_pack_cards(self, pack_id: str, state: Dict[str, Any]) -> str:
+        resolved = self._resolve_pack_id(pack_id, state)
+        cards = self.service.list_pack_cards(resolved)
+        return f'list_pack_cards({resolved}) -> {len(cards)} cards'
+
+    def _tool_save_card(self, args: Dict[str, Any], state: Dict[str, Any]) -> str:
+        pack_id = self._resolve_pack_id(str(args.get('pack_id', '')), state)
+        card_payload = self._normalize_card_payload(args)
+        self.service.save_card(
+            pack_id=pack_id,
+            card_type=card_payload['card_type'],
+            card_id=card_payload['card_id'],
+            frontmatter=card_payload['frontmatter'],
+            body=card_payload['body'],
+        )
+        return f"save_card -> {pack_id}/{card_payload['card_type']}/{card_payload['card_id']}"
+
+    def _tool_batch_save_cards(self, pack_id: str, cards: List[Dict[str, Any]], state: Dict[str, Any]) -> str:
+        resolved = self._resolve_pack_id(pack_id, state)
+        saved = 0
+        for card in list(cards):
+            self._tool_save_card({'pack_id': resolved, **dict(card)}, state)
+            saved += 1
+        return f'batch_save_cards -> {resolved}, count={saved}'
+
+    def _tool_delete_card(self, pack_id: str, card_path: str, state: Dict[str, Any]) -> str:
+        resolved = self._resolve_pack_id(pack_id, state)
+        path = Path(str(card_path))
+        self.service.delete_card(resolved, path)
+        return f'delete_card -> {path.name}'
+
+    def _tool_audit_pack(self, pack_id: str, state: Dict[str, Any]) -> str:
+        resolved = self._resolve_pack_id(pack_id, state)
+        if resolved not in {p.get('pack_id', '') for p in self.service.list_packs()}:
+            return f'audit_pack skipped: pack not found -> {resolved}'
+        return self._audit_pack(resolved)
 
     def _audit_pack(self, pack_id: str) -> str:
         cards = self.service.list_pack_cards(pack_id)
