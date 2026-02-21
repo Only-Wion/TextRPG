@@ -1,0 +1,9 @@
+{
+  "provider": "deepseek",
+  "model_name": "deepseek-chat",
+  "embedding_model": "text-embedding-3-small",
+  "base_url": "https://api.deepseek.com/v1",
+  "api_key": "sk-0e6091b0a2f5445ebd4b247753a1fb9c",
+  "use_mock_llm": false,
+  "force_fake_embeddings": true
+}

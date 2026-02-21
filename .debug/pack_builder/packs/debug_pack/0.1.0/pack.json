@@ -1,0 +1,8 @@
+{
+  "pack_id": "debug_pack",
+  "name": "Debug Pack",
+  "version": "0.1.0",
+  "author": "debugger",
+  "description": "debug pack",
+  "cards_root": "cards"
+}

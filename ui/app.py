@@ -15,6 +15,39 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from game.service.api import GameService
+from game.service.pack_builder_agent import PackBuilderAgent
+
+
+LLM_PROVIDER_PRESETS = {
+    'deepseek': {
+        'label': 'DeepSeek',
+        'base_url': 'https://api.deepseek.com/v1',
+        'model_name': 'deepseek-chat',
+        'embedding_model': 'text-embedding-3-small',
+        'force_fake_embeddings': True,
+    },
+    'alibaba': {
+        'label': '阿里通义',
+        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'model_name': 'qwen-plus',
+        'embedding_model': 'text-embedding-v4',
+        'force_fake_embeddings': False,
+    },
+    'bytedance': {
+        'label': '字节豆包',
+        'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
+        'model_name': 'doubao-pro-32k-241215',
+        'embedding_model': 'doubao-embedding-text-240715',
+        'force_fake_embeddings': False,
+    },
+    'custom': {
+        'label': '自定义 OpenAI Compatible',
+        'base_url': '',
+        'model_name': 'gpt-4o-mini',
+        'embedding_model': 'text-embedding-3-small',
+        'force_fake_embeddings': False,
+    },
+}
 
 
 def get_service() -> GameService:
@@ -339,88 +372,141 @@ def page_pack_manager() -> None:
 
 
 def _render_card_designer_splitter() -> None:
-    """给 Card Designer 两栏注入可拖拽分割线（前端增强）。"""
+    """给 Card Designer 三栏注入可拖拽分割线（前端增强）。"""
     components.html(
         """
         <script>
         const doc = window.parent.document;
-        const KEY = 'textrpg_card_designer_split_ratio';
-        const DIVIDER_ID = 'textrpg-card-designer-divider';
+        const KEY = 'textrpg_card_designer_three_col_ratios';
+        const DIVIDER_A_ID = 'textrpg-card-designer-divider-a';
+        const DIVIDER_B_ID = 'textrpg-card-designer-divider-b';
 
         const byText = (selector, text) => Array.from(doc.querySelectorAll(selector)).find((el) => el.textContent.trim() === text);
-
-        const leftAnchor = byText('h3', 'Create / Edit Card') || byText('label', 'Type (select existing/default)');
-        const rightAnchor = byText('h3', 'Existing Cards') || byText('label', 'Category');
-        if (!leftAnchor || !rightAnchor) return;
+        const leftAnchor = byText('h3', 'Create / Edit Card');
+        const middleAnchor = byText('h3', 'Existing Cards');
+        const rightAnchor = byText('h3', 'Pack Builder Chat');
+        if (!leftAnchor || !middleAnchor || !rightAnchor) return;
 
         const leftCol = leftAnchor.closest('[data-testid="column"]');
+        const middleCol = middleAnchor.closest('[data-testid="column"]');
         const rightCol = rightAnchor.closest('[data-testid="column"]');
-        if (!leftCol || !rightCol || leftCol.parentElement !== rightCol.parentElement) return;
+        if (!leftCol || !middleCol || !rightCol) return;
+        if (leftCol.parentElement !== middleCol.parentElement || middleCol.parentElement !== rightCol.parentElement) return;
 
         const row = leftCol.parentElement;
         row.style.position = 'relative';
         row.style.display = 'flex';
+        row.style.flexWrap = 'nowrap';
         row.style.alignItems = 'stretch';
-        row.style.minHeight = '420px';
+        row.style.gap = '12px';
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-        let divider = doc.getElementById(DIVIDER_ID);
-        if (!divider) {
-          divider = doc.createElement('div');
-          divider.id = DIVIDER_ID;
-          divider.setAttribute('title', 'Drag to resize columns');
-          divider.style.position = 'absolute';
-          divider.style.top = '0';
-          divider.style.bottom = '0';
-          divider.style.width = '12px';
-          divider.style.cursor = 'col-resize';
-          divider.style.background = 'linear-gradient(180deg, #ff8080, #e34040)';
-          divider.style.opacity = '0.85';
-          divider.style.borderRadius = '10px';
-          divider.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.65), 0 2px 8px rgba(0,0,0,0.2)';
-          divider.style.zIndex = '80';
-          divider.style.pointerEvents = 'auto';
-          row.appendChild(divider);
+        let ratios = [0.42, 0.30, 0.28];
+        try {
+          const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
+          if (Array.isArray(saved) && saved.length === 3) {
+            const total = Number(saved[0]) + Number(saved[1]) + Number(saved[2]);
+            if (total > 0.99 && total < 1.01) {
+              ratios = [Number(saved[0]), Number(saved[1]), Number(saved[2])];
+            }
+          }
+        } catch (_) {}
+
+        let dividerA = doc.getElementById(DIVIDER_A_ID);
+        if (!dividerA) {
+          dividerA = doc.createElement('div');
+          dividerA.id = DIVIDER_A_ID;
+          dividerA.style.position = 'absolute';
+          dividerA.style.top = '0';
+          dividerA.style.bottom = '0';
+          dividerA.style.width = '12px';
+          dividerA.style.cursor = 'col-resize';
+          dividerA.style.background = 'linear-gradient(180deg, #ff8f8f, #e84b4b)';
+          dividerA.style.borderRadius = '10px';
+          dividerA.style.zIndex = '80';
+          row.appendChild(dividerA);
         }
 
-        const applyRatio = (ratio) => {
-          const r = clamp(ratio, 0.2, 0.8);
-          leftCol.style.flex = `0 0 calc(${r * 100}% - 6px)`;
-          rightCol.style.flex = `0 0 calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.maxWidth = `calc(${r * 100}% - 6px)`;
-          rightCol.style.maxWidth = `calc(${(1 - r) * 100}% - 6px)`;
-          leftCol.style.minWidth = '320px';
-          rightCol.style.minWidth = '280px';
-          divider.style.left = `calc(${r * 100}% - 6px)`;
-          localStorage.setItem(KEY, String(r));
+        let dividerB = doc.getElementById(DIVIDER_B_ID);
+        if (!dividerB) {
+          dividerB = doc.createElement('div');
+          dividerB.id = DIVIDER_B_ID;
+          dividerB.style.position = 'absolute';
+          dividerB.style.top = '0';
+          dividerB.style.bottom = '0';
+          dividerB.style.width = '12px';
+          dividerB.style.cursor = 'col-resize';
+          dividerB.style.background = 'linear-gradient(180deg, #80b8ff, #3d7fe0)';
+          dividerB.style.borderRadius = '10px';
+          dividerB.style.zIndex = '80';
+          row.appendChild(dividerB);
+        }
+
+        const apply = () => {
+          const total = ratios[0] + ratios[1] + ratios[2];
+          ratios = ratios.map((x) => x / total);
+
+          leftCol.style.flex = `0 0 calc(${ratios[0] * 100}% - 8px)`;
+          middleCol.style.flex = `0 0 calc(${ratios[1] * 100}% - 8px)`;
+          rightCol.style.flex = `0 0 calc(${ratios[2] * 100}% - 8px)`;
+
+          leftCol.style.minWidth = '360px';
+          middleCol.style.minWidth = '320px';
+          rightCol.style.minWidth = '300px';
+
+          dividerA.style.left = `calc(${ratios[0] * 100}% - 6px)`;
+          dividerB.style.left = `calc(${(ratios[0] + ratios[1]) * 100}% - 6px)`;
+          localStorage.setItem(KEY, JSON.stringify(ratios));
         };
 
-        const initial = parseFloat(localStorage.getItem(KEY) || '0.62');
-        applyRatio(initial);
+        apply();
 
-        let dragging = false;
-        divider.onpointerdown = (e) => {
-          dragging = true;
-          divider.style.opacity = '1';
-          divider.setPointerCapture(e.pointerId);
-          e.preventDefault();
-        };
+        let dragA = false;
+        let dragB = false;
 
-        divider.onpointermove = (e) => {
-          if (!dragging) return;
+        dividerA.onpointerdown = (e) => { dragA = true; dividerA.setPointerCapture(e.pointerId); e.preventDefault(); };
+        dividerB.onpointerdown = (e) => { dragB = true; dividerB.setPointerCapture(e.pointerId); e.preventDefault(); };
+
+        const onMove = (e) => {
           const rect = row.getBoundingClientRect();
           if (!rect.width) return;
-          const ratio = (e.clientX - rect.left) / rect.width;
-          applyRatio(ratio);
+          const x = (e.clientX - rect.left) / rect.width;
+
+          if (dragA) {
+            const r0 = clamp(x, 0.24, 0.68);
+            const r12 = 1 - r0;
+            const old12 = ratios[1] + ratios[2];
+            const keep = old12 > 0 ? ratios[1] / old12 : 0.5;
+            ratios[0] = r0;
+            ratios[1] = r12 * keep;
+            ratios[2] = r12 * (1 - keep);
+            apply();
+          }
+
+          if (dragB) {
+            const r01 = ratios[0];
+            const r2 = clamp(1 - x, 0.18, 0.55);
+            const remain = 1 - r2;
+            const r0 = clamp(ratios[0], 0.24, remain - 0.18);
+            ratios[0] = r0;
+            ratios[1] = remain - r0;
+            ratios[2] = r2;
+            if (ratios[1] < 0.18) {
+              ratios[1] = 0.18;
+              ratios[0] = remain - 0.18;
+            }
+            apply();
+          }
         };
 
-        const stop = () => {
-          dragging = false;
-          divider.style.opacity = '0.85';
-        };
-        divider.onpointerup = stop;
-        divider.onpointercancel = stop;
+        const stop = () => { dragA = false; dragB = false; };
+        dividerA.onpointermove = onMove;
+        dividerB.onpointermove = onMove;
+        dividerA.onpointerup = stop;
+        dividerB.onpointerup = stop;
+        dividerA.onpointercancel = stop;
+        dividerB.onpointercancel = stop;
         </script>
         """,
         height=0,
@@ -550,9 +636,59 @@ def _render_existing_cards_mindmap(card_paths: list[Path]) -> None:
         scrolling=False,
     )
 
+
+def _get_pack_builder_agent(service: GameService) -> PackBuilderAgent:
+    """返回卡牌包构建 agent 的缓存实例。"""
+    if 'pack_builder_agent' not in st.session_state:
+        st.session_state.pack_builder_agent = PackBuilderAgent(service)
+    return st.session_state.pack_builder_agent
+
+
+def _ensure_pack_builder_state() -> dict[str, Any]:
+    """初始化 card designer 的 agent 对话状态。"""
+    if 'pack_builder_state' not in st.session_state:
+        st.session_state.pack_builder_state = {
+            'history': [],
+            'memory': '',
+            'question_mode': True,
+            'creation_started': False,
+            'selected_pack_id': '',
+        }
+    return st.session_state.pack_builder_state
+
+
+def _render_pack_builder_chat_column() -> None:
+    """在右侧渲染卡牌包构建 agent 聊天记录（独立滚动区域）。"""
+    st.subheader('Pack Builder Chat')
+    st.caption('聊天记录会保留在当前浏览器会话，并用于后续创建记忆。')
+    state = _ensure_pack_builder_state()
+    history = state.get('history', [])
+    with st.container(height=620, border=True):
+        if not history:
+            st.info('暂无对话，先在底部输入你的卡牌包需求。')
+            return
+        for msg in history:
+            role = msg.get('role', 'user')
+            content = msg.get('content', '')
+            with st.chat_message('user' if role == 'user' else 'assistant'):
+                st.write(content)
+
+
 def page_card_designer() -> None:
-    """卡牌设计页：创建/编辑/校验卡牌。"""
+    """卡牌设计页：创建/编辑/校验卡牌 + Agent 辅助创建卡包。"""
     st.title('Card Designer')
+    st.markdown(
+        """
+        <style>
+        .main .block-container {
+            max-width: 1880px;
+            padding-left: 1.2rem;
+            padding-right: 1.2rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     service = get_service()
     packs = service.list_packs()
     pack_ids = [p['pack_id'] for p in packs]
@@ -576,6 +712,8 @@ def page_card_designer() -> None:
                 'cards_root': cards_root,
             }
             service.create_pack(manifest)
+            state = _ensure_pack_builder_state()
+            state['selected_pack_id'] = pack_id
             st.rerun()
         return
 
@@ -594,8 +732,12 @@ def page_card_designer() -> None:
     if 'card_designer_notice' not in st.session_state:
         st.session_state.card_designer_notice = None
 
-    left, right = st.columns([3, 2])
-    with left:
+    agent_state = _ensure_pack_builder_state()
+    if not agent_state.get('selected_pack_id'):
+        agent_state['selected_pack_id'] = pack_id
+
+    edit_col, cards_col, chat_col = st.columns([4.0, 2.9, 3.1])
+    with edit_col:
         st.subheader('Create / Edit Card')
         type_options = service.list_pack_card_types(pack_id) or ['card']
         default_type = st.session_state.get('editing_card_type')
@@ -673,7 +815,7 @@ def page_card_designer() -> None:
             else:
                 st.info(message)
 
-    with right:
+    with cards_col:
         st.subheader('Existing Cards')
         all_paths = service.list_pack_cards(pack_id)
         categories = sorted({p.parent.name for p in all_paths})
@@ -704,19 +846,114 @@ def page_card_designer() -> None:
         else:
             st.info('No cards matched current filter.')
 
+    with chat_col:
+        _render_pack_builder_chat_column()
+
     _render_card_designer_splitter()
+
+    st.markdown('---')
+    st.caption('Pack Builder Agent：在底部输入需求，可自动调用工具创建/修改卡牌包。')
+    prompt = st.chat_input('描述你要创建的卡牌包（支持询问模式，回复“开始创建”进入执行）', key='card_designer_agent_input')
+    if prompt and prompt.strip():
+        agent = _get_pack_builder_agent(service)
+        result = agent.process(prompt.strip(), agent_state)
+        st.session_state.pack_builder_state = result['state']
+        st.rerun()
+
+
+
+def page_settings() -> None:
+    """设置页：配置多平台 LLM 接入参数。"""
+    st.title('Settings')
+    st.caption('配置后会立即用于后续对话、叙事与卡包构建任务。')
+
+    service = get_service()
+    current = service.get_llm_settings()
+
+    provider_keys = list(LLM_PROVIDER_PRESETS.keys())
+    if current.get('provider') not in provider_keys:
+        provider_keys.append(str(current.get('provider')))
+        LLM_PROVIDER_PRESETS[str(current.get('provider'))] = {
+            'label': f"Custom ({current.get('provider')})",
+            'base_url': current.get('base_url', ''),
+            'model_name': current.get('model_name', ''),
+            'embedding_model': current.get('embedding_model', ''),
+            'force_fake_embeddings': current.get('force_fake_embeddings', False),
+        }
+
+    provider_index = provider_keys.index(current.get('provider', 'custom')) if current.get('provider', 'custom') in provider_keys else provider_keys.index('custom')
+    provider = st.selectbox(
+        'LLM Platform',
+        options=provider_keys,
+        index=provider_index,
+        format_func=lambda key: LLM_PROVIDER_PRESETS.get(key, {}).get('label', key),
+    )
+
+    preset = LLM_PROVIDER_PRESETS.get(provider, LLM_PROVIDER_PRESETS['custom'])
+
+    with st.form('llm_settings_form'):
+        api_key = st.text_input('API Key', value='', type='password', placeholder='请输入对应平台的 API Key')
+        keep_existing_key = st.checkbox('保留当前密钥（不覆盖）', value=True)
+        base_url = st.text_input('Base URL', value=current.get('base_url') or preset.get('base_url', ''))
+        model_name = st.text_input('Chat Model', value=current.get('model_name') or preset.get('model_name', ''))
+        embedding_model = st.text_input('Embedding Model', value=current.get('embedding_model') or preset.get('embedding_model', ''))
+        use_mock_llm = st.checkbox('启用 Mock LLM（离线测试）', value=bool(current.get('use_mock_llm', False)))
+        force_fake_embeddings = st.checkbox(
+            '强制 Fake Embeddings',
+            value=bool(current.get('force_fake_embeddings', preset.get('force_fake_embeddings', False))),
+        )
+        submitted = st.form_submit_button('保存设置')
+
+    if submitted:
+        payload = {
+            'provider': provider,
+            'base_url': base_url.strip(),
+            'model_name': model_name.strip(),
+            'embedding_model': embedding_model.strip(),
+            'use_mock_llm': use_mock_llm,
+            'force_fake_embeddings': force_fake_embeddings,
+        }
+        if api_key.strip():
+            payload['api_key'] = api_key.strip()
+        elif keep_existing_key and current.get('api_key_set'):
+            payload['api_key'] = load_api_key_for_update()
+        else:
+            payload['api_key'] = ''
+
+        saved = service.update_llm_settings(payload)
+        st.success(f"已保存：{LLM_PROVIDER_PRESETS.get(saved.get('provider', ''), {}).get('label', saved.get('provider'))}")
+
+    st.markdown('---')
+    st.subheader('当前配置状态')
+    st.json(current)
+
+
+def load_api_key_for_update() -> str:
+    """读取磁盘中已保存 API Key，用于“保留当前密钥”场景。"""
+    settings_path = PROJECT_ROOT / 'data' / 'llm_settings.json'
+    if not settings_path.exists():
+        return ''
+    try:
+        payload = json.loads(settings_path.read_text(encoding='utf-8'))
+        if isinstance(payload, dict):
+            return str(payload.get('api_key', ''))
+    except Exception:
+        return ''
+    return ''
 
 
 def main() -> None:
     """Streamlit 页面路由入口。"""
     st.sidebar.title('TextRPG UI')
-    page = st.sidebar.radio('Page', ['Play', 'Pack Manager', 'Card Designer'])
+    page = st.sidebar.radio('Page', ['Play', 'Pack Manager', 'Card Designer', 'Settings'])
     if page == 'Play':
         page_play()
     elif page == 'Pack Manager':
         page_pack_manager()
-    else:
+    elif page == 'Card Designer':
         page_card_designer()
+    else:
+        page_settings()
 
 
 if __name__ == '__main__':

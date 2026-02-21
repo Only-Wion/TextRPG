@@ -1,12 +1,21 @@
 {
   "packs": {
     "starter_kingdom": {
-      "name": "Starter Kingdom: Town, Forest, Sea",
-      "version": "0.1.0",
-      "author": "TextRPG Team",
-      "description": "A complete starter pack with town, forest, and sea regions.",
+      "name": "\u5408\u79df\u516c\u5bd3\u653b\u7565\u6e38\u620f",
+      "version": "1.0.0",
+      "author": "\u73a9\u5bb6",
+      "description": "\u4e00\u4e2a\u6a21\u62df\u5408\u79df\u751f\u6d3b\u3001\u653b\u7565\u5ba4\u53cb\u7684\u5361\u724c\u6e38\u620f\uff0c\u5305\u542b\u597d\u611f\u5ea6\u7cfb\u7edf\u3001\u4e8b\u4ef6\u89e6\u53d1\u548c\u7a81\u53d1\u4e8b\u4ef6UI\u3002",
       "cards_root": "cards",
-      "enabled": true,
+      "enabled": false,
+      "source": "local"
+    },
+    "test111": {
+      "name": "test",
+      "version": "0.1.0",
+      "author": "wiononly",
+      "description": "\u6d4b\u8bd5\u5361\u724c\u5305",
+      "cards_root": "cards",
+      "enabled": false,
       "source": "local"
     }
   }
