@@ -1,0 +1,8 @@
+{
+  "pack_id": "demo_pack",
+  "name": "Demo",
+  "version": "0.1.0",
+  "author": "t",
+  "description": "d",
+  "cards_root": "cards"
+}

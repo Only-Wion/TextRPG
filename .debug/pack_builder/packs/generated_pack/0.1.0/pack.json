@@ -1,0 +1,8 @@
+{
+  "pack_id": "generated_pack",
+  "name": "Generated Pack",
+  "version": "0.1.0",
+  "author": "PackBuilderAgent",
+  "description": "x",
+  "cards_root": "cards"
+}

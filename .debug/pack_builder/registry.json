@@ -1,0 +1,22 @@
+{
+  "packs": {
+    "debug_pack": {
+      "name": "\u76d7\u8d3c\u7684\u5348\u591c\u9003\u4ea1",
+      "version": "1.0.0",
+      "author": "TextRPG Agent",
+      "description": "\u4e00\u4e2a\u5fae\u578b\u897f\u5e7b\u53d9\u4e8b\u4f53\u9a8c\uff1a\u626e\u6f14\u76d7\u8d3c\uff0c\u5728\u57ce\u5821\u4e2d\u5077\u53d6\u5b9d\u7269\u5e76\u9003\u79bb\uff0c\u9762\u4e34\u5b88\u536b\u8ffd\u6355\u548c\u9053\u5fb7\u6289\u62e9\u3002",
+      "cards_root": "cards",
+      "enabled": false,
+      "source": "local"
+    },
+    "generated_pack": {
+      "name": "Generated Pack",
+      "version": "0.1.0",
+      "author": "PackBuilderAgent",
+      "description": "x",
+      "cards_root": "cards",
+      "enabled": false,
+      "source": "local"
+    }
+  }
+}

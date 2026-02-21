@@ -1,0 +1,8 @@
+{
+  "pack_id": "test111",
+  "name": "test",
+  "version": "0.1.0",
+  "author": "wiononly",
+  "description": "\u6d4b\u8bd5\u5361\u724c\u5305",
+  "cards_root": "cards"
+}
