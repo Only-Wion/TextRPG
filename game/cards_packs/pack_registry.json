@@ -15,6 +15,15 @@
       "author": "wiononly",
       "description": "\u6d4b\u8bd5\u5361\u724c\u5305",
       "cards_root": "cards",
+      "enabled": true,
+      "source": "local"
+    },
+    "12138": {
+      "name": "douluodalu",
+      "version": "0.1.0",
+      "author": "wiononly",
+      "description": "daluodaludeshijie",
+      "cards_root": "cards",
       "enabled": false,
       "source": "local"
     }
