@@ -28,6 +28,7 @@ class PackBuilderAgent:
     READ_ONLY_TOOLS = {"list_packs", "list_pack_cards", "list_pack_card_types", "read_card", "audit_pack"}
     WRITE_TOOLS = {"create_pack", "select_pack", "save_card", "batch_save_cards", "delete_card"}
     MAX_AUTORUN_STEPS = 5
+    MAX_PLAN_RETRIES = 3
 
     def __init__(self, service: GameService):
         self.service = service
@@ -243,44 +244,72 @@ class PackBuilderAgent:
             )
 
         tool_schema = {"tools": self.tool_schemas}
-        messages = [
-            SystemMessage(
-                content=(
-                    self.system_prompt
-                    + '\n\nYou must output strict JSON: {"reply":"...","actions":[{"tool":"...","args":{}}]}. '
-                    + "No markdown wrappers. If task done, return empty actions."
-                )
-            ),
-            HumanMessage(
-                content=json.dumps(
-                    {
-                        "user_input": user_input,
-                        "memory": state.get("memory", ""),
-                        "selected_pack_id": state.get("selected_pack_id", ""),
-                        "tool_schema": tool_schema,
-                    },
-                    ensure_ascii=False,
-                )
-            ),
-        ]
-        try:
-            resp = llm.invoke(messages)
-        except Exception as exc:
-            return ActionPlan(reply=f"LLM call failed in planning: {exc}", actions=[])
-        parsed = self._parse_json(str(resp.content))
-        if not parsed:
-            retry_messages = [
-                SystemMessage(content='Return STRICT JSON only: {"reply":"...","actions":[{"tool":"...","args":{}}]}'),
-                HumanMessage(content=str(resp.content)),
+        base_system = (
+            self.system_prompt
+            + '\n\nYou must output strict JSON: {"reply":"...","actions":[{"tool":"...","args":{}}]}. '
+            + "No markdown wrappers. If task done, return empty actions."
+            + " Keep reply concise (<=120 Chinese chars), do not include markdown headings/bullets."
+            + " For batch_save_cards, limit cards per action to <= 4 to avoid output truncation."
+        )
+        base_human_payload = {
+            "user_input": user_input,
+            "memory": state.get("memory", ""),
+            "selected_pack_id": state.get("selected_pack_id", ""),
+            "tool_schema": tool_schema,
+        }
+
+        last_raw = ""
+        last_error = ""
+        for attempt in range(1, self.MAX_PLAN_RETRIES + 1):
+            messages = [
+                SystemMessage(content=base_system),
+                HumanMessage(content=json.dumps(base_human_payload, ensure_ascii=False)),
             ]
+            if attempt > 1:
+                messages.append(
+                    SystemMessage(
+                        content=(
+                            "Previous output was invalid or truncated. Regenerate the full JSON from scratch. "
+                            "Do not continue natural language. Do not output markdown."
+                        )
+                    )
+                )
+                messages.append(
+                    HumanMessage(
+                        content=json.dumps(
+                            {
+                                "retry_reason": last_error or "invalid_json_or_invalid_schema",
+                                "previous_invalid_output": last_raw[-3000:],
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
+                )
             try:
-                retry = llm.invoke(retry_messages)
+                resp = llm.invoke(messages)
             except Exception as exc:
-                return ActionPlan(reply=f"LLM retry failed in planning: {exc}", actions=[])
-            parsed = self._parse_json(str(retry.content))
-        if not parsed:
-            return ActionPlan(reply=str(resp.content), actions=[])
-        return ActionPlan(reply=str(parsed.get("reply", "")), actions=list(parsed.get("actions", [])))
+                return ActionPlan(reply=f"LLM call failed in planning: {exc}", actions=[])
+
+            raw = str(resp.content)
+            parsed, parse_error = self._parse_action_plan(raw)
+            if parsed is not None:
+                return ActionPlan(reply=str(parsed.get("reply", "")), actions=list(parsed.get("actions", [])))
+
+            if self._looks_truncated_json(raw):
+                recovered = self._recover_truncated_plan(llm, raw)
+                recovered_parsed, recovered_error = self._parse_action_plan(recovered)
+                if recovered_parsed is not None:
+                    return ActionPlan(
+                        reply=str(recovered_parsed.get("reply", "")),
+                        actions=list(recovered_parsed.get("actions", [])),
+                    )
+                parse_error = recovered_error or parse_error
+                raw = recovered
+
+            last_raw = raw
+            last_error = parse_error
+
+        return ActionPlan(reply=f"规划输出解析失败（已自动重试{self.MAX_PLAN_RETRIES}次）：{last_error}", actions=[])
 
     def _safe_pack_id(self, raw: str, fallback: str = "generated_pack") -> str:
         base = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(raw or "").strip()).strip("_").lower()
@@ -392,7 +421,20 @@ class PackBuilderAgent:
         }
 
     def _resolve_pack_id(self, raw_pack_id: str, state: Dict[str, Any]) -> str:
-        return self._safe_pack_id(str(raw_pack_id or state.get("selected_pack_id", "")))
+        explicit = self._safe_pack_id(str(raw_pack_id))
+        selected = self._safe_pack_id(str(state.get("selected_pack_id", "")))
+        existing = {str(p.get("pack_id", "")) for p in self.service.list_packs() if p.get("pack_id")}
+
+        if explicit and explicit in existing:
+            return explicit
+        if selected and selected in existing:
+            return selected
+        if explicit:
+            fuzzy = [pid for pid in existing if explicit in pid or pid in explicit]
+            if len(fuzzy) == 1:
+                return fuzzy[0]
+            return explicit
+        return selected
 
     def _tool_list_packs(self) -> str:
         packs = self.service.list_packs()
@@ -529,3 +571,101 @@ class PackBuilderAgent:
             except Exception:
                 return None
         return None
+
+    def _parse_action_plan(self, text: str) -> tuple[Dict[str, Any] | None, str]:
+        parsed = self._parse_json(text)
+        if not parsed:
+            return None, "json_parse_failed"
+
+        reply = parsed.get("reply", "")
+        actions = parsed.get("actions", [])
+        if not isinstance(actions, list):
+            return None, "actions_not_list"
+
+        normalized_actions: List[Dict[str, Any]] = []
+        for item in list(actions):
+            if not isinstance(item, dict):
+                continue
+            tool = str(item.get("tool", "")).strip()
+            args = item.get("args", {})
+            if not tool:
+                continue
+            if not isinstance(args, dict):
+                args = {}
+            normalized_actions.append({"tool": tool, "args": args})
+
+        return {"reply": str(reply), "actions": normalized_actions}, ""
+
+    def _looks_truncated_json(self, text: str) -> bool:
+        stripped = text.strip()
+        if not stripped:
+            return False
+        if "```" in stripped and not stripped.rstrip().endswith("```"):
+            return True
+        if '{"reply"' in stripped and '"actions"' in stripped:
+            return self._has_unclosed_json_brackets(stripped)
+        if stripped.startswith("{") or stripped.startswith("```"):
+            return self._has_unclosed_json_brackets(stripped)
+        return False
+
+    def _has_unclosed_json_brackets(self, text: str) -> bool:
+        content = text.strip()
+        if content.startswith("```"):
+            content = content.strip("`")
+            if content.startswith("json"):
+                content = content[4:].strip()
+
+        in_string = False
+        escaped = False
+        braces = 0
+        brackets = 0
+        for ch in content:
+            if in_string:
+                if escaped:
+                    escaped = False
+                    continue
+                if ch == "\\":
+                    escaped = True
+                    continue
+                if ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                braces += 1
+            elif ch == "}":
+                braces -= 1
+            elif ch == "[":
+                brackets += 1
+            elif ch == "]":
+                brackets -= 1
+
+            if braces < 0 or brackets < 0:
+                return False
+        return in_string or braces > 0 or brackets > 0
+
+    def _recover_truncated_plan(self, llm: Any, partial_text: str) -> str:
+        continuation_messages = [
+            SystemMessage(
+                content=(
+                    "Your previous output was truncated. Return STRICT JSON only with schema "
+                    '{"reply":"...","actions":[{"tool":"...","args":{}}]}. '
+                    "Regenerate the full JSON from scratch, no markdown."
+                )
+            ),
+            HumanMessage(content=partial_text[-4000:]),
+        ]
+        try:
+            continuation_resp = llm.invoke(continuation_messages)
+        except Exception:
+            return partial_text
+        continued = str(continuation_resp.content)
+        if self._parse_json(continued):
+            return continued
+
+        merged = partial_text.rstrip() + continued.lstrip()
+        if self._parse_json(merged):
+            return merged
+        return continued
