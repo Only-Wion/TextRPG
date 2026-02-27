@@ -28,6 +28,7 @@ def get_slot_paths(save_slot: str) -> dict[str, Path]:
         'kg_db_path': data_dir / 'kg.sqlite',
         'world_db_path': data_dir / 'world.sqlite',
         'chat_history_path': data_dir / 'chat_history.json',
+        'ui_panels_path': data_dir / 'ui_panels.json',
     }
 
 @dataclass(frozen=True)
