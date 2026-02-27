@@ -109,6 +109,33 @@ def render_play_page() -> None:
     with st.sidebar.expander("World Facts", expanded=False):
         st.json(state_view.get("world_facts", {}))
 
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("UI Agent")
+    ui_update_mode = st.sidebar.selectbox(
+        "Update Mode",
+        options=["manual", "auto"],
+        index=0 if state_view.get("ui_update_mode", "manual") == "manual" else 1,
+    )
+    service.set_ui_update_mode(ui_update_mode)
+    if ui_update_mode == "auto":
+        every = int(state_view.get("ui_auto_update_every", 1) or 1)
+        ui_every = st.sidebar.number_input(
+            "Auto Update Every (turns)",
+            min_value=1,
+            max_value=50,
+            step=1,
+            value=every,
+        )
+        service.set_ui_auto_update_every(ui_every)
+    st.sidebar.caption(f"Generation: {state_view.get('ui_generation_status', 'idle')}")
+    st.sidebar.caption(f"Update: {state_view.get('ui_update_status', 'idle')}")
+    if st.sidebar.button("Generate UI"):
+        service.trigger_ui_generation(force=True)
+        st.rerun()
+    if st.sidebar.button("Update UI"):
+        service.trigger_ui_update()
+        st.rerun()
+
     with st.sidebar.expander("Debug Info", expanded=False):
         st.write("Retrieved Cards")
         st.write(state_view.get("retrieved_cards", []))
@@ -124,4 +151,3 @@ def render_play_page() -> None:
         service.step(user_input.strip())
         st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-

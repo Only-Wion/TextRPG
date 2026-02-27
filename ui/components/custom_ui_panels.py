@@ -9,6 +9,7 @@ import streamlit.components.v1 as components
 
 def render_custom_ui_panels(state_view: dict[str, Any]) -> None:
     panels = state_view.get("custom_ui_panels", [])
+    save_slot = state_view.get("save_slot", "default")
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("Custom UI Panels")
@@ -30,6 +31,7 @@ def render_custom_ui_panels(state_view: dict[str, Any]) -> None:
         f"""
         <script>
         const panels = {payload};
+        const SAVE_SLOT = {json.dumps(str(save_slot))};
         const doc = window.parent.document;
         const ROOT_ID = 'textrpg-custom-ui-root';
         const STYLE_ID = 'textrpg-custom-ui-style';
@@ -74,12 +76,23 @@ def render_custom_ui_panels(state_view: dict[str, Any]) -> None:
           const w = Number(layout.width ?? 360);
           const h = Number(layout.height ?? 280);
 
+          const storageKey = `textrpg-ui-layout-${{SAVE_SLOT}}-${{panel.panel_id}}`;
+          try {{
+            const cached = JSON.parse(localStorage.getItem(storageKey) || 'null');
+            if (cached && typeof cached === 'object') {{
+              if (cached.x != null) layout.x = cached.x;
+              if (cached.y != null) layout.y = cached.y;
+              if (cached.width != null) layout.width = cached.width;
+              if (cached.height != null) layout.height = cached.height;
+            }}
+          }} catch (e) {{}}
+
           const panelEl = doc.createElement('div');
           panelEl.className = 'custom-ui-panel';
-          panelEl.style.left = `${{x}}px`;
-          panelEl.style.top = `${{y}}px`;
-          panelEl.style.width = `${{w}}px`;
-          panelEl.style.height = `${{h}}px`;
+          panelEl.style.left = `${{Number(layout.x ?? x)}}px`;
+          panelEl.style.top = `${{Number(layout.y ?? y)}}px`;
+          panelEl.style.width = `${{Number(layout.width ?? w)}}px`;
+          panelEl.style.height = `${{Number(layout.height ?? h)}}px`;
 
           const header = doc.createElement('div');
           header.className = 'custom-ui-header';
@@ -87,36 +100,41 @@ def render_custom_ui_panels(state_view: dict[str, Any]) -> None:
 
           const body = doc.createElement('div');
           body.className = 'custom-ui-body';
+          body.style.whiteSpace = 'pre-line';
 
-          for (const section of (panel.sections || [])) {{
-            const sectionWrap = doc.createElement('div');
-            sectionWrap.className = 'custom-ui-section';
-            const h5 = doc.createElement('h5');
-            h5.textContent = String(section.title ?? 'Section');
-            sectionWrap.appendChild(h5);
+          if (panel.html) {{
+            body.innerHTML = String(panel.html);
+          }} else {{
+            for (const section of (panel.sections || [])) {{
+              const sectionWrap = doc.createElement('div');
+              sectionWrap.className = 'custom-ui-section';
+              const h5 = doc.createElement('h5');
+              h5.textContent = String(section.title ?? 'Section');
+              sectionWrap.appendChild(h5);
 
-            const entries = section.entries || [];
-            if (!entries.length) {{
-              const empty = doc.createElement('div');
-              empty.className = 'custom-ui-empty';
-              empty.textContent = String(section.empty_text ?? 'No data');
-              sectionWrap.appendChild(empty);
-            }} else {{
-              for (const entry of entries) {{
-                const item = doc.createElement('div');
-                item.className = 'custom-ui-item';
-                if (entry && typeof entry === 'object' && ('key' in entry)) {{
-                  const keyStrong = doc.createElement('b');
-                  keyStrong.textContent = String(entry.key);
-                  item.appendChild(keyStrong);
-                  item.appendChild(doc.createTextNode(': ' + String(entry.value)));
-                }} else {{
-                  item.textContent = String(entry);
+              const entries = section.entries || [];
+              if (!entries.length) {{
+                const empty = doc.createElement('div');
+                empty.className = 'custom-ui-empty';
+                empty.textContent = String(section.empty_text ?? 'No data');
+                sectionWrap.appendChild(empty);
+              }} else {{
+                for (const entry of entries) {{
+                  const item = doc.createElement('div');
+                  item.className = 'custom-ui-item';
+                  if (entry && typeof entry === 'object' && ('key' in entry)) {{
+                    const keyStrong = doc.createElement('b');
+                    keyStrong.textContent = String(entry.key);
+                    item.appendChild(keyStrong);
+                    item.appendChild(doc.createTextNode(': ' + String(entry.value)));
+                  }} else {{
+                    item.textContent = String(entry);
+                  }}
+                  sectionWrap.appendChild(item);
                 }}
-                sectionWrap.appendChild(item);
               }}
+              body.appendChild(sectionWrap);
             }}
-            body.appendChild(sectionWrap);
           }}
 
           panelEl.appendChild(header);
@@ -145,6 +163,24 @@ def render_custom_ui_panels(state_view: dict[str, Any]) -> None:
           const stopDragging = () => {{ dragging = false; }};
           header.addEventListener('pointerup', stopDragging);
           header.addEventListener('pointercancel', stopDragging);
+
+          const saveLayout = () => {{
+            const payload = {{
+              x: panelEl.offsetLeft,
+              y: panelEl.offsetTop,
+              width: panelEl.offsetWidth,
+              height: panelEl.offsetHeight,
+            }};
+            try {{ localStorage.setItem(storageKey, JSON.stringify(payload)); }} catch (e) {{}}
+          }};
+
+          header.addEventListener('pointerup', saveLayout);
+          header.addEventListener('pointercancel', saveLayout);
+
+          if (window.ResizeObserver) {{
+            const ro = new ResizeObserver(() => saveLayout());
+            ro.observe(panelEl);
+          }}
         }}
         </script>
         """,
@@ -165,4 +201,3 @@ def clear_custom_ui_panels() -> None:
         height=0,
         scrolling=False,
     )
-

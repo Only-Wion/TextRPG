@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import json
+import threading
 
 from ..config import CARDS_DIR, get_slot_paths, load_runtime_llm_settings, save_runtime_llm_settings
 from ..core.card_repository import CardRepository
@@ -16,7 +17,7 @@ from ..packs.manager import PackManager
 from ..packs.registry import PackRecord
 from ..packs.card_editor import DEFAULT_CARD_TYPES, parse_card, render_card, validate_card
 from ..packs.validator import validate_manifest
-from .ui_agents import UICardPlannerAgent, UIPanelStateAgent
+from .ui_agents import UICardPlannerAgent, UIPanelStateAgent, UIPanelUpdateAgent
 
 
 @dataclass
@@ -39,6 +40,10 @@ class GameService:
         self._session: GameSession | None = None
         self.ui_planner = UICardPlannerAgent()
         self.ui_state_agent = UIPanelStateAgent()
+        self.ui_update_agent = UIPanelUpdateAgent()
+        self._ui_lock = threading.Lock()
+        self._ui_gen_thread: threading.Thread | None = None
+        self._ui_update_thread: threading.Thread | None = None
 
     def start_new_game(self, save_slot: str, pack_ids: Optional[List[str]] = None, language: Optional[str] = None) -> None:
         """开启新游戏会话，可选启用指定卡包。"""
@@ -46,10 +51,12 @@ class GameService:
             for record in self.pack_manager.list_packs():
                 self.pack_manager.enable_pack(record.pack_id, record.pack_id in pack_ids)
         self._session = self._build_session(save_slot, language=language)
+        self._schedule_ui_generation(force=True)
 
     def load_game(self, save_slot: str, language: Optional[str] = None) -> None:
         """加载指定存档槽位的游戏会话。"""
         self._session = self._build_session(save_slot, language=language)
+        self._schedule_ui_generation(force=False)
 
     def step(self, input_text: str) -> Dict[str, Any]:
         """推进一回合的 LangGraph 流程。"""
@@ -67,7 +74,14 @@ class GameService:
         session.state['chat_history'] = history
         session.state['recent_messages'] = history[-10:]
         self._refresh_world_facts(session)
-        self._refresh_custom_ui_panels(session)
+        if session.state.get('ui_update_mode', 'manual') == 'auto':
+            every = int(session.state.get('ui_auto_update_every', 1) or 1)
+            if every <= 0:
+                every = 1
+            if session.state['turn_id'] % every == 0:
+                self._schedule_ui_update()
+        else:
+            self._refresh_custom_ui_panels(session)
         self._save_chat_history(session)
         return result
 
@@ -93,6 +107,11 @@ class GameService:
             'validated_ops': state.get('validated_ops', []),
             'errors': state.get('errors', []),
             'custom_ui_panels': state.get('custom_ui_panels', []),
+            'save_slot': state.get('save_slot'),
+            'ui_generation_status': state.get('ui_generation_status', 'idle'),
+            'ui_update_status': state.get('ui_update_status', 'idle'),
+            'ui_update_mode': state.get('ui_update_mode', 'manual'),
+            'ui_auto_update_every': state.get('ui_auto_update_every', 1),
         }
 
 
@@ -266,7 +285,7 @@ class GameService:
                     kg.add_edge(rel['subject_id'], rel['relation'], rel['object_id'], 0.9, 'bootstrap')
         app = build_graph(repo, rag, world, kg, rules)
         ui_cards = list(repo.by_type('ui'))
-        ui_panel_defs = self.ui_planner.plan(ui_cards)
+        ui_panel_defs = self._load_ui_panels(paths['ui_panels_path'])
         quest_catalog = self._collect_quest_catalog(repo)
         state = {
             'turn_id': 0,
@@ -279,6 +298,10 @@ class GameService:
             'custom_ui_panel_defs': ui_panel_defs,
             'custom_ui_panels': [],
             'quest_catalog': quest_catalog,
+            'ui_generation_status': 'ready' if ui_panel_defs else 'pending',
+            'ui_update_status': 'idle',
+            'ui_update_mode': 'manual',
+            'ui_auto_update_every': 1,
         }
         history = self._load_chat_history(paths['chat_history_path'])
         if history:
@@ -312,6 +335,129 @@ class GameService:
         history = session.state.get('chat_history', [])
         quest_catalog = session.state.get('quest_catalog', [])
         session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history, quest_catalog)
+
+    def set_ui_update_mode(self, mode: str) -> None:
+        """设置 UI 更新模式（auto/manual）。"""
+        if not self._session:
+            return
+        self._session.state['ui_update_mode'] = 'auto' if mode == 'auto' else 'manual'
+
+    def set_ui_auto_update_every(self, turns: int) -> None:
+        """设置自动更新的回合间隔。"""
+        if not self._session:
+            return
+        turns = int(turns or 1)
+        if turns <= 0:
+            turns = 1
+        self._session.state['ui_auto_update_every'] = turns
+
+    def trigger_ui_generation(self, force: bool = False) -> None:
+        """手动触发 UI 生成。"""
+        if not self._session:
+            return
+        self._schedule_ui_generation(force=force)
+
+    def trigger_ui_update(self) -> None:
+        """手动触发 UI 更新。"""
+        if not self._session:
+            return
+        self._schedule_ui_update()
+
+    def _schedule_ui_generation(self, force: bool) -> None:
+        if not self._session:
+            return
+        if self._ui_gen_thread and self._ui_gen_thread.is_alive():
+            return
+        thread = threading.Thread(target=self._generate_ui_panels, args=(force,), daemon=True)
+        self._ui_gen_thread = thread
+        thread.start()
+
+    def _schedule_ui_update(self) -> None:
+        if not self._session:
+            return
+        if self._ui_update_thread and self._ui_update_thread.is_alive():
+            return
+        thread = threading.Thread(target=self._update_ui_panels, daemon=True)
+        self._ui_update_thread = thread
+        thread.start()
+
+    def _generate_ui_panels(self, force: bool) -> None:
+        if not self._session:
+            return
+        with self._ui_lock:
+            session = self._session
+        try:
+            paths = get_slot_paths(session.save_slot)
+            cached = self._load_ui_panels(paths['ui_panels_path'])
+            if cached and not force:
+                with self._ui_lock:
+                    if session is self._session:
+                        session.state['custom_ui_panel_defs'] = cached
+                        session.state['ui_generation_status'] = 'ready'
+                if session is self._session:
+                    self._refresh_custom_ui_panels(session)
+                return
+
+            with self._ui_lock:
+                if session is self._session:
+                    session.state['ui_generation_status'] = 'running'
+
+            rag_lookup = self._build_ui_rag_lookup(session)
+            panels = self.ui_planner.plan(
+                list(session.repo.by_type('ui')),
+                world_facts=session.state.get('world_facts', {}),
+                chat_history=session.state.get('chat_history', []),
+                rag_lookup=rag_lookup,
+            )
+            with self._ui_lock:
+                if session is self._session:
+                    session.state['custom_ui_panel_defs'] = panels
+                    session.state['ui_generation_status'] = 'ready'
+            if session is self._session:
+                self._save_ui_panels(paths['ui_panels_path'], panels)
+                self._refresh_custom_ui_panels(session)
+        except Exception:
+            with self._ui_lock:
+                if session is self._session:
+                    session.state['ui_generation_status'] = 'error'
+
+    def _update_ui_panels(self) -> None:
+        if not self._session:
+            return
+        with self._ui_lock:
+            session = self._session
+            session.state['ui_update_status'] = 'running'
+        try:
+            rag_lookup = self._build_ui_rag_lookup(session)
+            updated = self.ui_update_agent.update(
+                session.state.get('custom_ui_panel_defs', []),
+                world_facts=session.state.get('world_facts', {}),
+                chat_history=session.state.get('chat_history', []),
+                rag_lookup=rag_lookup,
+            )
+            with self._ui_lock:
+                if session is self._session:
+                    session.state['custom_ui_panel_defs'] = updated
+                    session.state['ui_update_status'] = 'ready'
+            if session is self._session:
+                paths = get_slot_paths(session.save_slot)
+                self._save_ui_panels(paths['ui_panels_path'], updated)
+                self._refresh_custom_ui_panels(session)
+        except Exception:
+            with self._ui_lock:
+                if session is self._session:
+                    session.state['ui_update_status'] = 'error'
+
+    def _build_ui_rag_lookup(self, session: GameSession) -> Dict[str, List[Dict[str, Any]]]:
+        lookup: Dict[str, List[Dict[str, Any]]] = {}
+        recent = session.state.get('recent_messages', [])
+        recent_text = ''
+        if isinstance(recent, list):
+            recent_text = '\n'.join(str(m.get('content', '')) for m in recent if isinstance(m, dict))
+        for card in session.repo.by_type('ui'):
+            query = f"{card.id} {card.type} {recent_text}".strip()
+            lookup[card.id] = session.rag.search(query, k=4)
+        return lookup
 
 
     def _collect_quest_catalog(self, repo: CardRepository) -> List[Dict[str, Any]]:
@@ -370,6 +516,23 @@ class GameService:
         except Exception:
             return []
         return []
+
+    def _load_ui_panels(self, path: Path) -> List[Dict[str, Any]]:
+        """从存档读取已生成的 UI 面板定义。"""
+        if not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            if isinstance(data, list):
+                return [p for p in data if isinstance(p, dict)]
+        except Exception:
+            return []
+        return []
+
+    def _save_ui_panels(self, path: Path, panels: List[Dict[str, Any]]) -> None:
+        """保存 UI 面板定义到存档。"""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(panels, ensure_ascii=False, indent=2), encoding='utf-8')
 
     def _save_chat_history(self, session: GameSession) -> None:
         """将聊天记录写入存档文件。"""
