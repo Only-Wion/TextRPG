@@ -13,6 +13,7 @@ PACK_REGISTRY_PATH = PACKS_DIR / 'pack_registry.json'
 ENGINE_VERSION = '0.1.0'
 
 DATA_DIR = PROJECT_ROOT / 'data' / 'saves' / 'slot_001'
+SAVES_DIR = PROJECT_ROOT / 'data' / 'saves'
 SNAPSHOT_DIR = DATA_DIR / 'state_snapshot'
 RAG_DIR = DATA_DIR / 'rag'
 KG_DB_PATH = DATA_DIR / 'kg.sqlite'
@@ -20,7 +21,7 @@ WORLD_DB_PATH = DATA_DIR / 'world.sqlite'
 
 def get_slot_paths(save_slot: str) -> dict[str, Path]:
     """返回指定存档槽位的持久化路径。"""
-    data_dir = PROJECT_ROOT / 'data' / 'saves' / save_slot
+    data_dir = SAVES_DIR / save_slot
     return {
         'data_dir': data_dir,
         'snapshot_dir': data_dir / 'state_snapshot',
@@ -29,6 +30,7 @@ def get_slot_paths(save_slot: str) -> dict[str, Path]:
         'world_db_path': data_dir / 'world.sqlite',
         'chat_history_path': data_dir / 'chat_history.json',
         'ui_panels_path': data_dir / 'ui_panels.json',
+        'session_meta_path': data_dir / 'session_meta.json',
     }
 
 @dataclass(frozen=True)
@@ -37,6 +39,8 @@ class Settings:
     model_name: str = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     embedding_model: str = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
     base_url: str = os.getenv('OPENAI_BASE_URL', '')
+    storage_backend: str = os.getenv('TEXTRPG_STORAGE_BACKEND', 'local')
+    postgres_dsn: str = os.getenv('TEXTRPG_POSTGRES_DSN', '')
     top_k_cards: int = 6
     top_k_memories: int = 4
     max_recent_messages: int = 6

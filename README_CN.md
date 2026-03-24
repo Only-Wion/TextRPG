@@ -29,6 +29,31 @@ streamlit run ui/app.py
 
 UI 提供三个页面：Play（游玩）、Pack Manager（资源包管理）、Card Designer（卡牌设计）。
 
+## 启动后端 API（FastAPI）
+
+```
+uvicorn backend.main:app --reload
+```
+
+接口文档契约见：
+
+- `docs/api/http-api.md`
+- `docs/api/frontend-contracts.md`
+- `docs/data-contracts/game-session.md`
+- `docs/data-contracts/pack-and-settings.md`
+- `docs/migration/cloud-handoff.md`
+
+存储后端相关环境变量：
+
+- `TEXTRPG_STORAGE_BACKEND=local|postgres`
+- `TEXTRPG_POSTGRES_DSN=...`
+
+说明：
+- 当前默认使用 `local`
+- `postgres` 路径目前只完成了代码骨架，还没有真正实现数据库读写
+- PostgreSQL 目标数据模型见 `docs/data-contracts/postgres-storage-model.md`
+- 切换到云服务器前后的交接说明见 `docs/migration/cloud-handoff.md`
+
 ## 卡牌与规则
 
 - 内置卡牌在 `game/cards/`。
@@ -206,6 +231,19 @@ scripts/run_ui.sh
 ```
 pytest
 ```
+
+## 接口文档与架构文档
+
+项目内的接口契约、分层规则、数据结构和运行时流程文档统一维护在 `docs/` 目录下。
+
+建议阅读顺序：
+
+1. `docs/README.md`
+2. `docs/architecture/layers.md`
+3. `docs/architecture/module-map.md`
+4. `docs/api/application-services.md`
+5. `docs/api/http-api.md`
+6. `docs/api/repositories.md`
 
 
 ## 自定义 UI 卡牌（新增）

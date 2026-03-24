@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# virtual environment
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+# frontend
+node_modules/.next/
+dist/
+coverage/
+
+# local temp
+.tmp/
+
+# npm cache.npm-cache/
+frontend/.npm-cache/
+
+.conda/
+pytest-cache-files-*/
+data/llm_settings.json
+data/saves/
+
