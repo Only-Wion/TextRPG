@@ -30,3 +30,9 @@ pytest-cache-files-*/
 data/llm_settings.json
 data/saves/
 
+
+# explicit frontend runtime artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+game/cards_packs/pack_registry.json
