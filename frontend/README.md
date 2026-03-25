@@ -21,6 +21,18 @@ This directory contains the local Next.js frontend for the TextRPG web applicati
 
 If neither variable is set, the frontend defaults to `http://127.0.0.1:8000`.
 
+## Local Run Notes
+
+- Run FastAPI on `http://127.0.0.1:8000`
+- Run Next.js on `http://127.0.0.1:3000`
+- Browser-triggered write actions depend on FastAPI CORS allowing the local frontend origin
+
+If a button shows `Failed to fetch` in local development, check:
+- the backend is running on port `8000`
+- the frontend is running on port `3000`
+- the backend was restarted after CORS or route changes
+- the button is not one of the documented placeholders on `/sessions` or `/packs`
+
 ## Contract References
 
 - `docs/api/frontend-contracts.md`

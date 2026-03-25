@@ -129,6 +129,37 @@ Notes:
 - Session summaries are read from local save-slot metadata when present.
 - Older save slots without metadata are backfilled from filesystem timestamps plus safe defaults.
 
+### `POST /game/sessions/{slot_id}/duplicate`
+
+Purpose:
+- Duplicate an existing save slot into a new slot.
+
+Request body:
+```json
+{
+  "target_slot": "slot_001_copy_01"
+}
+```
+
+Notes:
+- `target_slot` is optional.
+- When omitted, the backend auto-generates a unique copy slot id.
+- Response matches `SessionManagerResponse`.
+
+### `POST /game/sessions/{slot_id}/archive`
+
+Purpose:
+- Archive an existing save slot out of the active session inventory.
+
+Request body:
+```json
+{}
+```
+
+Notes:
+- Archived slots are moved from `data/saves/` to `data/archives/`.
+- Response matches `SessionManagerResponse`.
+
 ### `PATCH /game/ui-mode`
 
 Purpose:
@@ -194,6 +225,39 @@ Request body:
 }
 ```
 
+### `DELETE /packs/{pack_id}`
+
+Purpose:
+- Remove a local pack from the installed-pack inventory.
+
+Response:
+```json
+{
+  "ok": true
+}
+```
+
+Notes:
+- Builtin packs are protected and return a validation error when removal is requested.
+
+### `POST /packs/{pack_id}/export`
+
+Purpose:
+- Export a pack into the local runtime exports directory.
+
+Response:
+```json
+{
+  "ok": true,
+  "pack_id": "starter_kingdom",
+  "export_path": "E:/TextRPG/data/exports/starter_kingdom-0.1.0.zip"
+}
+```
+
+Notes:
+- This is currently a local-development convenience endpoint.
+- It does not stream a download yet; it returns the generated file path.
+
 ### `GET /settings/llm`
 ### `PUT /settings/llm`
 
@@ -209,6 +273,19 @@ The current shell is implemented in:
 - `backend/errors.py`
 - `backend/api/routes/*.py`
 - `backend/schemas/*.py`
+
+## Local Web Development
+
+- The Next.js frontend runs on `http://127.0.0.1:3000` during local development.
+- The FastAPI backend runs on `http://127.0.0.1:8000`.
+- `backend/main.py` enables CORS for:
+  - `http://127.0.0.1:3000`
+  - `http://localhost:3000`
+
+Notes:
+- Without this CORS allowance, browser-triggered write requests such as `POST /game/start`,
+  `POST /game/step`, `PATCH /packs/{pack_id}/enabled`, and `PUT /settings/llm` will fail in
+  local development with a generic `Failed to fetch` error.
 
 ## Error Mapping
 

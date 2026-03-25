@@ -14,6 +14,8 @@ ENGINE_VERSION = '0.1.0'
 
 DATA_DIR = PROJECT_ROOT / 'data' / 'saves' / 'slot_001'
 SAVES_DIR = PROJECT_ROOT / 'data' / 'saves'
+ARCHIVES_DIR = PROJECT_ROOT / 'data' / 'archives'
+EXPORTS_DIR = PROJECT_ROOT / 'data' / 'exports'
 SNAPSHOT_DIR = DATA_DIR / 'state_snapshot'
 RAG_DIR = DATA_DIR / 'rag'
 KG_DB_PATH = DATA_DIR / 'kg.sqlite'

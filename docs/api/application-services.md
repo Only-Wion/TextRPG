@@ -112,6 +112,27 @@ Returns canonical fields:
 - `last_sync_label`
 - `sessions`
 
+### `duplicate_session(source_slot, target_slot=None) -> dict`
+
+Behavior:
+- Copies a save slot to a new slot directory.
+- Auto-generates a target slot id when `target_slot` is omitted.
+- Returns the refreshed session inventory view with the new slot selected.
+
+Inputs:
+- `source_slot: str`
+- `target_slot: str | None`
+
+### `archive_session(save_slot) -> dict`
+
+Behavior:
+- Moves a save slot out of the active saves directory into the local archives directory.
+- Clears the active in-memory session when archiving the currently loaded slot.
+- Returns the refreshed session inventory view after removal.
+
+Inputs:
+- `save_slot: str`
+
 ### `set_language(language) -> None`
 
 Behavior:
@@ -161,8 +182,17 @@ Returns pack records with:
 ### `remove_pack(pack_id) -> None`
 ### `enable_pack(pack_id, enabled) -> None`
 ### `export_pack(pack_id, output_path) -> None`
+### `export_pack_to_runtime_exports(pack_id) -> dict`
 ### `create_pack(manifest) -> None`
 ### `export_pack_manifest(data) -> None`
+
+Notes:
+- `remove_pack(pack_id)` rejects builtin packs.
+- `export_pack_to_runtime_exports(pack_id)` writes a ZIP to the local runtime exports directory
+  and returns:
+  - `ok`
+  - `pack_id`
+  - `export_path`
 
 Card editing methods currently exposed through the same facade:
 - `list_pack_card_types(pack_id) -> list[str]`

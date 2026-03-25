@@ -7,12 +7,21 @@ Route:
 
 Key regions:
 - sidebar navigation
-- hero session banner
-- scene state strip
-- narration feed
-- command composer
-- session and world summary rail
+- collapsible shared sidebar handle
+- collapsible top control drawer
+- left-sidebar inspector groups for world facts, UI agent, and debug info
+- fixed-height narration transcript with internal scroll
+- sticky bottom command composer
 - inline command error feedback
+
+Current interactive behaviors:
+- transcript auto-scrolls to the latest message
+- submitted turns animate the final narration into the transcript after the turn response returns
+- `Start` routes to `/setup`
+- `Load` routes to `/sessions`
+- shared sidebar handle collapses and expands the left rail locally
+- top drawer handle expands/collapses the control strip locally
+- the left sidebar keeps its own scroll region when inspector content grows taller than the viewport
 
 Current data sources:
 - `frontend/lib/api.ts#getGameStateView`
@@ -25,7 +34,9 @@ Route:
 
 Key regions:
 - left navigation
+- shared collapsible sidebar handle
 - save-slot list
+- in-place create-session panel
 - current selection summary
 - quick actions
 - session notes
@@ -33,7 +44,11 @@ Key regions:
 Current data sources:
 - `frontend/lib/api.ts#getSessionManagerView`
 - primary backend route: `GET /game/sessions`
+- `frontend/lib/api.ts#getPacks`
+- `frontend/lib/api.ts#startGameSession`
 - `frontend/lib/api.ts#loadGameSession`
+- `frontend/lib/api.ts#duplicateGameSession`
+- `frontend/lib/api.ts#archiveGameSession`
 - fallback: `frontend/lib/mock-data.ts#createMockSessionManagerView`
 
 ## Pack Manager View
@@ -43,7 +58,9 @@ Route:
 
 Key regions:
 - installed pack table
+- shared collapsible sidebar handle
 - enable / disable toggle
+- remove action
 - install from URL
 - install from ZIP
 - export pack
@@ -51,6 +68,8 @@ Key regions:
 Current data sources:
 - `frontend/lib/api.ts#getPacks`
 - `frontend/lib/api.ts#setPackEnabled`
+- `frontend/lib/api.ts#removePack`
+- `frontend/lib/api.ts#exportPack`
 
 ## Settings View
 
@@ -59,6 +78,7 @@ Route:
 
 Key regions:
 - settings form
+- shared collapsible sidebar handle
 - mock toggles
 - save action
 - current settings preview
@@ -74,6 +94,7 @@ Route:
 
 Key regions:
 - session bootstrap header
+- shared collapsible sidebar handle
 - three-step preflight strip
 - slot and language cards
 - selected packs summary card

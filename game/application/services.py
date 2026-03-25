@@ -27,6 +27,12 @@ class SessionService:
     def list_sessions(self) -> dict[str, Any]:
         return self._game_service.list_sessions()
 
+    def duplicate_session(self, source_slot: str, target_slot: str | None = None) -> dict[str, Any]:
+        return self._game_service.duplicate_session(source_slot, target_slot)
+
+    def archive_session(self, save_slot: str) -> dict[str, Any]:
+        return self._game_service.archive_session(save_slot)
+
     def set_language(self, language: str) -> None:
         self._game_service.set_language(language)
 
@@ -66,6 +72,9 @@ class PackService:
 
     def export_pack(self, pack_id: str, output_path: Path) -> None:
         self._game_service.export_pack(pack_id, output_path)
+
+    def export_pack_to_runtime_exports(self, pack_id: str) -> dict[str, Any]:
+        return self._game_service.export_pack_to_runtime_exports(pack_id)
 
     def create_pack(self, manifest: dict[str, Any]) -> None:
         self._game_service.create_pack(manifest)

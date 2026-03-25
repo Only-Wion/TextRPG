@@ -110,8 +110,18 @@ export type LoadGameRequest = {
   language?: string;
 };
 
+export type DuplicateSessionRequest = {
+  target_slot?: string;
+};
+
 export type PackEnabledRequest = {
   enabled: boolean;
+};
+
+export type PackExportResponse = {
+  ok: boolean;
+  pack_id: string;
+  export_path: string;
 };
 
 export type StepRequest = {

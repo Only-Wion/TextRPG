@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { setPackEnabled } from "../lib/api";
+import { exportPack, removePack, setPackEnabled } from "../lib/api";
 import type { PackRecord } from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
@@ -14,6 +14,7 @@ export function PacksShell({ packs }: PacksShellProps) {
   const [runtimePacks, setRuntimePacks] = useState(packs);
   const [busyPackId, setBusyPackId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const exportCandidate = useMemo(
     () => runtimePacks.find((pack) => pack.enabled) ?? runtimePacks[0] ?? null,
@@ -23,6 +24,7 @@ export function PacksShell({ packs }: PacksShellProps) {
   async function handleToggle(packId: string, enabled: boolean) {
     setBusyPackId(packId);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       await setPackEnabled(packId, enabled);
@@ -31,6 +33,37 @@ export function PacksShell({ packs }: PacksShellProps) {
       );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to update the pack.");
+    } finally {
+      setBusyPackId(null);
+    }
+  }
+
+  async function handleRemove(packId: string) {
+    setBusyPackId(packId);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await removePack(packId);
+      setRuntimePacks((current) => current.filter((pack) => pack.pack_id !== packId));
+      setSuccessMessage(`Removed pack: ${packId}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to remove the pack.");
+    } finally {
+      setBusyPackId(null);
+    }
+  }
+
+  async function handleExport(packId: string) {
+    setBusyPackId(packId);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await exportPack(packId);
+      setSuccessMessage(`Exported ${response.pack_id} to ${response.export_path}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to export the pack.");
     } finally {
       setBusyPackId(null);
     }
@@ -75,13 +108,22 @@ export function PacksShell({ packs }: PacksShellProps) {
                       />
                       <span>{pack.enabled ? "Enabled" : "Disabled"}</span>
                     </label>
-                    <button className="table-action-button" disabled type="button">
-                      Remove
+                    <button
+                      className="table-action-button"
+                      disabled={busyPackId === pack.pack_id || pack.source === "builtin"}
+                      onClick={() => handleRemove(pack.pack_id)}
+                      type="button"
+                    >
+                      {busyPackId === pack.pack_id ? "Working..." : "Remove"}
                     </button>
                   </div>
                 ))}
               </div>
               {errorMessage ? <div className="light-error-banner">{errorMessage}</div> : null}
+              {successMessage ? <div className="light-success-banner">{successMessage}</div> : null}
+              <div className="light-inline-note">
+                Builtin packs are protected from removal. Local packs can be removed from this view.
+              </div>
             </section>
 
             <section className="light-card light-form-card">
@@ -107,13 +149,17 @@ export function PacksShell({ packs }: PacksShellProps) {
                   readOnly
                   value={exportCandidate?.pack_id ?? "No pack selected"}
                 />
-                <button className="light-action-button new disabled" disabled type="button">
-                  Export
+                <button
+                  className="light-action-button new"
+                  disabled={!exportCandidate || !!busyPackId}
+                  onClick={() => exportCandidate && handleExport(exportCandidate.pack_id)}
+                  type="button"
+                >
+                  {busyPackId === exportCandidate?.pack_id ? "Exporting..." : "Export"}
                 </button>
               </div>
               <div className="light-inline-note">
-                Install and export actions remain UI placeholders until file upload and download
-                endpoints are added.
+                Export writes a ZIP into the local runtime exports directory and returns the path.
               </div>
             </section>
           </div>

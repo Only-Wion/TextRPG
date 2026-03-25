@@ -1,7 +1,7 @@
 import { SessionsShell } from "../../components/sessions-shell";
-import { getSessionManagerView } from "../../lib/api";
+import { getPacks, getSessionManagerView } from "../../lib/api";
 
 export default async function SessionsPage() {
-  const view = await getSessionManagerView();
-  return <SessionsShell view={view} />;
+  const [view, availablePacks] = await Promise.all([getSessionManagerView(), getPacks()]);
+  return <SessionsShell availablePacks={availablePacks} view={view} />;
 }

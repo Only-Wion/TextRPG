@@ -29,6 +29,8 @@ frontend/.npm-cache/
 pytest-cache-files-*/
 data/llm_settings.json
 data/saves/
+data/archives/
+data/exports/
 
 
 # explicit frontend runtime artifacts

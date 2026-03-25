@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from ...deps import get_session_service
 from ...schemas.common import OkResponse
 from ...schemas.game import (
+    DuplicateSessionRequest,
     GameActionResponse,
     LoadGameRequest,
     SessionManagerResponse,
@@ -54,6 +55,23 @@ def get_game_state(service: SessionService = Depends(get_session_service)) -> di
 @router.get("/sessions", response_model=SessionManagerResponse)
 def get_sessions(service: SessionService = Depends(get_session_service)) -> SessionManagerResponse:
     return SessionManagerResponse(**service.list_sessions())
+
+
+@router.post("/sessions/{slot_id}/duplicate", response_model=SessionManagerResponse)
+def duplicate_session(
+    slot_id: str,
+    payload: DuplicateSessionRequest,
+    service: SessionService = Depends(get_session_service),
+) -> SessionManagerResponse:
+    return SessionManagerResponse(**service.duplicate_session(slot_id, payload.target_slot))
+
+
+@router.post("/sessions/{slot_id}/archive", response_model=SessionManagerResponse)
+def archive_session(
+    slot_id: str,
+    service: SessionService = Depends(get_session_service),
+) -> SessionManagerResponse:
+    return SessionManagerResponse(**service.archive_session(slot_id))
 
 
 @router.patch("/ui-mode", response_model=OkResponse)

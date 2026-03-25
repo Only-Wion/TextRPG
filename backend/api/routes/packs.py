@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from ...deps import get_pack_service
 from ...schemas.common import OkResponse
-from ...schemas.packs import PackEnabledRequest
+from ...schemas.packs import PackEnabledRequest, PackExportResponse
 from game.application.services import PackService
 
 router = APIRouter(prefix="/packs", tags=["packs"])
@@ -25,3 +25,20 @@ def set_pack_enabled(
 ) -> OkResponse:
     service.enable_pack(pack_id, payload.enabled)
     return OkResponse(ok=True)
+
+
+@router.delete("/{pack_id}", response_model=OkResponse)
+def remove_pack(
+    pack_id: str,
+    service: PackService = Depends(get_pack_service),
+) -> OkResponse:
+    service.remove_pack(pack_id)
+    return OkResponse(ok=True)
+
+
+@router.post("/{pack_id}/export", response_model=PackExportResponse)
+def export_pack(
+    pack_id: str,
+    service: PackService = Depends(get_pack_service),
+) -> PackExportResponse:
+    return PackExportResponse(**service.export_pack_to_runtime_exports(pack_id))

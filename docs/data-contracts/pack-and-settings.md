@@ -25,6 +25,20 @@ Canonical pack payload returned by the application service and HTTP API:
 }
 ```
 
+## PackExportResponse
+
+```json
+{
+  "ok": true,
+  "pack_id": "starter_kingdom",
+  "export_path": "E:/TextRPG/data/exports/starter_kingdom-0.1.0.zip"
+}
+```
+
+Field notes:
+- `export_path` is a local filesystem path for the generated ZIP.
+- In the current phase this is intended for local development and operator visibility, not browser download streaming.
+
 ## LLMSettingsPublic
 
 Public runtime settings projection:

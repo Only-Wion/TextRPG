@@ -19,10 +19,12 @@ Primary job:
 
 Owns:
 - session list
+- in-page `new session` draft mode
 - selected-session summary
 - `load session`
-- future `duplicate session`
-- future `archive session`
+- `save session` from the in-page create workflow
+- `duplicate session`
+- `archive session`
 
 May show:
 - lightweight health/status summary
@@ -34,11 +36,11 @@ Must not own:
 
 Current backend dependencies:
 - `GET /game/sessions`
+- `GET /packs`
+- `POST /game/start`
 - `POST /game/load`
-
-Missing backend support:
-- duplicate session
-- archive session
+- `POST /game/sessions/{slot_id}/duplicate`
+- `POST /game/sessions/{slot_id}/archive`
 
 ### `/`
 
@@ -54,6 +56,8 @@ Owns:
 May show:
 - session summary
 - load/new shortcuts
+- a collapsible top control drawer
+- a left-sidebar inspector with collapsible sections
 
 Must not own:
 - session inventory management
@@ -65,6 +69,15 @@ Current backend dependencies:
 - `POST /game/step`
 - `POST /game/load`
 
+Current frontend behaviors:
+- `Start` shortcut routes to `/setup`
+- `Load` shortcut routes to `/sessions`
+- top control drawer expands/collapses locally via handle arrows
+- shared left sidebar expands/collapses locally via a vertical handle
+- world facts, UI agent, and debug info live in left-sidebar inspector groups
+- the left sidebar scrolls independently when its content exceeds viewport height
+- transcript auto-scrolls to the latest message after each turn
+
 ### `/packs`
 
 Primary job:
@@ -73,9 +86,10 @@ Primary job:
 Owns:
 - installed pack list
 - enable/disable
+- remove local packs
+- export local pack archive
 - future install from URL
 - future ZIP upload
-- future export
 
 May show:
 - selected/default export candidate
@@ -88,12 +102,16 @@ Must not own:
 Current backend dependencies:
 - `GET /packs`
 - `PATCH /packs/{pack_id}/enabled`
+- `DELETE /packs/{pack_id}`
+- `POST /packs/{pack_id}/export`
 
 Missing backend support:
 - install from URL
 - ZIP upload
-- export
-- remove pack
+
+Current intentional UI placeholders:
+- `Download & Install`
+- `Upload pack ZIP`
 
 ### `/settings`
 
@@ -148,6 +166,24 @@ Current backend dependencies:
 
 Design note:
 - `/setup` should summarize configuration, not replace `/packs` or `/settings`.
+
+## Local Dev Behavior
+
+- Read-only page bootstrap fetches can fall back to mock data when the backend is unavailable.
+- Browser-triggered write actions require the FastAPI backend to be running and reachable from
+  `http://127.0.0.1:3000`.
+- If local CORS is misconfigured, the browser will surface these failures as `Failed to fetch`.
+
+## Shared Sidebar Contract
+
+- `/`, `/setup`, `/sessions`, `/packs`, and `/settings` all use the shared `AppSidebar`.
+- The shared sidebar owns:
+  - page navigation
+  - session health summary when provided
+  - inspector sections when provided
+  - local expand/collapse behavior via a vertical handle on the sidebar edge
+- When sidebar content grows taller than the viewport, only the sidebar scroll region should move.
+- Collapsing the sidebar must not change route ownership or hide page-level actions in the main workspace.
 
 ## Page Relationship Rules
 

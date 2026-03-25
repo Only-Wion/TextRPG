@@ -1,9 +1,11 @@
 import type {
   GameActionResponse,
+  DuplicateSessionRequest,
   LLMSettingsPublic,
   LLMSettingsUpdateRequest,
   LoadGameRequest,
   OkResponse,
+  PackExportResponse,
   PackEnabledRequest,
   PackRecord,
   SessionManagerView,
@@ -160,12 +162,39 @@ export async function loadGameSession(payload: LoadGameRequest): Promise<OkRespo
   return jsonRequest<OkResponse, LoadGameRequest>("/game/load", "POST", payload);
 }
 
+export async function duplicateGameSession(
+  slotId: string,
+  payload: DuplicateSessionRequest = {},
+): Promise<SessionManagerView> {
+  return jsonRequest<SessionManagerView, DuplicateSessionRequest>(
+    `/game/sessions/${slotId}/duplicate`,
+    "POST",
+    payload,
+  );
+}
+
+export async function archiveGameSession(slotId: string): Promise<SessionManagerView> {
+  return jsonRequest<SessionManagerView, Record<string, never>>(
+    `/game/sessions/${slotId}/archive`,
+    "POST",
+    {},
+  );
+}
+
 export async function stepGameSession(payload: StepRequest): Promise<GameActionResponse> {
   return jsonRequest<GameActionResponse, StepRequest>("/game/step", "POST", payload);
 }
 
 export async function setPackEnabled(packId: string, enabled: boolean): Promise<OkResponse> {
   return jsonRequest<OkResponse, PackEnabledRequest>(`/packs/${packId}/enabled`, "PATCH", { enabled });
+}
+
+export async function removePack(packId: string): Promise<OkResponse> {
+  return jsonRequest<OkResponse, Record<string, never>>(`/packs/${packId}`, "DELETE", {});
+}
+
+export async function exportPack(packId: string): Promise<PackExportResponse> {
+  return jsonRequest<PackExportResponse, Record<string, never>>(`/packs/${packId}/export`, "POST", {});
 }
 
 export async function updateLLMSettings(payload: LLMSettingsUpdateRequest): Promise<LLMSettingsPublic> {

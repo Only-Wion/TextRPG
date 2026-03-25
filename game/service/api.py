@@ -5,9 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import json
+import shutil
 import threading
 
-from ..config import CARDS_DIR, SAVES_DIR, SETTINGS, get_slot_paths, load_runtime_llm_settings, save_runtime_llm_settings
+from ..config import ARCHIVES_DIR, CARDS_DIR, EXPORTS_DIR, SAVES_DIR, SETTINGS, get_slot_paths, load_runtime_llm_settings, save_runtime_llm_settings
 from ..core.card_repository import CardRepository
 from ..core.rule_engine import RuleEngine
 from ..core.rag_store import RAGStore
@@ -138,7 +139,7 @@ class GameService:
             'storage_backend_label': SETTINGS.storage_backend,
         }
 
-    def list_sessions(self) -> Dict[str, Any]:
+    def list_sessions(self, selected_slot: Optional[str] = None) -> Dict[str, Any]:
         """杩斿洖鐢ㄤ簬 sessions 椤电殑浼氳瘽姒傝鏁版嵁銆?"""
         sessions: List[Dict[str, Any]] = []
         if SAVES_DIR.exists():
@@ -146,7 +147,7 @@ class GameService:
             for slot_dir in sorted(slot_dirs, key=lambda path: path.stat().st_mtime, reverse=True):
                 sessions.append(self._build_session_summary(slot_dir.name))
 
-        selected_slot = self._session.save_slot if self._session else (sessions[0]['slot_id'] if sessions else 'slot_001')
+        selected_slot = selected_slot or (self._session.save_slot if self._session else (sessions[0]['slot_id'] if sessions else 'slot_001'))
         return {
             'selected_slot': selected_slot,
             'backend_status': 'online',
@@ -154,6 +155,41 @@ class GameService:
             'last_sync_label': 'just now',
             'sessions': sessions,
         }
+
+    def duplicate_session(self, source_slot: str, target_slot: Optional[str] = None) -> Dict[str, Any]:
+        source_paths = get_slot_paths(source_slot)
+        if not source_paths['data_dir'].exists():
+            raise ValueError('save slot not found')
+
+        destination_slot = self._resolve_duplicate_slot(source_slot, target_slot)
+        destination_paths = get_slot_paths(destination_slot)
+        shutil.copytree(source_paths['data_dir'], destination_paths['data_dir'])
+
+        metadata = self.session_metadata_store.load(destination_paths['session_meta_path'])
+        metadata['save_slot'] = destination_slot
+        metadata['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M')
+        self.session_metadata_store.save(destination_paths['session_meta_path'], metadata)
+        return self.list_sessions(selected_slot=destination_slot)
+
+    def archive_session(self, save_slot: str) -> Dict[str, Any]:
+        source_paths = get_slot_paths(save_slot)
+        if not source_paths['data_dir'].exists():
+            raise ValueError('save slot not found')
+
+        archived_path = self._resolve_archive_path(save_slot)
+        archived_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source_paths['data_dir']), str(archived_path))
+
+        if self._session and self._session.save_slot == save_slot:
+            self._session = None
+
+        remaining_slots = [
+            path.name
+            for path in sorted(SAVES_DIR.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True)
+            if path.is_dir()
+        ] if SAVES_DIR.exists() else []
+        next_selected = remaining_slots[0] if remaining_slots else 'slot_001'
+        return self.list_sessions(selected_slot=next_selected)
 
 
 
@@ -182,6 +218,9 @@ class GameService:
 
     def remove_pack(self, pack_id: str) -> None:
         """删除已安装卡包及其文件。"""
+        record = self.pack_manager.registry.get(pack_id)
+        if record and record.source == 'builtin':
+            raise ValueError('builtin packs cannot be removed')
         self.pack_manager.remove_pack(pack_id)
 
     def enable_pack(self, pack_id: str, enabled: bool) -> None:
@@ -191,6 +230,19 @@ class GameService:
     def export_pack(self, pack_id: str, output_path: Path) -> None:
         """导出卡包为 zip 文件。"""
         self.pack_manager.export_pack(pack_id, output_path)
+
+    def export_pack_to_runtime_exports(self, pack_id: str) -> Dict[str, Any]:
+        record = self.pack_manager.registry.get(pack_id)
+        if not record:
+            raise ValueError('pack not found')
+        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        output_path = EXPORTS_DIR / f'{pack_id}-{record.version}.zip'
+        self.pack_manager.export_pack(pack_id, output_path)
+        return {
+            'ok': True,
+            'pack_id': pack_id,
+            'export_path': str(output_path),
+        }
 
     def create_card(self, pack_id: str, card_type: str, card_id: str, frontmatter: Dict[str, Any], body: str) -> Path:
         """在卡包内创建一张新卡牌文件。"""
@@ -640,6 +692,24 @@ class GameService:
         if not raw_location:
             return 'Unknown'
         return raw_location.replace('_', ' ').strip().title()
+
+    def _resolve_duplicate_slot(self, source_slot: str, target_slot: Optional[str]) -> str:
+        candidate = str(target_slot or '').strip()
+        if candidate:
+            if get_slot_paths(candidate)['data_dir'].exists():
+                raise ValueError('target save slot already exists')
+            return candidate
+
+        index = 1
+        while True:
+            candidate = f'{source_slot}_copy_{index:02d}'
+            if not get_slot_paths(candidate)['data_dir'].exists():
+                return candidate
+            index += 1
+
+    def _resolve_archive_path(self, save_slot: str) -> Path:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        return ARCHIVES_DIR / f'{save_slot}_{timestamp}'
 
 def json_dump(data: Dict[str, Any]) -> str:
     """将 dict 序列化为格式化 JSON。"""

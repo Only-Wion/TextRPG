@@ -27,6 +27,18 @@ Fields:
 }
 ```
 
+## DuplicateSessionRequest
+
+```json
+{
+  "target_slot": "slot_001_copy_01"
+}
+```
+
+Field notes:
+- `target_slot` is optional.
+- When omitted, the backend generates the next available copy slot id.
+
 ## StepRequest
 
 ```json
@@ -133,6 +145,11 @@ Field notes:
   "sessions": []
 }
 ```
+
+Field notes:
+- `selected_slot` points at the slot that should remain focused after the last session-management action.
+- After duplicate, this is typically the newly created slot.
+- After archive, this is the next available active slot or `slot_001` when none remain.
 
 ## StepResponse
 

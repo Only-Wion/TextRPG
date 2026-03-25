@@ -16,6 +16,10 @@ class LoadGameRequest(BaseModel):
     language: str | None = None
 
 
+class DuplicateSessionRequest(BaseModel):
+    target_slot: str | None = None
+
+
 class StepRequest(BaseModel):
     input_text: str = Field(min_length=1)
 
