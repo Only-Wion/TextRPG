@@ -27,6 +27,10 @@ Response:
 Notes:
 - The concrete implementation returns `{"ok": true, "status": "ok"}`.
 
+Authentication note:
+- Account routes are defined separately in `docs/api/auth-api.md`.
+- Game/session routes below now assume a valid bearer token unless stated otherwise.
+
 ### `POST /game/start`
 
 Purpose:
@@ -48,6 +52,9 @@ Response:
 }
 ```
 
+Authentication:
+- `Authorization: Bearer <token>`
+
 ### `POST /game/load`
 
 Purpose:
@@ -67,6 +74,9 @@ Response:
   "ok": true
 }
 ```
+
+Authentication:
+- `Authorization: Bearer <token>`
 
 ### `POST /game/step`
 
@@ -91,6 +101,10 @@ Response shape:
 Notes:
 - `result` is the direct turn output from the application service.
 - `state_view` is the frontend-safe projection after the turn completes.
+- The turn updates the authenticated user's persisted chat history for the active save slot.
+
+Authentication:
+- `Authorization: Bearer <token>`
 
 ### `GET /game/state`
 
@@ -99,6 +113,9 @@ Purpose:
 
 Response:
 - Matches `StateView` contract in `docs/data-contracts/game-session.md`.
+
+Authentication:
+- `Authorization: Bearer <token>`
 
 ### `GET /game/sessions`
 
@@ -126,8 +143,10 @@ Response:
 ```
 
 Notes:
-- Session summaries are read from local save-slot metadata when present.
-- Older save slots without metadata are backfilled from filesystem timestamps plus safe defaults.
+- Session summaries are read from a user-scoped metadata repository first.
+- Older save slots without synchronized metadata are backfilled from local save-slot metadata and then persisted.
+- Only sessions bound to the authenticated user are returned.
+- Loading a session also rehydrates the authenticated user's chat history for that slot from the repository when available.
 
 ### `POST /game/sessions/{slot_id}/duplicate`
 
@@ -145,6 +164,7 @@ Notes:
 - `target_slot` is optional.
 - When omitted, the backend auto-generates a unique copy slot id.
 - Response matches `SessionManagerResponse`.
+- The source session must belong to the authenticated user.
 
 ### `POST /game/sessions/{slot_id}/archive`
 
@@ -159,6 +179,7 @@ Request body:
 Notes:
 - Archived slots are moved from `data/saves/` to `data/archives/`.
 - Response matches `SessionManagerResponse`.
+- The archived session must belong to the authenticated user.
 
 ### `PATCH /game/ui-mode`
 
@@ -213,6 +234,12 @@ Response:
 Purpose:
 - List installed packs.
 
+Authentication:
+- `Authorization: Bearer <token>`
+
+Notes:
+- Returned `enabled` flags are scoped to the authenticated user's default pack set.
+
 ### `PATCH /packs/{pack_id}/enabled`
 
 Purpose:
@@ -224,6 +251,13 @@ Request body:
   "enabled": true
 }
 ```
+
+Authentication:
+- `Authorization: Bearer <token>`
+
+Notes:
+- Updates the authenticated user's default enabled-pack set.
+- Existing save slots keep their own persisted pack list until they are loaded or restarted.
 
 ### `DELETE /packs/{pack_id}`
 
@@ -239,6 +273,7 @@ Response:
 
 Notes:
 - Builtin packs are protected and return a validation error when removal is requested.
+- Authenticated access is still required.
 
 ### `POST /packs/{pack_id}/export`
 
@@ -257,12 +292,20 @@ Response:
 Notes:
 - This is currently a local-development convenience endpoint.
 - It does not stream a download yet; it returns the generated file path.
+- Authenticated access is required.
 
 ### `GET /settings/llm`
 ### `PUT /settings/llm`
 
 Purpose:
 - Read and update runtime LLM settings.
+
+Authentication:
+- `Authorization: Bearer <token>`
+
+Notes:
+- Settings are now stored per authenticated user.
+- Sending an empty `api_key` preserves the previously stored key for that user.
 
 ## FastAPI Shell Layout
 

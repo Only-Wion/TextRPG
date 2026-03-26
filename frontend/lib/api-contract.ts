@@ -99,6 +99,29 @@ export type OkResponse = {
   ok: boolean;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  username: string;
+};
+
+export type LoginRequest = {
+  email_or_username: string;
+  password: string;
+};
+
+export type RegisterRequest = {
+  email: string;
+  username: string;
+  password: string;
+};
+
+export type AuthTokenResponse = {
+  access_token: string;
+  token_type: "bearer";
+  user: AuthUser;
+};
+
 export type StartGameRequest = {
   save_slot: string;
   pack_ids?: string[];

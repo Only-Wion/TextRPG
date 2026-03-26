@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import game, health, packs, settings
+from .api.routes import auth, game, health, packs, settings
 from .errors import register_exception_handlers
 
 
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     )
     register_exception_handlers(app)
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(game.router)
     app.include_router(packs.router)
     app.include_router(settings.router)

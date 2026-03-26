@@ -20,18 +20,20 @@ Current implementation:
 ## SessionService
 
 Purpose:
-- Manage one game session lifecycle and turn progression.
+- Manage one authenticated user's game session lifecycle and turn progression.
 
 Methods:
 
-### `start_new_game(save_slot, pack_ids=None, language=None) -> None`
+### `start_new_game(user_id, save_slot, pack_ids=None, language=None) -> None`
 
 Behavior:
 - Enables the requested packs for the session bootstrap path.
 - Builds the runtime session.
+- Resets the persisted user-scoped chat history for the target slot.
 - Schedules UI generation for the new session.
 
 Inputs:
+- `user_id: str`
 - `save_slot: str`
 - `pack_ids: list[str] | None`
 - `language: str | None`
@@ -40,13 +42,16 @@ Raises:
 - `ValueError` for invalid user input.
 - `RuntimeError` for unrecoverable startup issues.
 
-### `load_game(save_slot, language=None) -> None`
+### `load_game(user_id, save_slot, language=None) -> None`
 
 Behavior:
 - Loads an existing save slot into the active runtime session.
-- Rehydrates chat history and cached UI panel definitions.
+- Rehydrates chat history from the user-scoped repository when available.
+- Backfills the user-scoped chat history repository from legacy local save data when needed.
+- Rehydrates cached UI panel definitions.
 
 Inputs:
+- `user_id: str`
 - `save_slot: str`
 - `language: str | None`
 
@@ -54,16 +59,18 @@ Raises:
 - `ValueError`
 - `RuntimeError`
 
-### `step(input_text) -> dict`
+### `step(user_id, input_text) -> dict`
 
 Behavior:
 - Advances the game by one turn.
 - Updates runtime state.
-- Persists chat history.
+- Persists chat history into the user-scoped chat-history repository.
+- Persists current session summary metadata.
 - Refreshes world facts.
 - Refreshes or schedules UI panel updates depending on UI mode.
 
 Inputs:
+- `user_id: str`
 - `input_text: str`
 
 Returns:
@@ -72,7 +79,7 @@ Returns:
 Raises:
 - `RuntimeError` when no session has been started or loaded.
 
-### `get_current_state_view() -> dict`
+### `get_current_state_view(user_id) -> dict`
 
 Behavior:
 - Returns a frontend-safe session state view.
@@ -98,12 +105,13 @@ Returns canonical fields:
 - `location_label`
 - `storage_backend_label`
 
-### `list_sessions() -> dict`
+### `list_sessions(user_id) -> dict`
 
 Behavior:
 - Returns the session inventory view used by the `/sessions` page.
-- Reads save-slot metadata when available.
-- Falls back to filesystem timestamps and defaults for older save slots.
+- Reads database-backed session summaries when available.
+- Falls back to filesystem-derived summaries only for slots that have not been synchronized yet.
+- Filters the session inventory to slots owned by the authenticated user.
 
 Returns canonical fields:
 - `selected_slot`
@@ -112,7 +120,7 @@ Returns canonical fields:
 - `last_sync_label`
 - `sessions`
 
-### `duplicate_session(source_slot, target_slot=None) -> dict`
+### `duplicate_session(user_id, source_slot, target_slot=None) -> dict`
 
 Behavior:
 - Copies a save slot to a new slot directory.
@@ -120,43 +128,77 @@ Behavior:
 - Returns the refreshed session inventory view with the new slot selected.
 
 Inputs:
+- `user_id: str`
 - `source_slot: str`
 - `target_slot: str | None`
 
-### `archive_session(save_slot) -> dict`
+### `archive_session(user_id, save_slot) -> dict`
 
 Behavior:
 - Moves a save slot out of the active saves directory into the local archives directory.
+- Releases active runtime resources before archiving the currently loaded slot.
 - Clears the active in-memory session when archiving the currently loaded slot.
 - Returns the refreshed session inventory view after removal.
 
 Inputs:
+- `user_id: str`
 - `save_slot: str`
 
-### `set_language(language) -> None`
+### `set_language(user_id, language) -> None`
 
 Behavior:
 - Updates language preference on the active session state.
 
-### `set_ui_update_mode(mode) -> None`
+### `set_ui_update_mode(user_id, mode) -> None`
 
 Behavior:
 - Sets UI update strategy to `manual` or `auto`.
 
-### `set_ui_auto_update_every(turns) -> None`
+### `set_ui_auto_update_every(user_id, turns) -> None`
 
 Behavior:
 - Sets the turn interval for auto UI updates.
 
-### `trigger_ui_generation(force=False) -> None`
+### `trigger_ui_generation(user_id, force=False) -> None`
 
 Behavior:
 - Triggers asynchronous UI panel generation.
 
-### `trigger_ui_update() -> None`
+### `trigger_ui_update(user_id) -> None`
 
 Behavior:
 - Triggers asynchronous UI panel update.
+
+## AuthService
+
+Purpose:
+- Manage account registration, login, token lookup, and logout.
+
+Methods:
+
+### `register(email, username, password) -> dict`
+
+Returns:
+- `user`
+- `access_token`
+- `token_type`
+
+### `login(email_or_username, password) -> dict`
+
+Returns:
+- `user`
+- `access_token`
+- `token_type`
+
+### `get_current_user(token) -> dict`
+
+Behavior:
+- Resolves the authenticated user from the bearer token.
+
+### `logout(token) -> None`
+
+Behavior:
+- Revokes the current token.
 
 ## PackService
 
@@ -165,7 +207,7 @@ Purpose:
 
 Methods:
 
-### `list_packs() -> list[dict]`
+### `list_packs(user_id) -> list[dict]`
 
 Returns pack records with:
 - `pack_id`
@@ -177,10 +219,13 @@ Returns pack records with:
 - `enabled`
 - `source`
 
+Notes:
+- `enabled` is resolved from the authenticated user's default pack-state repository.
+
 ### `install_pack_from_url(url) -> dict`
 ### `install_pack_from_zip(path) -> dict`
 ### `remove_pack(pack_id) -> None`
-### `enable_pack(pack_id, enabled) -> None`
+### `enable_pack(user_id, pack_id, enabled) -> None`
 ### `export_pack(pack_id, output_path) -> None`
 ### `export_pack_to_runtime_exports(pack_id) -> dict`
 ### `create_pack(manifest) -> None`
@@ -193,6 +238,7 @@ Notes:
   - `ok`
   - `pack_id`
   - `export_path`
+- `enable_pack(user_id, pack_id, enabled)` updates the authenticated user's default pack set.
 
 Card editing methods currently exposed through the same facade:
 - `list_pack_card_types(pack_id) -> list[str]`
@@ -212,7 +258,7 @@ Purpose:
 
 Methods:
 
-### `get_llm_settings() -> dict`
+### `get_llm_settings(user_id) -> dict`
 
 Returns public settings fields only:
 - `provider`
@@ -223,10 +269,10 @@ Returns public settings fields only:
 - `use_mock_llm`
 - `force_fake_embeddings`
 
-### `update_llm_settings(payload) -> dict`
+### `update_llm_settings(user_id, payload) -> dict`
 
 Behavior:
-- Validates and persists runtime LLM settings.
+- Validates and persists runtime LLM settings for one authenticated user.
 - Returns the public projection of the active settings.
 
 ## Transitional Ownership

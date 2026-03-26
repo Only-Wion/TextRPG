@@ -28,8 +28,12 @@ When a contract changes, update examples so humans and AI tooling see the latest
   Layer definitions, module ownership, dependency rules, migration mapping.
 - `api/`
   Application service contracts and HTTP API contracts.
+- `api/auth-api.md`
+  Authentication, token, and protected-route HTTP contract.
 - `data-contracts/`
   Canonical request, response, state, and domain payload structures.
+- `data-contracts/user-and-auth.md`
+  Canonical user, token, and user-session ownership payloads.
 - `runtime/`
   Runtime lifecycle and state transition flow.
 - `migration/`

@@ -3,14 +3,15 @@
 import { useState } from "react";
 
 import { updateLLMSettings } from "../lib/api";
-import type { LLMSettingsPublic, LLMSettingsUpdateRequest } from "../lib/api-contract";
+import type { AuthUser, LLMSettingsPublic, LLMSettingsUpdateRequest } from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
 type SettingsShellProps = {
   settings: LLMSettingsPublic;
+  currentUser: AuthUser;
 };
 
-export function SettingsShell({ settings }: SettingsShellProps) {
+export function SettingsShell({ settings, currentUser }: SettingsShellProps) {
   const [runtimeSettings, setRuntimeSettings] = useState(settings);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +47,7 @@ export function SettingsShell({ settings }: SettingsShellProps) {
   return (
     <main className="light-app-shell">
       <div className="light-app-frame">
-        <AppSidebar activePath="/settings" />
+        <AppSidebar activePath="/settings" currentUser={currentUser} />
 
         <section className="light-main">
           <header className="light-topbar">

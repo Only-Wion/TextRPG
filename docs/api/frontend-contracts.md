@@ -11,6 +11,24 @@ Next.js application.
 
 ## Frontend Routes
 
+### `/login`
+
+Purpose:
+- Sign in and establish the bearer-token cookie used by authenticated pages.
+
+Primary backend dependencies:
+- `POST /auth/login`
+- `GET /auth/me`
+
+### `/register`
+
+Purpose:
+- Create an account and establish the bearer-token cookie.
+
+Primary backend dependencies:
+- `POST /auth/register`
+- `GET /auth/me`
+
 ### `/sessions`
 
 Purpose:
@@ -26,6 +44,7 @@ Responsibilities:
 - Trigger `archive session`
 
 Primary backend dependencies:
+- `GET /auth/me`
 - `GET /game/sessions`
 - `GET /packs`
 - `POST /game/start`
@@ -44,8 +63,11 @@ Responsibilities:
 - Render narration feed
 - Render command composer
 - Render left-sidebar inspector groups
+- Render the authenticated account block in the shared sidebar
+- Trigger sign-out from the shared sidebar
 
 Primary backend dependencies:
+- `GET /auth/me`
 - `GET /game/state`
 - `POST /game/step`
 - `POST /game/load`
@@ -61,8 +83,10 @@ Responsibilities:
 - Remove local packs
 - Export a pack to the local runtime exports directory
 - Reserve install-from-URL and ZIP upload regions for later file-based endpoints
+- Reflect the authenticated user's default enabled-pack set
 
 Primary backend dependencies:
+- `GET /auth/me`
 - `GET /packs`
 - `PATCH /packs/{pack_id}/enabled`
 - `DELETE /packs/{pack_id}`
@@ -77,8 +101,10 @@ Responsibilities:
 - Render LLM settings form
 - Save LLM settings
 - Render current settings preview
+- Reflect the authenticated user's stored runtime settings
 
 Primary backend dependencies:
+- `GET /auth/me`
 - `GET /settings/llm`
 - `PUT /settings/llm`
 
@@ -96,6 +122,7 @@ Responsibilities:
 - launch action
 
 Primary backend dependencies:
+- `GET /auth/me`
 - `GET /game/state`
 - `GET /packs`
 - `GET /settings/llm`
@@ -110,6 +137,9 @@ Current frontend data access entrypoints live in:
 - `frontend/lib/api.ts`
 
 Current frontend write entrypoints live in:
+- `frontend/lib/api.ts#login`
+- `frontend/lib/api.ts#register`
+- `frontend/lib/api.ts#logout`
 - `frontend/lib/api.ts#startGameSession`
 - `frontend/lib/api.ts#loadGameSession`
 - `frontend/lib/api.ts#duplicateGameSession`
@@ -141,6 +171,8 @@ The frontend still normalizes fallback values when the backend is unavailable.
 - If the backend is unavailable, the current implementation falls back to local mock data.
 - This keeps local page development unblocked before full backend integration.
 - Client-side write actions do not use mock fallbacks. Failed writes surface an error message in the UI.
+- Authenticated server-rendered pages now expect a `textrpg_token` cookie to be present.
+- `/`, `/sessions`, `/packs`, `/settings`, and `/setup` redirect to `/login` when the token is missing or does not resolve to a current user.
 
 Environment variables:
 - `NEXT_PUBLIC_API_BASE_URL`
@@ -150,3 +182,4 @@ Environment variables:
 
 - Pack install-from-URL and ZIP upload remain placeholder UI because file upload and remote fetch endpoints are not available yet.
 - Pack export currently returns a local filesystem path instead of a streamed browser download.
+- Pack enable/disable is user-scoped, while remove/export still operate on the shared installed-pack inventory.

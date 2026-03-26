@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ...deps import get_session_service
+from ...deps import get_current_user, get_session_service
 from ...schemas.common import OkResponse
 from ...schemas.game import (
     DuplicateSessionRequest,
@@ -24,8 +24,9 @@ router = APIRouter(prefix="/game", tags=["game"])
 def start_game(
     payload: StartGameRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.start_new_game(payload.save_slot, payload.pack_ids, language=payload.language)
+    service.start_new_game(current_user["id"], payload.save_slot, payload.pack_ids, language=payload.language)
     return OkResponse(ok=True)
 
 
@@ -33,8 +34,9 @@ def start_game(
 def load_game(
     payload: LoadGameRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.load_game(payload.save_slot, language=payload.language)
+    service.load_game(current_user["id"], payload.save_slot, language=payload.language)
     return OkResponse(ok=True)
 
 
@@ -42,19 +44,26 @@ def load_game(
 def step_game(
     payload: StepRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> GameActionResponse:
-    result = service.step(payload.input_text)
-    return GameActionResponse(result=result, state_view=service.get_current_state_view())
+    result = service.step(current_user["id"], payload.input_text)
+    return GameActionResponse(result=result, state_view=service.get_current_state_view(current_user["id"]))
 
 
 @router.get("/state", response_model=dict)
-def get_game_state(service: SessionService = Depends(get_session_service)) -> dict:
-    return service.get_current_state_view()
+def get_game_state(
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return service.get_current_state_view(current_user["id"])
 
 
 @router.get("/sessions", response_model=SessionManagerResponse)
-def get_sessions(service: SessionService = Depends(get_session_service)) -> SessionManagerResponse:
-    return SessionManagerResponse(**service.list_sessions())
+def get_sessions(
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> SessionManagerResponse:
+    return SessionManagerResponse(**service.list_sessions(current_user["id"]))
 
 
 @router.post("/sessions/{slot_id}/duplicate", response_model=SessionManagerResponse)
@@ -62,24 +71,27 @@ def duplicate_session(
     slot_id: str,
     payload: DuplicateSessionRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> SessionManagerResponse:
-    return SessionManagerResponse(**service.duplicate_session(slot_id, payload.target_slot))
+    return SessionManagerResponse(**service.duplicate_session(current_user["id"], slot_id, payload.target_slot))
 
 
 @router.post("/sessions/{slot_id}/archive", response_model=SessionManagerResponse)
 def archive_session(
     slot_id: str,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> SessionManagerResponse:
-    return SessionManagerResponse(**service.archive_session(slot_id))
+    return SessionManagerResponse(**service.archive_session(current_user["id"], slot_id))
 
 
 @router.patch("/ui-mode", response_model=OkResponse)
 def set_ui_mode(
     payload: UiModeRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.set_ui_update_mode(payload.mode)
+    service.set_ui_update_mode(current_user["id"], payload.mode)
     return OkResponse(ok=True)
 
 
@@ -87,8 +99,9 @@ def set_ui_mode(
 def set_ui_auto_update(
     payload: UiAutoUpdateRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.set_ui_auto_update_every(payload.turns)
+    service.set_ui_auto_update_every(current_user["id"], payload.turns)
     return OkResponse(ok=True)
 
 
@@ -96,12 +109,16 @@ def set_ui_auto_update(
 def trigger_ui_generation(
     payload: TriggerUiGenerationRequest,
     service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.trigger_ui_generation(force=payload.force)
+    service.trigger_ui_generation(current_user["id"], force=payload.force)
     return OkResponse(ok=True)
 
 
 @router.post("/ui/update", response_model=OkResponse)
-def trigger_ui_update(service: SessionService = Depends(get_session_service)) -> OkResponse:
-    service.trigger_ui_update()
+def trigger_ui_update(
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> OkResponse:
+    service.trigger_ui_update(current_user["id"])
     return OkResponse(ok=True)

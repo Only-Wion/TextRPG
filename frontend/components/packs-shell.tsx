@@ -3,14 +3,15 @@
 import { useMemo, useState } from "react";
 
 import { exportPack, removePack, setPackEnabled } from "../lib/api";
-import type { PackRecord } from "../lib/api-contract";
+import type { AuthUser, PackRecord } from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
 type PacksShellProps = {
   packs: PackRecord[];
+  currentUser: AuthUser;
 };
 
-export function PacksShell({ packs }: PacksShellProps) {
+export function PacksShell({ packs, currentUser }: PacksShellProps) {
   const [runtimePacks, setRuntimePacks] = useState(packs);
   const [busyPackId, setBusyPackId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -72,7 +73,7 @@ export function PacksShell({ packs }: PacksShellProps) {
   return (
     <main className="light-app-shell">
       <div className="light-app-frame">
-        <AppSidebar activePath="/packs" />
+        <AppSidebar activePath="/packs" currentUser={currentUser} />
 
         <section className="light-main">
           <header className="light-topbar">
@@ -122,7 +123,7 @@ export function PacksShell({ packs }: PacksShellProps) {
               {errorMessage ? <div className="light-error-banner">{errorMessage}</div> : null}
               {successMessage ? <div className="light-success-banner">{successMessage}</div> : null}
               <div className="light-inline-note">
-                Builtin packs are protected from removal. Local packs can be removed from this view.
+                Enable/disable updates your account's default pack set. Builtin packs are protected from removal.
               </div>
             </section>
 

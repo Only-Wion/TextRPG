@@ -1,19 +1,24 @@
 import type {
+  AuthUser,
+  AuthTokenResponse,
   GameActionResponse,
   DuplicateSessionRequest,
   LLMSettingsPublic,
+  LoginRequest,
   LLMSettingsUpdateRequest,
   LoadGameRequest,
   OkResponse,
   PackExportResponse,
   PackEnabledRequest,
   PackRecord,
+  RegisterRequest,
   SessionManagerView,
   SetupBootstrapView,
   StartGameRequest,
   StateView,
   StepRequest,
 } from "./api-contract";
+import { getClientAccessToken } from "./auth";
 import {
   createMockLLMSettings,
   createMockPacks,
@@ -27,11 +32,10 @@ const API_BASE_URL =
 
 async function safeJsonFetch<T>(path: string): Promise<T | null> {
   try {
+    const headers = await buildHeaders({ Accept: "application/json" });
     const response = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
-      headers: {
-        Accept: "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -45,12 +49,13 @@ async function safeJsonFetch<T>(path: string): Promise<T | null> {
 }
 
 async function jsonRequest<TResponse, TBody>(path: string, method: string, body: TBody): Promise<TResponse> {
+  const headers = await buildHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  });
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -110,6 +115,24 @@ function normalizeLLMSettings(payload: Partial<LLMSettingsPublic> | null): LLMSe
   };
 }
 
+async function buildHeaders(baseHeaders: Record<string, string>): Promise<Record<string, string>> {
+  let token: string | null = null;
+
+  if (typeof window === "undefined") {
+    const { getServerAccessToken } = await import("./auth");
+    token = await getServerAccessToken();
+  } else {
+    token = getClientAccessToken();
+  }
+
+  return token
+    ? {
+        ...baseHeaders,
+        Authorization: `Bearer ${token}`,
+      }
+    : baseHeaders;
+}
+
 export async function getGameStateView(): Promise<StateView> {
   const payload = await safeJsonFetch<Partial<StateView>>("/game/state");
   return normalizeStateView(payload);
@@ -123,6 +146,10 @@ export async function getPacks(): Promise<PackRecord[]> {
 export async function getLLMSettings(): Promise<LLMSettingsPublic> {
   const payload = await safeJsonFetch<Partial<LLMSettingsPublic>>("/settings/llm");
   return normalizeLLMSettings(payload);
+}
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  return safeJsonFetch<AuthUser>("/auth/me");
 }
 
 export async function getSetupBootstrapView(): Promise<SetupBootstrapView> {
@@ -156,6 +183,18 @@ export async function getSessionManagerView(): Promise<SessionManagerView> {
 
 export async function startGameSession(payload: StartGameRequest): Promise<OkResponse> {
   return jsonRequest<OkResponse, StartGameRequest>("/game/start", "POST", payload);
+}
+
+export async function login(payload: LoginRequest): Promise<AuthTokenResponse> {
+  return jsonRequest<AuthTokenResponse, LoginRequest>("/auth/login", "POST", payload);
+}
+
+export async function register(payload: RegisterRequest): Promise<AuthTokenResponse> {
+  return jsonRequest<AuthTokenResponse, RegisterRequest>("/auth/register", "POST", payload);
+}
+
+export async function logout(): Promise<OkResponse> {
+  return jsonRequest<OkResponse, Record<string, never>>("/auth/logout", "POST", {});
 }
 
 export async function loadGameSession(payload: LoadGameRequest): Promise<OkResponse> {

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { LLMSettingsPublic, PackRecord, SetupBootstrapView } from "../lib/api-contract";
+import type { AuthUser, LLMSettingsPublic, PackRecord, SetupBootstrapView } from "../lib/api-contract";
 import { startGameSession } from "../lib/api";
 import { AppSidebar } from "./app-sidebar";
 
@@ -12,9 +12,10 @@ type SetupShellProps = {
   setupView: SetupBootstrapView;
   packs: PackRecord[];
   llmSettings: LLMSettingsPublic;
+  currentUser: AuthUser;
 };
 
-export function SetupShell({ setupView, packs, llmSettings }: SetupShellProps) {
+export function SetupShell({ setupView, packs, llmSettings, currentUser }: SetupShellProps) {
   const router = useRouter();
   const [selectedSlot, setSelectedSlot] = useState(setupView.selected_slot);
   const [customSlot, setCustomSlot] = useState("");
@@ -82,6 +83,7 @@ export function SetupShell({ setupView, packs, llmSettings }: SetupShellProps) {
       <div className="light-app-frame">
         <AppSidebar
           activePath="/setup"
+          currentUser={currentUser}
           sections={[
             { label: "Backend", value: "online" },
             { label: "Storage", value: "local" },

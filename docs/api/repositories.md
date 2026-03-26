@@ -11,6 +11,116 @@ Current implementations are transitional and in some cases still live under `gam
 - Canonical storage contracts live in `game/infrastructure/contracts.py`.
 - Session-scoped concrete store creation is centralized in `game/infrastructure/store_factory.py`.
 
+## User Repository
+
+Purpose:
+- Persist accounts, password hashes, bearer tokens, and user lookup.
+
+Canonical operations:
+
+### `create_user(email, username, password) -> dict`
+### `authenticate(email_or_username, password) -> dict`
+### `get_user_by_id(user_id) -> dict | None`
+### `issue_token(user_id) -> str`
+### `get_user_by_token(token) -> dict | None`
+### `revoke_token(token) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserRepositoryProtocol`
+
+## User Session Ownership Repository
+
+Purpose:
+- Map save-slot ids to the owning authenticated user.
+
+Canonical operations:
+
+### `bind_session(user_id, save_slot) -> None`
+### `list_session_slots(user_id) -> list[str]`
+### `user_owns_session(user_id, save_slot) -> bool`
+### `clone_binding(user_id, source_slot, target_slot) -> None`
+### `archive_binding(user_id, save_slot) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserSessionIndexProtocol`
+
+## User Settings Repository
+
+Purpose:
+- Persist runtime LLM settings for one authenticated user.
+
+Canonical operations:
+
+### `get_llm_settings(user_id) -> dict`
+### `update_llm_settings(user_id, payload) -> dict`
+
+Behavior:
+- Returns the effective per-user runtime settings.
+- Preserves the stored API key when the incoming payload leaves `api_key` blank.
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserSettingsRepositoryProtocol`
+
+## User Pack State Repository
+
+Purpose:
+- Persist the default enabled-pack set for one authenticated user.
+
+Canonical operations:
+
+### `list_enabled_pack_ids(user_id) -> list[str]`
+### `set_pack_enabled(user_id, pack_id, enabled) -> None`
+### `replace_enabled_pack_ids(user_id, pack_ids) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserPackStateRepositoryProtocol`
+
+## User Session Metadata Repository
+
+Purpose:
+- Persist per-user session summary metadata used by `/game/sessions`.
+
+Canonical operations:
+
+### `save_session_metadata(user_id, save_slot, payload) -> None`
+### `list_session_summaries(user_id) -> list[dict]`
+### `delete_session_metadata(user_id, save_slot) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserSessionMetadataRepositoryProtocol`
+
+## User Chat History Repository
+
+Purpose:
+- Persist per-user chat history for one save slot.
+
+Canonical operations:
+
+### `load_chat_history(user_id, save_slot) -> list[dict]`
+### `save_chat_history(user_id, save_slot, history) -> None`
+### `delete_chat_history(user_id, save_slot) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::UserChatHistoryRepositoryProtocol`
+
 ## World Attribute Store
 
 Purpose:

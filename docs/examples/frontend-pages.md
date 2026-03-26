@@ -7,6 +7,7 @@ Route:
 
 Key regions:
 - sidebar navigation
+- account block with sign-out action
 - collapsible shared sidebar handle
 - collapsible top control drawer
 - left-sidebar inspector groups for world facts, UI agent, and debug info
@@ -34,6 +35,7 @@ Route:
 
 Key regions:
 - left navigation
+- account block with sign-out action
 - shared collapsible sidebar handle
 - save-slot list
 - in-place create-session panel
@@ -57,6 +59,7 @@ Route:
 - `/packs`
 
 Key regions:
+- shared left sidebar with account block
 - installed pack table
 - shared collapsible sidebar handle
 - enable / disable toggle
@@ -77,6 +80,7 @@ Route:
 - `/settings`
 
 Key regions:
+- shared left sidebar with account block
 - settings form
 - shared collapsible sidebar handle
 - mock toggles
@@ -94,6 +98,7 @@ Route:
 
 Key regions:
 - session bootstrap header
+- shared left sidebar with account block
 - shared collapsible sidebar handle
 - three-step preflight strip
 - slot and language cards

@@ -60,6 +60,10 @@ Fields:
 - `role: "user" | "assistant"`
 - `content: string`
 
+Storage notes:
+- The authenticated user's active chat history is persisted in a user-scoped chat-history repository.
+- Local save-slot files remain a compatibility fallback while the runtime is still in transitional storage mode.
+
 ## WorldFacts
 
 ```json
@@ -133,6 +137,10 @@ Field notes:
   "updated_label": "2026-03-25 11:42"
 }
 ```
+
+Field notes:
+- Session summaries are persisted in a user-scoped session metadata repository.
+- The stored repository payload mirrors this API shape closely so `/game/sessions` stays stable across storage migrations.
 
 ## SessionManagerResponse
 

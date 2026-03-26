@@ -4,15 +4,16 @@ import type { FormEvent, MutableRefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { StateView } from "../lib/api-contract";
+import type { AuthUser, StateView } from "../lib/api-contract";
 import { normalizeStateViewFromAction, stepGameSession } from "../lib/api";
 import { AppSidebar } from "./app-sidebar";
 
 type GameShellProps = {
   state: StateView;
+  currentUser: AuthUser;
 };
 
-export function GameShell({ state }: GameShellProps) {
+export function GameShell({ state, currentUser }: GameShellProps) {
   const router = useRouter();
   const [runtimeState, setRuntimeState] = useState(state);
   const [commandInput, setCommandInput] = useState("");
@@ -89,6 +90,7 @@ export function GameShell({ state }: GameShellProps) {
       <div className="light-app-frame">
         <AppSidebar
           activePath="/"
+          currentUser={currentUser}
           sections={[
             { label: "Slot", value: runtimeState.save_slot ?? "slot_001" },
             { label: "Backend", value: "fastapi" },

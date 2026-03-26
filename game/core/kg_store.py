@@ -46,3 +46,7 @@ class KGStore:
             {'subject_id': r[0], 'relation': r[1], 'object_id': r[2], 'ts': r[3], 'confidence': r[4], 'source': r[5]}
             for r in rows
         ]
+
+    def close(self) -> None:
+        """Local sqlite usage is per-operation; retained for lifecycle symmetry."""
+        return None

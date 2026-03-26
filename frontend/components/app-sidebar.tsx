@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import type { AuthUser } from "../lib/api-contract";
+import { logout } from "../lib/api";
+import { clearClientAccessToken } from "../lib/auth";
 
 type SidebarStatusSection = { label: string; value: string };
 type SidebarInspectorSection = {
@@ -16,6 +21,7 @@ type AppSidebarProps = {
   title?: string;
   sections?: SidebarStatusSection[];
   inspectorSections?: SidebarInspectorSection[];
+  currentUser?: AuthUser | null;
 };
 
 const navItems = [
@@ -31,8 +37,11 @@ export function AppSidebar({
   title = "TextRPG UI",
   sections = [],
   inspectorSections = [],
+  currentUser = null,
 }: AppSidebarProps) {
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     Object.fromEntries(inspectorSections.map((section) => [section.id, section.defaultOpen ?? true])),
   );
@@ -42,6 +51,25 @@ export function AppSidebar({
       ...current,
       [sectionId]: !current[sectionId],
     }));
+  }
+
+  async function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch {
+      // Clearing the local token keeps the user unblocked even if revoke fails.
+    } finally {
+      clearClientAccessToken();
+      router.push("/login");
+      router.refresh();
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -65,6 +93,22 @@ export function AppSidebar({
                 </Link>
               ))}
             </nav>
+
+            {currentUser ? (
+              <div className="sidebar-section-stack">
+                <div className="light-section-title">Account</div>
+                <div className="light-copy">{currentUser.username}</div>
+                <div className="light-muted small-copy sidebar-account-email">{currentUser.email}</div>
+                <button
+                  className="light-action-button archive sidebar-logout-button"
+                  disabled={isLoggingOut}
+                  onClick={handleLogout}
+                  type="button"
+                >
+                  {isLoggingOut ? "Signing out..." : "Sign Out"}
+                </button>
+              </div>
+            ) : null}
 
             {sections.length > 0 ? (
               <div className="sidebar-section-stack">

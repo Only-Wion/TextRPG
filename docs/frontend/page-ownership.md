@@ -12,6 +12,34 @@ It exists to keep future UI work aligned during iterative vibecoding.
 
 ## Route Ownership
 
+### `/login`
+
+Primary job:
+- sign in
+
+Owns:
+- credential submission
+- bearer-token bootstrap
+- redirect into the authenticated app shell after a successful sign-in
+
+Must not own:
+- session management
+- gameplay
+
+### `/register`
+
+Primary job:
+- account creation
+
+Owns:
+- registration form
+- initial bearer-token bootstrap
+- redirect into the authenticated app shell after a successful registration
+
+Must not own:
+- session management
+- gameplay
+
 ### `/sessions`
 
 Primary job:
@@ -28,6 +56,7 @@ Owns:
 
 May show:
 - lightweight health/status summary
+- current authenticated user in the shared sidebar
 
 Must not own:
 - turn-by-turn gameplay
@@ -35,6 +64,7 @@ Must not own:
 - full LLM/settings editing
 
 Current backend dependencies:
+- `GET /auth/me`
 - `GET /game/sessions`
 - `GET /packs`
 - `POST /game/start`
@@ -58,6 +88,7 @@ May show:
 - load/new shortcuts
 - a collapsible top control drawer
 - a left-sidebar inspector with collapsible sections
+- current authenticated user and logout action in the shared sidebar
 
 Must not own:
 - session inventory management
@@ -65,6 +96,7 @@ Must not own:
 - runtime settings editing
 
 Current backend dependencies:
+- `GET /auth/me`
 - `GET /game/state`
 - `POST /game/step`
 - `POST /game/load`
@@ -74,6 +106,7 @@ Current frontend behaviors:
 - `Load` shortcut routes to `/sessions`
 - top control drawer expands/collapses locally via handle arrows
 - shared left sidebar expands/collapses locally via a vertical handle
+- shared left sidebar includes the current user account block and a sign-out action
 - world facts, UI agent, and debug info live in left-sidebar inspector groups
 - the left sidebar scrolls independently when its content exceeds viewport height
 - transcript auto-scrolls to the latest message after each turn
@@ -90,6 +123,7 @@ Owns:
 - export local pack archive
 - future install from URL
 - future ZIP upload
+- the authenticated user's default enabled-pack set
 
 May show:
 - selected/default export candidate
@@ -100,10 +134,15 @@ Must not own:
 - active gameplay
 
 Current backend dependencies:
+- `GET /auth/me`
 - `GET /packs`
 - `PATCH /packs/{pack_id}/enabled`
 - `DELETE /packs/{pack_id}`
 - `POST /packs/{pack_id}/export`
+
+Pack-state note:
+- enable/disable is user-scoped and primarily affects future session bootstrap defaults
+- remove/export still act on the shared installed-pack inventory
 
 Missing backend support:
 - install from URL
@@ -133,6 +172,7 @@ Must not own:
 - active gameplay
 
 Current backend dependencies:
+- `GET /auth/me`
 - `GET /settings/llm`
 - `PUT /settings/llm`
 
@@ -159,6 +199,7 @@ Must not own:
 - session inventory management
 
 Current backend dependencies:
+- `GET /auth/me`
 - `GET /game/state`
 - `GET /packs`
 - `GET /settings/llm`
@@ -179,6 +220,7 @@ Design note:
 - `/`, `/setup`, `/sessions`, `/packs`, and `/settings` all use the shared `AppSidebar`.
 - The shared sidebar owns:
   - page navigation
+  - current authenticated user identity and logout action when available
   - session health summary when provided
   - inspector sections when provided
   - local expand/collapse behavior via a vertical handle on the sidebar edge
@@ -187,6 +229,8 @@ Design note:
 
 ## Page Relationship Rules
 
+1. `/login` and `/register` bootstrap authenticated access.
+1. `/`, `/sessions`, `/packs`, `/settings`, and `/setup` require an authenticated user context.
 1. `/setup` summarizes choices and launches.
 2. `/packs` edits world modules.
 3. `/settings` edits runtime behavior.

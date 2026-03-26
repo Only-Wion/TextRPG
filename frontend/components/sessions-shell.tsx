@@ -10,12 +10,13 @@ import {
   loadGameSession,
   startGameSession,
 } from "../lib/api";
-import type { PackRecord, SessionManagerView, SessionSummary } from "../lib/api-contract";
+import type { AuthUser, PackRecord, SessionManagerView, SessionSummary } from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
 type SessionsShellProps = {
   view: SessionManagerView;
   availablePacks: PackRecord[];
+  currentUser: AuthUser;
 };
 
 type CreateDraft = {
@@ -24,7 +25,7 @@ type CreateDraft = {
   packIds: string[];
 };
 
-export function SessionsShell({ view, availablePacks }: SessionsShellProps) {
+export function SessionsShell({ view, availablePacks, currentUser }: SessionsShellProps) {
   const router = useRouter();
   const [runtimeView, setRuntimeView] = useState(view);
   const [selectedSlot, setSelectedSlot] = useState(view.selected_slot);
@@ -177,6 +178,7 @@ export function SessionsShell({ view, availablePacks }: SessionsShellProps) {
       <div className="light-app-frame">
         <AppSidebar
           activePath="/sessions"
+          currentUser={currentUser}
           sections={[
             { label: "Backend", value: view.backend_status },
             { label: "Storage", value: runtimeView.storage_backend },

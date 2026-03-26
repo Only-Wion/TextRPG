@@ -1,6 +1,69 @@
 -- PostgreSQL schema draft for the future TextRPG persistence backend.
 -- This file is documentation-oriented at the current stage. It is not executed yet.
 
+create table if not exists users (
+    id text primary key,
+    email text not null unique,
+    username text not null unique,
+    password_salt text not null,
+    password_hash text not null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists auth_tokens (
+    token_hash text primary key,
+    user_id text not null references users(id) on delete cascade,
+    created_at timestamptz not null default now()
+);
+
+create table if not exists user_sessions (
+    user_id text not null references users(id) on delete cascade,
+    save_slot text not null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    primary key (user_id, save_slot)
+);
+
+create table if not exists user_llm_settings (
+    user_id text primary key references users(id) on delete cascade,
+    provider text not null,
+    model_name text not null,
+    embedding_model text not null,
+    base_url text not null,
+    api_key_encrypted text not null,
+    use_mock_llm boolean not null default false,
+    force_fake_embeddings boolean not null default false,
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists user_pack_states (
+    user_id text not null references users(id) on delete cascade,
+    pack_id text not null,
+    enabled boolean not null default true,
+    updated_at timestamptz not null default now(),
+    primary key (user_id, pack_id)
+);
+
+create table if not exists user_session_metadata (
+    user_id text not null references users(id) on delete cascade,
+    save_slot text not null,
+    language text not null,
+    enabled_packs_json jsonb not null default '[]'::jsonb,
+    location_label text not null,
+    turn_count integer not null default 0,
+    updated_label text not null,
+    primary key (user_id, save_slot)
+);
+
+create table if not exists user_chat_history (
+    user_id text not null references users(id) on delete cascade,
+    save_slot text not null,
+    history_json jsonb not null default '[]'::jsonb,
+    updated_at timestamptz not null default now(),
+    primary key (user_id, save_slot)
+);
+
 create table if not exists game_sessions (
     session_key text primary key,
     save_slot text not null unique,

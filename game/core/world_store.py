@@ -37,3 +37,7 @@ class WorldStore:
         for entity_id, key, value in rows:
             data.setdefault(entity_id, {})[key] = value
         return data
+
+    def close(self) -> None:
+        """Local sqlite usage is per-operation; retained for lifecycle symmetry."""
+        return None

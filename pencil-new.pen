@@ -4468,6 +4468,412 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "A8Gcg",
+      "x": 9280,
+      "y": 80,
+      "name": "TextRPG Login",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "QXSYj",
+          "x": 420,
+          "y": 180,
+          "name": "loginCard",
+          "width": 600,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#C7D6EE55",
+            "offset": {
+              "x": 0,
+              "y": 10
+            },
+            "blur": 24
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            40,
+            36,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "nz3mE",
+              "name": "loginHead",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "CrAPX",
+                  "fill": "#20365C",
+                  "content": "TextRPG",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 34,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "XiTA4",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Sign in to load your sessions and continue your current story.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LVKoK",
+              "name": "loginForm",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uS3YK",
+                  "fill": "#516684",
+                  "content": "Email or Username",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "gzgwd",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yFFr7",
+                      "fill": "#8B9AB4",
+                      "content": "traveler@example.com",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "QXw9G",
+                  "fill": "#516684",
+                  "content": "Password",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "hanSP",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hcdJv",
+                      "fill": "#8B9AB4",
+                      "content": "........",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 18,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yb6kX",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#DDE8FF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#C9D9F4"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "shd4x",
+                  "fill": "#3764FF",
+                  "content": "Sign In",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "1PBdg",
+              "fill": "#5F7393",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Need an account? Create one.",
+              "lineHeight": 1.4,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "UeuwT",
+      "x": 10800,
+      "y": 80,
+      "name": "TextRPG Register",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "EAAMa",
+          "x": 420,
+          "y": 150,
+          "name": "registerCard",
+          "width": 600,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#C7D6EE55",
+            "offset": {
+              "x": 0,
+              "y": 10
+            },
+            "blur": 24
+          },
+          "layout": "vertical",
+          "gap": 26,
+          "padding": [
+            40,
+            40,
+            36,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "xpTDL",
+              "name": "registerHead",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sT34h",
+                  "fill": "#20365C",
+                  "content": "TextRPG",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 34,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "vm64b",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Create an account to keep your sessions isolated and stored per user.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t9sAL",
+              "name": "registerForm",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "J32Qw",
+                  "fill": "#516684",
+                  "content": "Email",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "TB63q",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "og5x3",
+                      "fill": "#8B9AB4",
+                      "content": "traveler@example.com",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ZXBI6",
+                  "fill": "#516684",
+                  "content": "Username",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "gtXfx",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xq7y1",
+                      "fill": "#8B9AB4",
+                      "content": "moonlit_wayfarer",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Pb16g",
+                  "fill": "#516684",
+                  "content": "Password",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "9TheG",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zEnlk",
+                      "fill": "#8B9AB4",
+                      "content": "........",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 18,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PcQb5",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#E3F5EB",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#CFE8DA"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "jCB54",
+                  "fill": "#2A9E5B",
+                  "content": "Create Account",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "EDC7H",
+              "fill": "#5F7393",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Already have an account? Sign in.",
+              "lineHeight": 1.4,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

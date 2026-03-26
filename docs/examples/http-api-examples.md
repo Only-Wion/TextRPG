@@ -82,6 +82,10 @@ Response:
 }
 ```
 
+Notes:
+- The response is sourced from the authenticated user's session metadata inventory.
+- Missing repository rows are backfilled from local save-slot metadata before the response is returned.
+
 ## Enable Pack
 
 Request:

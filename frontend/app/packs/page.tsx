@@ -1,7 +1,16 @@
+import { redirect } from "next/navigation";
 import { PacksShell } from "../../components/packs-shell";
-import { getPacks } from "../../lib/api";
+import { getCurrentUser, getPacks } from "../../lib/api";
+import { getServerAccessToken } from "../../lib/auth";
 
 export default async function PacksPage() {
-  const packs = await getPacks();
-  return <PacksShell packs={packs} />;
+  const token = await getServerAccessToken();
+  if (!token) {
+    redirect("/login");
+  }
+  const [packs, currentUser] = await Promise.all([getPacks(), getCurrentUser()]);
+  if (!currentUser) {
+    redirect("/login");
+  }
+  return <PacksShell currentUser={currentUser} packs={packs} />;
 }

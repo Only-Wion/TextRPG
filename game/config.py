@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +18,7 @@ DATA_DIR = PROJECT_ROOT / 'data' / 'saves' / 'slot_001'
 SAVES_DIR = PROJECT_ROOT / 'data' / 'saves'
 ARCHIVES_DIR = PROJECT_ROOT / 'data' / 'archives'
 EXPORTS_DIR = PROJECT_ROOT / 'data' / 'exports'
+APP_DB_PATH = PROJECT_ROOT / 'data' / 'app.sqlite3'
 SNAPSHOT_DIR = DATA_DIR / 'state_snapshot'
 RAG_DIR = DATA_DIR / 'rag'
 KG_DB_PATH = DATA_DIR / 'kg.sqlite'
@@ -79,29 +82,47 @@ class LLMSettings:
 
 
 RUNTIME_LLM_SETTINGS = LLMSettings()
+ACTIVE_LLM_SETTINGS_OVERRIDE: ContextVar[LLMSettings | None] = ContextVar(
+    'ACTIVE_LLM_SETTINGS_OVERRIDE',
+    default=None,
+)
 
 
-def _normalize_llm_settings(payload: Dict[str, Any]) -> LLMSettings:
+def normalize_llm_settings(payload: Dict[str, Any], current: LLMSettings | None = None) -> LLMSettings:
     """清洗外部输入并映射成内部结构。"""
+    current = current or LLMSettings()
+    api_key_value = str(payload.get('api_key', '')).strip()
     return LLMSettings(
         provider=str(payload.get('provider', 'custom')),
         model_name=str(payload.get('model_name', SETTINGS.model_name)).strip() or SETTINGS.model_name,
         embedding_model=str(payload.get('embedding_model', SETTINGS.embedding_model)).strip() or SETTINGS.embedding_model,
         base_url=str(payload.get('base_url', '')).strip(),
-        api_key=str(payload.get('api_key', '')).strip(),
-        use_mock_llm=bool(payload.get('use_mock_llm', False)),
-        force_fake_embeddings=bool(payload.get('force_fake_embeddings', False)),
+        api_key=api_key_value or current.api_key,
+        use_mock_llm=bool(payload.get('use_mock_llm', current.use_mock_llm)),
+        force_fake_embeddings=bool(payload.get('force_fake_embeddings', current.force_fake_embeddings)),
     )
+
+
+@contextmanager
+def activate_runtime_llm_settings(settings: LLMSettings):
+    token = ACTIVE_LLM_SETTINGS_OVERRIDE.set(settings)
+    try:
+        yield
+    finally:
+        ACTIVE_LLM_SETTINGS_OVERRIDE.reset(token)
 
 
 def load_runtime_llm_settings() -> LLMSettings:
     """从磁盘加载 LLM 设置，并同步全局运行时配置。"""
     global RUNTIME_LLM_SETTINGS
+    override = ACTIVE_LLM_SETTINGS_OVERRIDE.get()
+    if override is not None:
+        return override
     if LLM_SETTINGS_PATH.exists():
         try:
             payload = json.loads(LLM_SETTINGS_PATH.read_text(encoding='utf-8'))
             if isinstance(payload, dict):
-                RUNTIME_LLM_SETTINGS = _normalize_llm_settings(payload)
+                RUNTIME_LLM_SETTINGS = normalize_llm_settings(payload, RUNTIME_LLM_SETTINGS)
                 return RUNTIME_LLM_SETTINGS
         except Exception:
             pass
@@ -112,7 +133,7 @@ def load_runtime_llm_settings() -> LLMSettings:
 def save_runtime_llm_settings(payload: Dict[str, Any]) -> LLMSettings:
     """保存并激活新的 LLM 运行时配置。"""
     global RUNTIME_LLM_SETTINGS
-    settings = _normalize_llm_settings(payload)
+    settings = normalize_llm_settings(payload, RUNTIME_LLM_SETTINGS)
     LLM_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     LLM_SETTINGS_PATH.write_text(json.dumps(settings.__dict__, ensure_ascii=False, indent=2), encoding='utf-8')
     RUNTIME_LLM_SETTINGS = settings

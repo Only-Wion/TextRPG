@@ -18,6 +18,10 @@ async def handle_runtime_error(_: Request, exc: RuntimeError) -> JSONResponse:
     return JSONResponse(status_code=status, content=_payload(detail))
 
 
+async def handle_permission_error(_: Request, exc: PermissionError) -> JSONResponse:
+    return JSONResponse(status_code=401, content=_payload(str(exc) or "authentication required"))
+
+
 async def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content=_payload(str(exc) or "internal server error"))
 
@@ -25,4 +29,5 @@ async def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValueError, handle_value_error)
     app.add_exception_handler(RuntimeError, handle_runtime_error)
+    app.add_exception_handler(PermissionError, handle_permission_error)
     app.add_exception_handler(Exception, handle_unexpected)

@@ -39,6 +39,13 @@ Field notes:
 - `export_path` is a local filesystem path for the generated ZIP.
 - In the current phase this is intended for local development and operator visibility, not browser download streaming.
 
+## Pack Enable State
+
+Behavior:
+- `PackRecord.enabled` is now scoped to the authenticated user
+- `PackEnabledRequest` updates that user's default enabled-pack set
+- existing save slots keep their own persisted enabled-pack list until they are loaded or restarted
+
 ## LLMSettingsPublic
 
 Public runtime settings projection:

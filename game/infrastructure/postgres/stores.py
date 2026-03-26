@@ -18,6 +18,9 @@ class PostgresWorldStore(WorldStoreProtocol):
     def all_attrs(self) -> dict[str, dict[str, str]]:
         raise NotImplementedError("PostgreSQL world store is not implemented yet")
 
+    def close(self) -> None:
+        return None
+
 
 class PostgresKGStore(KGStoreProtocol):
     """Skeleton for a PostgreSQL-backed knowledge graph store."""
@@ -35,6 +38,9 @@ class PostgresKGStore(KGStoreProtocol):
     def all_edges(self) -> list[dict[str, Any]]:
         raise NotImplementedError("PostgreSQL KG store is not implemented yet")
 
+    def close(self) -> None:
+        return None
+
 
 class PostgresRAGStore(RAGStoreProtocol):
     """Skeleton for a PostgreSQL-backed semantic memory store."""
@@ -48,3 +54,6 @@ class PostgresRAGStore(RAGStoreProtocol):
 
     def search(self, query: str, k: int) -> list[dict[str, Any]]:
         raise NotImplementedError("PostgreSQL RAG store is not implemented yet")
+
+    def close(self) -> None:
+        return None

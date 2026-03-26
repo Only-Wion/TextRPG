@@ -4,11 +4,22 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import gc
 import json
 import shutil
 import threading
 
-from ..config import ARCHIVES_DIR, CARDS_DIR, EXPORTS_DIR, SAVES_DIR, SETTINGS, get_slot_paths, load_runtime_llm_settings, save_runtime_llm_settings
+from ..config import (
+    ARCHIVES_DIR,
+    CARDS_DIR,
+    EXPORTS_DIR,
+    SAVES_DIR,
+    SETTINGS,
+    activate_runtime_llm_settings,
+    get_slot_paths,
+    load_runtime_llm_settings,
+    normalize_llm_settings,
+)
 from ..core.card_repository import CardRepository
 from ..core.rule_engine import RuleEngine
 from ..core.rag_store import RAGStore
@@ -34,7 +45,6 @@ from .ui_agents import UICardPlannerAgent, UIPanelStateAgent, UIPanelUpdateAgent
 
 @dataclass
 class GameSession:
-    """按存档槽位组织的运行时对象容器。"""
     save_slot: str
     repo: CardRepository
     world: WorldStoreProtocol
@@ -46,7 +56,6 @@ class GameSession:
 
 
 class GameService:
-    """UI/CLI 使用的服务层 API。"""
     def __init__(self, packs_root: Path | None = None, store_factory: SessionStoreFactory | None = None):
         self.pack_manager = PackManager(packs_root=packs_root) if packs_root else PackManager()
         self.chat_history_store: ChatHistoryStoreProtocol = ChatHistoryStore()
@@ -57,12 +66,13 @@ class GameService:
         self.ui_planner = UICardPlannerAgent()
         self.ui_state_agent = UIPanelStateAgent()
         self.ui_update_agent = UIPanelUpdateAgent()
+        self._runtime_llm_settings = load_runtime_llm_settings()
         self._ui_lock = threading.Lock()
         self._ui_gen_thread: threading.Thread | None = None
         self._ui_update_thread: threading.Thread | None = None
 
     def start_new_game(self, save_slot: str, pack_ids: Optional[List[str]] = None, language: Optional[str] = None) -> None:
-        """开启新游戏会话，可选启用指定卡包。"""
+        self._release_active_session()
         if pack_ids is not None:
             self._set_enabled_packs(pack_ids)
         self._session = self._build_session(save_slot, language=language)
@@ -70,7 +80,7 @@ class GameService:
         self._schedule_ui_generation(force=True)
 
     def load_game(self, save_slot: str, language: Optional[str] = None) -> None:
-        """加载指定存档槽位的游戏会话。"""
+        self._release_active_session()
         metadata = self._load_session_metadata(save_slot)
         if metadata.get('enabled_packs'):
             self._set_enabled_packs(metadata.get('enabled_packs', []))
@@ -79,13 +89,13 @@ class GameService:
         self._schedule_ui_generation(force=False)
 
     def step(self, input_text: str) -> Dict[str, Any]:
-        """推进一回合的 LangGraph 流程。"""
         if not self._session:
             raise RuntimeError('game not started')
         session = self._session
         session.state['turn_id'] = session.state.get('turn_id', 0) + 1
         session.state['player_input'] = input_text
-        result = session.app.invoke(session.state)
+        with self._llm_settings_scope():
+            result = session.app.invoke(session.state)
         narration = result.get('narration', '')
         session.state.update(result)
         history = list(session.state.get('chat_history', []))
@@ -107,14 +117,12 @@ class GameService:
         return result
 
     def set_language(self, language: str) -> None:
-        """更新会话语言偏好。"""
         if not self._session:
             return
         self._session.state['language'] = language
         self._persist_session_metadata(self._session)
 
     def get_current_state_view(self) -> Dict[str, Any]:
-        """返回适用于 UI 展示的状态视图。"""
         if not self._session:
             return {}
         state = self._session.state
@@ -139,15 +147,41 @@ class GameService:
             'storage_backend_label': SETTINGS.storage_backend,
         }
 
-    def list_sessions(self, selected_slot: Optional[str] = None) -> Dict[str, Any]:
-        """杩斿洖鐢ㄤ簬 sessions 椤电殑浼氳瘽姒傝鏁版嵁銆?"""
+    def get_current_session_metadata(self) -> Dict[str, Any]:
+        if not self._session:
+            return {}
+        return self._build_metadata_payload(self._session)
+
+    def get_current_chat_history(self) -> List[Dict[str, Any]]:
+        if not self._session:
+            return []
+        history = self._session.state.get('chat_history', [])
+        if not isinstance(history, list):
+            return []
+        return [item for item in history if isinstance(item, dict)]
+
+    def set_current_chat_history(self, history: List[Dict[str, Any]]) -> None:
+        if not self._session:
+            return
+        normalized = [item for item in history if isinstance(item, dict)]
+        self._session.state['chat_history'] = normalized
+        self._session.state['recent_messages'] = normalized[-10:]
+        self._refresh_custom_ui_panels(self._session)
+        self._save_chat_history(self._session)
+
+    def list_sessions(self, allowed_slots: Optional[List[str]] = None, selected_slot: Optional[str] = None) -> Dict[str, Any]:
         sessions: List[Dict[str, Any]] = []
+        allowed_slot_set = set(allowed_slots or [])
         if SAVES_DIR.exists():
             slot_dirs = [path for path in SAVES_DIR.iterdir() if path.is_dir()]
             for slot_dir in sorted(slot_dirs, key=lambda path: path.stat().st_mtime, reverse=True):
+                if allowed_slot_set and slot_dir.name not in allowed_slot_set:
+                    continue
                 sessions.append(self._build_session_summary(slot_dir.name))
 
         selected_slot = selected_slot or (self._session.save_slot if self._session else (sessions[0]['slot_id'] if sessions else 'slot_001'))
+        if sessions and selected_slot not in {session['slot_id'] for session in sessions}:
+            selected_slot = sessions[0]['slot_id']
         return {
             'selected_slot': selected_slot,
             'backend_status': 'online',
@@ -176,12 +210,12 @@ class GameService:
         if not source_paths['data_dir'].exists():
             raise ValueError('save slot not found')
 
+        if self._session and self._session.save_slot == save_slot:
+            self._release_active_session()
+
         archived_path = self._resolve_archive_path(save_slot)
         archived_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(source_paths['data_dir']), str(archived_path))
-
-        if self._session and self._session.save_slot == save_slot:
-            self._session = None
 
         remaining_slots = [
             path.name
@@ -194,41 +228,33 @@ class GameService:
 
 
     def get_llm_settings(self) -> Dict[str, Any]:
-        """获取当前生效的 LLM 配置（不返回明文密钥）。"""
-        return load_runtime_llm_settings().to_public_dict()
+        return self._runtime_llm_settings.to_public_dict()
 
-    def update_llm_settings(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """更新并持久化 LLM 配置。"""
-        settings = save_runtime_llm_settings(payload)
-        return settings.to_public_dict()
+    def set_runtime_llm_settings(self, payload: Dict[str, Any]) -> None:
+        self._runtime_llm_settings = normalize_llm_settings(payload, self._runtime_llm_settings)
+
 
     def list_packs(self) -> List[Dict[str, Any]]:
-        """从注册表列出已安装卡包。"""
         return [r.__dict__ for r in self.pack_manager.list_packs()]
 
     def install_pack_from_url(self, url: str) -> Dict[str, Any]:
-        """从 URL 下载并安装卡包。"""
         record = self.pack_manager.install_pack_from_url(url)
         return record.__dict__
 
     def install_pack_from_zip(self, path: Path) -> Dict[str, Any]:
-        """从本地 zip 安装卡包。"""
         record = self.pack_manager.install_pack_from_zip(path)
         return record.__dict__
 
     def remove_pack(self, pack_id: str) -> None:
-        """删除已安装卡包及其文件。"""
         record = self.pack_manager.registry.get(pack_id)
         if record and record.source == 'builtin':
             raise ValueError('builtin packs cannot be removed')
         self.pack_manager.remove_pack(pack_id)
 
     def enable_pack(self, pack_id: str, enabled: bool) -> None:
-        """启用或禁用卡包。"""
         self.pack_manager.enable_pack(pack_id, enabled)
 
     def export_pack(self, pack_id: str, output_path: Path) -> None:
-        """导出卡包为 zip 文件。"""
         self.pack_manager.export_pack(pack_id, output_path)
 
     def export_pack_to_runtime_exports(self, pack_id: str) -> Dict[str, Any]:
@@ -245,7 +271,6 @@ class GameService:
         }
 
     def create_card(self, pack_id: str, card_type: str, card_id: str, frontmatter: Dict[str, Any], body: str) -> Path:
-        """在卡包内创建一张新卡牌文件。"""
         return self.save_card(pack_id, card_type, card_id, frontmatter, body)
 
     def save_card(
@@ -257,7 +282,6 @@ class GameService:
         body: str,
         original_path: Path | None = None,
     ) -> Path:
-        """创建或更新卡牌；若 id/type 变化则自动重命名并删除旧文件。"""
         frontmatter = dict(frontmatter)
         frontmatter['id'] = card_id
         frontmatter['type'] = card_type
@@ -275,20 +299,16 @@ class GameService:
         return path
 
     def update_card(self, path: Path, frontmatter: Dict[str, Any], body: str) -> None:
-        """更新现有卡牌文件。"""
         validate_card(frontmatter, body)
         path.write_text(render_card(frontmatter, body), encoding='utf-8')
 
     def validate_card(self, frontmatter: Dict[str, Any], body: str) -> None:
-        """校验卡牌 frontmatter 与正文。"""
         validate_card(frontmatter, body)
 
     def export_pack_manifest(self, data: Dict[str, Any]) -> None:
-        """导出前校验 manifest 数据。"""
         validate_manifest(data)
 
     def create_pack(self, manifest: Dict[str, Any]) -> None:
-        """创建空卡包目录并写入注册表。"""
         validate_manifest(manifest)
         pack_id = str(manifest['pack_id'])
         version = str(manifest['version'])
@@ -313,7 +333,6 @@ class GameService:
         self.pack_manager.registry.upsert(record)
 
     def get_card_template(self, card_type: str) -> Dict[str, Any]:
-        """返回指定卡牌类型的最小 frontmatter 模板。"""
         normalized_type = str(card_type).strip() or 'card'
         return {
             'id': 'new_id',
@@ -324,7 +343,6 @@ class GameService:
         }
 
     def list_pack_card_types(self, pack_id: str) -> List[str]:
-        """按“已有类型优先 + 默认类型补充”返回可选 type。"""
         root = self._pack_cards_root(pack_id)
         existing: List[str] = []
         seen: set[str] = set()
@@ -342,17 +360,14 @@ class GameService:
         return merged
 
     def list_pack_cards(self, pack_id: str) -> List[Path]:
-        """列出卡包内所有卡牌文件。"""
         root = self._pack_cards_root(pack_id)
         return list(root.rglob('*.md'))
 
     def load_card(self, path: Path) -> Dict[str, Any]:
-        """加载卡牌文件并返回 frontmatter 与正文。"""
         fm, body = parse_card(path)
         return {'frontmatter': fm, 'body': body}
 
     def delete_card(self, pack_id: str, path: Path) -> None:
-        """删除卡包内指定卡牌文件。"""
         pack_root = self._pack_cards_root(pack_id)
         target = Path(path)
         if not target.exists():
@@ -362,17 +377,17 @@ class GameService:
         target.unlink()
 
     def _build_session(self, save_slot: str, language: Optional[str] = None) -> GameSession:
-        """构建包含仓库与存储的 GameSession。"""
         paths = get_slot_paths(save_slot)
         metadata = self.session_metadata_store.load(paths['session_meta_path'])
         enabled_roots = self.pack_manager.get_enabled_cards_roots()
         repo = CardRepository(cards_dir=CARDS_DIR, extra_roots=enabled_roots)
         repo.load()
-        stores = self.store_factory.create(
-            world_db_path=paths['world_db_path'],
-            kg_db_path=paths['kg_db_path'],
-            rag_dir=paths['rag_dir'],
-        )
+        with self._llm_settings_scope():
+            stores = self.store_factory.create(
+                world_db_path=paths['world_db_path'],
+                kg_db_path=paths['kg_db_path'],
+                rag_dir=paths['rag_dir'],
+            )
         world = stores.world
         kg = stores.kg
         rag = stores.rag
@@ -421,14 +436,12 @@ class GameService:
         return session
 
     def _refresh_world_facts(self, session: GameSession) -> None:
-        """同步最新世界状态到会话视图。"""
         session.state['world_facts'] = {
             'attrs': session.world.all_attrs(),
             'edges': session.kg.all_edges(),
         }
 
     def _refresh_custom_ui_panels(self, session: GameSession) -> None:
-        """基于 UI 卡牌定义刷新面板展示数据。"""
         panel_defs = session.state.get('custom_ui_panel_defs', [])
         world_facts = session.state.get('world_facts', {})
         history = session.state.get('chat_history', [])
@@ -436,13 +449,11 @@ class GameService:
         session.state['custom_ui_panels'] = self.ui_state_agent.update(panel_defs, world_facts, history, quest_catalog)
 
     def set_ui_update_mode(self, mode: str) -> None:
-        """设置 UI 更新模式（auto/manual）。"""
         if not self._session:
             return
         self._session.state['ui_update_mode'] = 'auto' if mode == 'auto' else 'manual'
 
     def set_ui_auto_update_every(self, turns: int) -> None:
-        """设置自动更新的回合间隔。"""
         if not self._session:
             return
         turns = int(turns or 1)
@@ -451,13 +462,11 @@ class GameService:
         self._session.state['ui_auto_update_every'] = turns
 
     def trigger_ui_generation(self, force: bool = False) -> None:
-        """手动触发 UI 生成。"""
         if not self._session:
             return
         self._schedule_ui_generation(force=force)
 
     def trigger_ui_update(self) -> None:
-        """手动触发 UI 更新。"""
         if not self._session:
             return
         self._schedule_ui_update()
@@ -502,12 +511,13 @@ class GameService:
                     session.state['ui_generation_status'] = 'running'
 
             rag_lookup = self._build_ui_rag_lookup(session)
-            panels = self.ui_planner.plan(
-                list(session.repo.by_type('ui')),
-                world_facts=session.state.get('world_facts', {}),
-                chat_history=session.state.get('chat_history', []),
-                rag_lookup=rag_lookup,
-            )
+            with self._llm_settings_scope():
+                panels = self.ui_planner.plan(
+                    list(session.repo.by_type('ui')),
+                    world_facts=session.state.get('world_facts', {}),
+                    chat_history=session.state.get('chat_history', []),
+                    rag_lookup=rag_lookup,
+                )
             with self._ui_lock:
                 if session is self._session:
                     session.state['custom_ui_panel_defs'] = panels
@@ -528,12 +538,13 @@ class GameService:
             session.state['ui_update_status'] = 'running'
         try:
             rag_lookup = self._build_ui_rag_lookup(session)
-            updated = self.ui_update_agent.update(
-                session.state.get('custom_ui_panel_defs', []),
-                world_facts=session.state.get('world_facts', {}),
-                chat_history=session.state.get('chat_history', []),
-                rag_lookup=rag_lookup,
-            )
+            with self._llm_settings_scope():
+                updated = self.ui_update_agent.update(
+                    session.state.get('custom_ui_panel_defs', []),
+                    world_facts=session.state.get('world_facts', {}),
+                    chat_history=session.state.get('chat_history', []),
+                    rag_lookup=rag_lookup,
+                )
             with self._ui_lock:
                 if session is self._session:
                     session.state['custom_ui_panel_defs'] = updated
@@ -560,7 +571,6 @@ class GameService:
 
 
     def _collect_quest_catalog(self, repo: CardRepository) -> List[Dict[str, Any]]:
-        """收集卡牌仓库中的 quest 卡牌用于任务面板展示。"""
         quests: List[Dict[str, Any]] = []
         for card in repo.by_type('quest'):
             summary = ''
@@ -575,21 +585,19 @@ class GameService:
         return quests
 
     def _pack_cards_root(self, pack_id: str) -> Path:
-        """解析某个卡包的 cards 根目录。"""
         record = self.pack_manager.registry.get(pack_id)
         if not record:
             raise ValueError('pack not found')
         return self.pack_manager.packs_root / record.pack_id / record.version / record.cards_root
 
     def _resolve_card_type_dir(self, pack_root: Path, card_type: str) -> str:
-        """根据 pack 现状推断某个 type 应写入的目录名。"""
         normalized = str(card_type).strip()
         if not normalized:
             return 'cards'
         singular = normalized
         plural = 'memories' if normalized == 'memory' else f'{normalized}s'
 
-        # 优先复用已存在目录，兼容作者自定义命名。
+        # 浼樺厛澶嶇敤宸插瓨鍦ㄧ洰褰曪紝鍏煎浣滆€呰嚜瀹氫箟鍛藉悕?
         if (pack_root / singular).exists():
             return singular
         if (pack_root / plural).exists():
@@ -597,7 +605,6 @@ class GameService:
         return plural
 
     def _is_within(self, path: Path, root: Path) -> bool:
-        """判断 path 是否位于 root 子树内。"""
         try:
             path.resolve().relative_to(root.resolve())
             return True
@@ -605,7 +612,6 @@ class GameService:
             return False
 
     def _load_chat_history(self, path: Path) -> List[Dict[str, str]]:
-        """从存档中读取聊天记录。"""
         if not path.exists():
             return []
         try:
@@ -617,7 +623,6 @@ class GameService:
         return []
 
     def _load_ui_panels(self, path: Path) -> List[Dict[str, Any]]:
-        """从存档读取已生成的 UI 面板定义。"""
         if not path.exists():
             return []
         try:
@@ -629,12 +634,10 @@ class GameService:
         return []
 
     def _save_ui_panels(self, path: Path, panels: List[Dict[str, Any]]) -> None:
-        """保存 UI 面板定义到存档。"""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(panels, ensure_ascii=False, indent=2), encoding='utf-8')
 
     def _save_chat_history(self, session: GameSession) -> None:
-        """将聊天记录写入存档文件。"""
         path = get_slot_paths(session.save_slot)['chat_history_path']
         history = session.state.get('chat_history', [])
         self.chat_history_store.save(path, history)
@@ -672,7 +675,26 @@ class GameService:
         if not session:
             return
         paths = get_slot_paths(session.save_slot)
-        payload = {
+        payload = self._build_metadata_payload(session)
+        self.session_metadata_store.save(paths['session_meta_path'], payload)
+
+    def _release_active_session(self) -> None:
+        session = self._session
+        self._session = None
+        if not session:
+            return
+        for store_name in ('world', 'kg', 'rag'):
+            store = getattr(session, store_name, None)
+            close = getattr(store, 'close', None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
+        gc.collect()
+
+    def _build_metadata_payload(self, session: GameSession) -> Dict[str, Any]:
+        return {
             'save_slot': session.save_slot,
             'language': session.state.get('language', 'zh'),
             'enabled_packs': session.state.get('enabled_packs', []),
@@ -680,7 +702,6 @@ class GameService:
             'turn_count': int(session.state.get('turn_id', 0) or 0),
             'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
         }
-        self.session_metadata_store.save(paths['session_meta_path'], payload)
 
     def _infer_location_label(self, state: Dict[str, Any]) -> str:
         world_facts = state.get('world_facts', {})
@@ -711,8 +732,11 @@ class GameService:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         return ARCHIVES_DIR / f'{save_slot}_{timestamp}'
 
+    def _llm_settings_scope(self):
+        return activate_runtime_llm_settings(self._runtime_llm_settings)
+
 def json_dump(data: Dict[str, Any]) -> str:
-    """将 dict 序列化为格式化 JSON。"""
     import json
 
     return json.dumps(data, indent=2)
+

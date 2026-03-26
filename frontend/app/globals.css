@@ -448,6 +448,40 @@ button:disabled {
   border-color: #cbd5e1;
 }
 
+.auth-page-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: min(520px, calc(100vw - 48px));
+  padding: 28px;
+  border: 1px solid #d5dfea;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(148, 163, 184, 0.18);
+}
+
+.auth-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-submit {
+  width: 100%;
+}
+
 .light-app-shell {
   min-height: 100vh;
   padding: 24px;
@@ -504,6 +538,14 @@ button:disabled {
 .light-sidebar-scroll::-webkit-scrollbar-thumb {
   background: #9fb3d1;
   border-radius: 999px;
+}
+
+.sidebar-account-email {
+  word-break: break-word;
+}
+
+.sidebar-logout-button {
+  width: 100%;
 }
 
 .sidebar-collapse-handle {

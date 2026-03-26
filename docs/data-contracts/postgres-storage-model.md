@@ -26,6 +26,94 @@ Why this exists:
 
 ## Planned Tables
 
+### `users`
+
+Purpose:
+- Root table for authenticated accounts.
+
+Fields:
+- `id`
+- `email`
+- `username`
+- `password_hash`
+- `password_salt`
+- `created_at`
+- `updated_at`
+
+### `auth_tokens`
+
+Purpose:
+- Server-side bearer token persistence.
+
+Fields:
+- `token_hash`
+- `user_id`
+- `created_at`
+
+### `user_sessions`
+
+Purpose:
+- Bind save-slot identities to one user account.
+
+Fields:
+- `user_id`
+- `save_slot`
+- `created_at`
+- `updated_at`
+
+### `user_llm_settings`
+
+Purpose:
+- Persist runtime LLM settings per authenticated user.
+
+Fields:
+- `user_id`
+- `provider`
+- `model_name`
+- `embedding_model`
+- `base_url`
+- `api_key_encrypted`
+- `use_mock_llm`
+- `force_fake_embeddings`
+- `updated_at`
+
+### `user_pack_states`
+
+Purpose:
+- Persist the authenticated user's default enabled-pack set.
+
+Fields:
+- `user_id`
+- `pack_id`
+- `enabled`
+- `updated_at`
+
+### `user_session_metadata`
+
+Purpose:
+- Persist session-summary metadata per authenticated user.
+
+Fields:
+- `user_id`
+- `save_slot`
+- `language`
+- `enabled_packs_json`
+- `location_label`
+- `turn_count`
+- `updated_label`
+
+### `user_chat_history`
+
+Purpose:
+- Persist ordered chat history per authenticated user and save slot before the full
+  session storage migration is complete.
+
+Fields:
+- `user_id`
+- `save_slot`
+- `history_json`
+- `updated_at`
+
 ### `game_sessions`
 
 Purpose:
