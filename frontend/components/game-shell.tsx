@@ -144,7 +144,11 @@ export function GameShell({ state, currentUser }: GameShellProps) {
                 <div className="control-field">{enabledPacks}</div>
                 <div className="control-field">zh</div>
 
-                <button className="light-action-button load" onClick={() => router.push("/setup")} type="button">
+                <button
+                  className="light-action-button load"
+                  onClick={() => router.push("/sessions?mode=create")}
+                  type="button"
+                >
                   Start
                 </button>
                 <button className="light-action-button new" onClick={() => router.push("/sessions")} type="button">

@@ -17,7 +17,7 @@ type SidebarInspectorSection = {
 };
 
 type AppSidebarProps = {
-  activePath: "/sessions" | "/" | "/packs" | "/settings" | "/setup" | "/card-designer";
+  activePath: "/sessions" | "/" | "/packs" | "/settings" | "/card-designer";
   title?: string;
   sections?: SidebarStatusSection[];
   inspectorSections?: SidebarInspectorSection[];
@@ -30,7 +30,6 @@ const navItems = [
   { href: "/packs" as const, label: "Pack Manager" },
   { href: "/card-designer" as const, label: "Card Designer" },
   { href: "/settings" as const, label: "Settings" },
-  { href: "/setup" as const, label: "Setup" },
 ];
 
 export function AppSidebar({

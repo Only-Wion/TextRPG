@@ -11,7 +11,6 @@ This directory contains the local Next.js frontend for the TextRPG web applicati
   - `/packs`
   - `/card-designer`
   - `/settings`
-  - `/setup`
 - Data access is contract-driven through `frontend/lib/api.ts`
 - When FastAPI is unavailable, the frontend falls back to `frontend/lib/mock-data.ts`
 
