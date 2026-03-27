@@ -205,6 +205,41 @@ Current backend dependencies:
 - `GET /settings/llm`
 - `POST /game/start`
 
+### `/card-designer`
+
+Primary job:
+- pack and card authoring workbench
+
+Owns:
+- create/edit card workflow
+- existing-card browsing and quick load
+- create-pack workflow
+- Pack Builder Agent conversation and tool execution view
+
+May show:
+- current authenticated user in the shared sidebar
+- pack summaries and draft state summaries
+
+Must not own:
+- active gameplay
+- session inventory management
+- runtime settings editing
+
+Current backend dependencies:
+- `GET /auth/me`
+- `GET /card-designer/packs`
+- `POST /card-designer/packs`
+- `GET /card-designer/packs/{pack_id}/card-types`
+- `GET /card-designer/packs/{pack_id}/cards`
+- `GET /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/packs/{pack_id}/cards/template`
+- `POST /card-designer/packs/{pack_id}/cards`
+- `POST /card-designer/cards/validate`
+- `DELETE /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/agent/sessions`
+- `GET /card-designer/agent/sessions/{session_id}`
+- `POST /card-designer/agent/sessions/{session_id}/messages`
+
 Design note:
 - `/setup` should summarize configuration, not replace `/packs` or `/settings`.
 
@@ -214,6 +249,10 @@ Design note:
 - Browser-triggered write actions require the FastAPI backend to be running and reachable from
   `http://127.0.0.1:3000`.
 - If local CORS is misconfigured, the browser will surface these failures as `Failed to fetch`.
+- The deployed frontend at `https://textrpg.tech` depends on the same backend CORS allowlist.
+- If production login or register requests fail with `Failed to fetch`, first verify:
+  - `frontend/.env.production` points at `https://api.textrpg.tech`
+  - the backend has been restarted after CORS changes
 
 ## Shared Sidebar Contract
 
@@ -230,12 +269,13 @@ Design note:
 ## Page Relationship Rules
 
 1. `/login` and `/register` bootstrap authenticated access.
-1. `/`, `/sessions`, `/packs`, `/settings`, and `/setup` require an authenticated user context.
+1. `/`, `/sessions`, `/packs`, `/settings`, `/setup`, and `/card-designer` require an authenticated user context.
 1. `/setup` summarizes choices and launches.
 2. `/packs` edits world modules.
 3. `/settings` edits runtime behavior.
 4. `/sessions` manages existing saves.
-5. `/` is only for active play.
+5. `/card-designer` owns pack/card authoring workflows.
+6. `/` is only for active play.
 
 ## Trigger Checklist For Future Changes
 

@@ -30,6 +30,7 @@ Notes:
 Authentication note:
 - Account routes are defined separately in `docs/api/auth-api.md`.
 - Game/session routes below now assume a valid bearer token unless stated otherwise.
+- Card Designer routes are documented separately in `docs/api/card-designer-api.md`.
 
 ### `POST /game/start`
 
@@ -324,11 +325,23 @@ The current shell is implemented in:
 - `backend/main.py` enables CORS for:
   - `http://127.0.0.1:3000`
   - `http://localhost:3000`
+  - `http://textrpg.tech`
+  - `https://textrpg.tech`
+  - `http://www.textrpg.tech`
+  - `https://www.textrpg.tech`
+
+Production note:
+- Additional frontend origins can be appended with the `TEXTRPG_CORS_ALLOW_ORIGINS`
+  environment variable.
+- The variable accepts a comma-separated list, for example:
+  `TEXTRPG_CORS_ALLOW_ORIGINS=https://preview.textrpg.tech,https://admin.textrpg.tech`
 
 Notes:
 - Without this CORS allowance, browser-triggered write requests such as `POST /game/start`,
   `POST /game/step`, `PATCH /packs/{pack_id}/enabled`, and `PUT /settings/llm` will fail in
   local development with a generic `Failed to fetch` error.
+- The same browser symptom will also appear in production when the deployed frontend origin is
+  missing from the backend CORS allowlist.
 
 ## Error Mapping
 

@@ -128,6 +128,33 @@ Primary backend dependencies:
 - `GET /settings/llm`
 - `POST /game/start`
 
+### `/card-designer`
+
+Purpose:
+- AI-assisted pack and card authoring workbench
+
+Responsibilities:
+- render three-column designer layout
+- edit or create one card
+- browse existing cards with filtering
+- create a new pack manifest
+- manage a persisted Pack Builder Agent session
+
+Primary backend dependencies:
+- `GET /auth/me`
+- `GET /card-designer/packs`
+- `POST /card-designer/packs`
+- `GET /card-designer/packs/{pack_id}/card-types`
+- `GET /card-designer/packs/{pack_id}/cards`
+- `GET /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/packs/{pack_id}/cards/template`
+- `POST /card-designer/packs/{pack_id}/cards`
+- `POST /card-designer/cards/validate`
+- `DELETE /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/agent/sessions`
+- `GET /card-designer/agent/sessions/{session_id}`
+- `POST /card-designer/agent/sessions/{session_id}/messages`
+
 ## Frontend Data Contract Source
 
 Canonical frontend-facing types currently live in:
@@ -149,6 +176,18 @@ Current frontend write entrypoints live in:
 - `frontend/lib/api.ts#removePack`
 - `frontend/lib/api.ts#exportPack`
 - `frontend/lib/api.ts#updateLLMSettings`
+- `frontend/lib/api.ts#getDesignerPacks`
+- `frontend/lib/api.ts#createDesignerPack`
+- `frontend/lib/api.ts#getDesignerCardTypes`
+- `frontend/lib/api.ts#getDesignerCards`
+- `frontend/lib/api.ts#loadDesignerCard`
+- `frontend/lib/api.ts#getDesignerCardTemplate`
+- `frontend/lib/api.ts#saveDesignerCard`
+- `frontend/lib/api.ts#validateDesignerCard`
+- `frontend/lib/api.ts#deleteDesignerCard`
+- `frontend/lib/api.ts#createDesignerAgentSession`
+- `frontend/lib/api.ts#getDesignerAgentSession`
+- `frontend/lib/api.ts#sendDesignerAgentMessage`
 
 Mock fallback data used for local UI development lives in:
 - `frontend/lib/mock-data.ts`
@@ -177,6 +216,13 @@ The frontend still normalizes fallback values when the backend is unavailable.
 Environment variables:
 - `NEXT_PUBLIC_API_BASE_URL`
 - `API_BASE_URL`
+
+Production deployment note:
+- When the frontend is deployed on `https://textrpg.tech`, the backend must allow that origin
+  through FastAPI CORS configuration.
+- The current backend defaults already include `https://textrpg.tech` and
+  `https://www.textrpg.tech`.
+- Extra frontend origins can be added through `TEXTRPG_CORS_ALLOW_ORIGINS`.
 
 ## Current Limitation
 

@@ -9,6 +9,7 @@ This directory contains the local Next.js frontend for the TextRPG web applicati
   - `/sessions`
   - `/`
   - `/packs`
+  - `/card-designer`
   - `/settings`
   - `/setup`
 - Data access is contract-driven through `frontend/lib/api.ts`
@@ -20,6 +21,12 @@ This directory contains the local Next.js frontend for the TextRPG web applicati
 - `API_BASE_URL`
 
 If neither variable is set, the frontend defaults to `http://127.0.0.1:8000`.
+
+Production example:
+```text
+NEXT_PUBLIC_API_BASE_URL=https://api.textrpg.tech
+API_BASE_URL=https://api.textrpg.tech
+```
 
 ## Local Run Notes
 
@@ -33,6 +40,10 @@ If a button shows `Failed to fetch` in local development, check:
 - the backend was restarted after CORS or route changes
 - the button is not one of the documented placeholders on `/sessions` or `/packs`
 
+If login or register shows `Failed to fetch` in production, check:
+- `frontend/.env.production` points to the deployed API origin
+- the backend CORS allowlist includes the deployed frontend origin
+
 ## Contract References
 
 - `docs/api/frontend-contracts.md`
@@ -43,6 +54,6 @@ If a button shows `Failed to fetch` in local development, check:
 
 ## Next Steps
 
-- Add a dedicated backend endpoint for listing sessions
-- Add pack install and export endpoints
-- Add session duplicate and archive endpoints
+- Refine the Card Designer visual library panel beyond the current structured list
+- Add pack install-from-URL and ZIP upload endpoints
+- Continue migrating local transition repositories toward PostgreSQL-backed implementations
