@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from game.infrastructure.contracts import (
+    CardDesignerSessionRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
     UserRepositoryProtocol,
@@ -13,6 +14,7 @@ from game.infrastructure.contracts import (
 )
 from game.config import SETTINGS
 from game.service.api import GameService
+from game.service.pack_builder_agent import PackBuilderAgent
 
 
 class GameServiceRegistry:
@@ -344,3 +346,139 @@ class SettingsService:
             'use_mock_llm': settings['use_mock_llm'],
             'force_fake_embeddings': settings['force_fake_embeddings'],
         }
+
+
+class CardDesignerService:
+    """Application contract for the Card Designer workbench."""
+
+    def __init__(self, game_service: GameService, designer_repository: CardDesignerSessionRepositoryProtocol):
+        self._game_service = game_service
+        self._designer_repository = designer_repository
+        self._agent = PackBuilderAgent(game_service)
+
+    def list_packs(self, user_id: str) -> list[dict[str, Any]]:
+        del user_id
+        return self._game_service.list_packs()
+
+    def create_pack(self, user_id: str, manifest: dict[str, Any]) -> dict[str, Any]:
+        del user_id
+        self._game_service.create_pack(manifest)
+        return manifest
+
+    def list_card_types(self, user_id: str, pack_id: str) -> list[str]:
+        del user_id
+        return self._game_service.list_pack_card_types(pack_id)
+
+    def list_cards(self, user_id: str, pack_id: str, category: str | None = None, keyword: str | None = None) -> list[dict[str, Any]]:
+        del user_id
+        root = self._game_service._pack_cards_root(pack_id)
+        normalized_category = (category or "").strip()
+        normalized_keyword = (keyword or "").strip().lower()
+        records: list[dict[str, Any]] = []
+        for path in self._game_service.list_pack_cards(pack_id):
+            rel_path = str(path.relative_to(root)).replace("\\", "/")
+            category_name = path.parent.name
+            if normalized_category and normalized_category.lower() != "all" and category_name != normalized_category:
+                continue
+            if normalized_keyword and normalized_keyword not in rel_path.lower():
+                continue
+            card = self._game_service.load_card(path)
+            frontmatter = card.get("frontmatter", {})
+            card_id = str(frontmatter.get("id", path.stem))
+            card_type = str(frontmatter.get("type", category_name or "card"))
+            title = str(frontmatter.get("name") or frontmatter.get("title") or card_id)
+            records.append(
+                {
+                    "path": rel_path,
+                    "card_id": card_id,
+                    "card_type": card_type,
+                    "category": category_name,
+                    "title": title,
+                }
+            )
+        return sorted(records, key=lambda item: (item["category"], item["card_id"]))
+
+    def load_card(self, user_id: str, pack_id: str, card_path: str) -> dict[str, Any]:
+        del user_id
+        target = self._resolve_card_path(pack_id, card_path)
+        card = self._game_service.load_card(target)
+        frontmatter = card.get("frontmatter", {})
+        return {
+            "path": str(target.relative_to(self._game_service._pack_cards_root(pack_id))).replace("\\", "/"),
+            "pack_id": pack_id,
+            "card_type": str(frontmatter.get("type", target.parent.name or "card")),
+            "card_id": str(frontmatter.get("id", target.stem)),
+            "frontmatter": frontmatter,
+            "body": str(card.get("body", "")),
+        }
+
+    def get_card_template(self, user_id: str, card_type: str) -> dict[str, Any]:
+        del user_id
+        return self._game_service.get_card_template(card_type)
+
+    def save_card(
+        self,
+        user_id: str,
+        pack_id: str,
+        card_type: str,
+        card_id: str,
+        frontmatter: dict[str, Any],
+        body: str,
+        original_path: str | None = None,
+    ) -> dict[str, Any]:
+        del user_id
+        original = self._resolve_card_path(pack_id, original_path) if original_path else None
+        saved = self._game_service.save_card(pack_id, card_type, card_id, frontmatter, body, original_path=original)
+        return self.load_card("", pack_id, str(saved.relative_to(self._game_service._pack_cards_root(pack_id))).replace("\\", "/"))
+
+    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+        del user_id
+        self._game_service.validate_card(frontmatter, body)
+
+    def delete_card(self, user_id: str, pack_id: str, card_path: str) -> None:
+        del user_id
+        self._game_service.delete_card(pack_id, self._resolve_card_path(pack_id, card_path))
+
+    def create_agent_session(self, user_id: str, pack_id: str | None = None) -> dict[str, Any]:
+        return self._designer_repository.create_designer_session(user_id, pack_id)
+
+    def get_agent_session(self, user_id: str, session_id: str) -> dict[str, Any]:
+        session = self._designer_repository.get_designer_session(user_id, session_id)
+        if not session:
+            raise ValueError("designer session not found")
+        return session
+
+    def send_agent_message(self, user_id: str, session_id: str, message: str) -> dict[str, Any]:
+        session = self.get_agent_session(user_id, session_id)
+        state = dict(session.get("state", {}) or {})
+        result = self._agent.process(message, state)
+        updated_state = result.get("state", state)
+        selected_pack_id = str(updated_state.get("selected_pack_id", "") or session.get("selected_pack_id", ""))
+        persisted = self._designer_repository.save_designer_session(
+            user_id,
+            session_id,
+            {
+                "selected_pack_id": selected_pack_id,
+                "mode": session.get("mode", "edit"),
+                "state": updated_state,
+            },
+        )
+        return {
+            "session_id": session_id,
+            "assistant": str(result.get("assistant", "")),
+            "tool_logs": [str(item) for item in result.get("tool_logs", [])],
+            "selected_pack_id": persisted.get("selected_pack_id", ""),
+            "state": persisted.get("state", {}),
+        }
+
+    def _resolve_card_path(self, pack_id: str, card_path: str | None) -> Path:
+        if not card_path:
+            raise ValueError("card path is required")
+        root = self._game_service._pack_cards_root(pack_id)
+        raw = Path(str(card_path).strip())
+        target = raw if raw.is_absolute() else (root / raw)
+        if not target.exists():
+            raise ValueError("card not found")
+        if not self._game_service._is_within(target, root):
+            raise ValueError("card path is outside pack root")
+        return target

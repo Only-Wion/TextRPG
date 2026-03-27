@@ -155,3 +155,58 @@ export type GameActionResponse = {
   result: Record<string, unknown>;
   state_view: Partial<StateView>;
 };
+
+export type DesignerCardSummary = {
+  path: string;
+  card_id: string;
+  card_type: string;
+  category: string;
+  title: string;
+};
+
+export type DesignerCardPayload = {
+  path: string;
+  pack_id: string;
+  card_type: string;
+  card_id: string;
+  frontmatter: Record<string, unknown>;
+  body: string;
+};
+
+export type CreateDesignerPackRequest = {
+  pack_id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  cards_root: string;
+};
+
+export type SaveDesignerCardRequest = {
+  card_type: string;
+  card_id: string;
+  frontmatter_text: string;
+  body: string;
+  original_path?: string;
+};
+
+export type ValidateDesignerCardRequest = {
+  frontmatter_text: string;
+  body: string;
+};
+
+export type DesignerAgentSession = {
+  session_id: string;
+  selected_pack_id: string;
+  mode: string;
+  state: Record<string, unknown>;
+  updated_at?: string | null;
+};
+
+export type DesignerAgentMessageResponse = {
+  session_id: string;
+  assistant: string;
+  tool_logs: string[];
+  selected_pack_id: string;
+  state: Record<string, unknown>;
+};

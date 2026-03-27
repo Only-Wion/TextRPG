@@ -13,6 +13,7 @@ from typing import Any
 
 from game.config import APP_DB_PATH, load_runtime_llm_settings, normalize_llm_settings
 from .contracts import (
+    CardDesignerSessionRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
     UserRepositoryProtocol,
@@ -56,6 +57,7 @@ class SqliteAuthRepository(
     UserPackStateRepositoryProtocol,
     UserSessionMetadataRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
+    CardDesignerSessionRepositoryProtocol,
 ):
     """Local-development auth/session-index repository backed by sqlite."""
 
@@ -128,6 +130,15 @@ class SqliteAuthRepository(
                     history_json text not null,
                     updated_at text not null default current_timestamp,
                     primary key (user_id, save_slot)
+                );
+
+                create table if not exists user_card_designer_sessions (
+                    session_id text primary key,
+                    user_id text not null references users(id) on delete cascade,
+                    selected_pack_id text not null default '',
+                    mode text not null default 'edit',
+                    state_json text not null,
+                    updated_at text not null default current_timestamp
                 );
                 """
             )
@@ -466,4 +477,103 @@ class SqliteAuthRepository(
             conn.execute(
                 "delete from user_chat_history where user_id = ? and save_slot = ?",
                 (user_id, save_slot),
+            )
+
+    def create_designer_session(self, user_id: str, pack_id: str | None = None) -> dict[str, Any]:
+        session_id = str(uuid.uuid4())
+        payload = {
+            "session_id": session_id,
+            "selected_pack_id": str(pack_id or ""),
+            "mode": "edit",
+            "state": {
+                "history": [],
+                "memory": "",
+                "question_mode": True,
+                "creation_started": False,
+                "selected_pack_id": str(pack_id or ""),
+            },
+        }
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                """
+                insert into user_card_designer_sessions (
+                    session_id, user_id, selected_pack_id, mode, state_json
+                ) values (?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    user_id,
+                    payload["selected_pack_id"],
+                    payload["mode"],
+                    json.dumps(payload["state"], ensure_ascii=False),
+                ),
+            )
+        return payload
+
+    def get_designer_session(self, user_id: str, session_id: str) -> dict[str, Any] | None:
+        with _connect(self.db_path) as conn:
+            row = conn.execute(
+                """
+                select session_id, selected_pack_id, mode, state_json, updated_at
+                from user_card_designer_sessions
+                where user_id = ? and session_id = ?
+                """,
+                (user_id, session_id),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            state = json.loads(row["state_json"])
+        except Exception:
+            state = {}
+        if not isinstance(state, dict):
+            state = {}
+        state.setdefault("selected_pack_id", row["selected_pack_id"] or "")
+        return {
+            "session_id": row["session_id"],
+            "selected_pack_id": row["selected_pack_id"] or "",
+            "mode": row["mode"] or "edit",
+            "state": state,
+            "updated_at": row["updated_at"],
+        }
+
+    def save_designer_session(self, user_id: str, session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        selected_pack_id = str(payload.get("selected_pack_id", "") or "")
+        mode = str(payload.get("mode", "edit") or "edit")
+        state = payload.get("state", {}) or {}
+        if not isinstance(state, dict):
+            state = {}
+        state["selected_pack_id"] = selected_pack_id
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                """
+                insert into user_card_designer_sessions (
+                    session_id, user_id, selected_pack_id, mode, state_json
+                ) values (?, ?, ?, ?, ?)
+                on conflict(session_id) do update set
+                    selected_pack_id = excluded.selected_pack_id,
+                    mode = excluded.mode,
+                    state_json = excluded.state_json,
+                    updated_at = current_timestamp
+                """,
+                (
+                    session_id,
+                    user_id,
+                    selected_pack_id,
+                    mode,
+                    json.dumps(state, ensure_ascii=False),
+                ),
+            )
+        return self.get_designer_session(user_id, session_id) or {
+            "session_id": session_id,
+            "selected_pack_id": selected_pack_id,
+            "mode": mode,
+            "state": state,
+        }
+
+    def delete_designer_session(self, user_id: str, session_id: str) -> None:
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                "delete from user_card_designer_sessions where user_id = ? and session_id = ?",
+                (user_id, session_id),
             )

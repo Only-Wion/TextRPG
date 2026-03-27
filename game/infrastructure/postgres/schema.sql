@@ -64,6 +64,15 @@ create table if not exists user_chat_history (
     primary key (user_id, save_slot)
 );
 
+create table if not exists user_card_designer_sessions (
+    session_id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    selected_pack_id text not null default '',
+    mode text not null default 'edit',
+    state_json jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now()
+);
+
 create table if not exists game_sessions (
     session_key text primary key,
     save_slot text not null unique,

@@ -155,3 +155,19 @@ class UserChatHistoryRepositoryProtocol(Protocol):
 
     def delete_chat_history(self, user_id: str, save_slot: str) -> None:
         ...
+
+
+class CardDesignerSessionRepositoryProtocol(Protocol):
+    """Contract for per-user Card Designer AI/draft workspace persistence."""
+
+    def create_designer_session(self, user_id: str, pack_id: str | None = None) -> dict[str, Any]:
+        ...
+
+    def get_designer_session(self, user_id: str, session_id: str) -> dict[str, Any] | None:
+        ...
+
+    def save_designer_session(self, user_id: str, session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        ...
+
+    def delete_designer_session(self, user_id: str, session_id: str) -> None:
+        ...

@@ -17,7 +17,7 @@ type SidebarInspectorSection = {
 };
 
 type AppSidebarProps = {
-  activePath: "/sessions" | "/" | "/packs" | "/settings" | "/setup";
+  activePath: "/sessions" | "/" | "/packs" | "/settings" | "/setup" | "/card-designer";
   title?: string;
   sections?: SidebarStatusSection[];
   inspectorSections?: SidebarInspectorSection[];
@@ -28,6 +28,7 @@ const navItems = [
   { href: "/sessions" as const, label: "Sessions" },
   { href: "/" as const, label: "Play" },
   { href: "/packs" as const, label: "Pack Manager" },
+  { href: "/card-designer" as const, label: "Card Designer" },
   { href: "/settings" as const, label: "Settings" },
   { href: "/setup" as const, label: "Setup" },
 ];

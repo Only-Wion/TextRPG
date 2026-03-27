@@ -30,10 +30,14 @@ When a contract changes, update examples so humans and AI tooling see the latest
   Application service contracts and HTTP API contracts.
 - `api/auth-api.md`
   Authentication, token, and protected-route HTTP contract.
+- `api/card-designer-api.md`
+  Card Designer workbench HTTP contract.
 - `data-contracts/`
   Canonical request, response, state, and domain payload structures.
 - `data-contracts/user-and-auth.md`
   Canonical user, token, and user-session ownership payloads.
+- `data-contracts/card-designer.md`
+  Canonical Card Designer payloads and designer-session state shapes.
 - `runtime/`
   Runtime lifecycle and state transition flow.
 - `migration/`

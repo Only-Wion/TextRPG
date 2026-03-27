@@ -4874,6 +4874,1264 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "QJyCT",
+      "x": 12360,
+      "y": 80,
+      "name": "TextRPG Card Designer",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "85Ged",
+          "x": 0,
+          "y": 0,
+          "name": "sidebar",
+          "width": 260,
+          "height": 960,
+          "fill": "#E9F1FF",
+          "stroke": {
+            "thickness": {
+              "right": 1
+            },
+            "fill": "#D7E3F5"
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            28,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "YHRFx",
+              "fill": "#20365C",
+              "content": "TextRPG UI",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "m0Kh4",
+              "fill": "#647A9B",
+              "content": "Pages",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "4IlFg",
+              "name": "nav",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JUkyl",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UkXfs",
+                      "fill": "#35507C",
+                      "content": "Sessions",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XxTOe",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2EB4x",
+                      "fill": "#35507C",
+                      "content": "Play",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "jxqQv",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8Eizd",
+                      "fill": "#35507C",
+                      "content": "Pack Manager",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VfrhU",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#DCE8FF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vAqzv",
+                      "fill": "#3764FF",
+                      "content": "Card Designer",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "T2z7H",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "EMFW1",
+                      "fill": "#35507C",
+                      "content": "Settings",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "6DTFc",
+              "fill": "#20365C",
+              "content": "Designer Context",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "6Le2K",
+              "width": "fill_container",
+              "height": 86,
+              "fill": "#FFFFFF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D6E1F2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "n0VkL",
+                  "fill": "#35507C",
+                  "content": "Current pack: starter_kingdom",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "n9RKC",
+                  "fill": "#5F7393",
+                  "content": "Mode: edit existing pack",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZFA7Z",
+                  "fill": "#5F7393",
+                  "content": "Cards indexed: 24",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bHxUd",
+              "width": "fill_container",
+              "height": 120,
+              "fill": "#FFFFFF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D6E1F2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nsGIb",
+                  "fill": "#20365C",
+                  "content": "Agent memory",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "HIJWn",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 182,
+                  "content": "The agent is drafting a tavern-centered quest pack with bartender, rumor, and contract cards.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "bw8bl",
+          "x": 292,
+          "y": 26,
+          "name": "header",
+          "width": 1112,
+          "height": 88,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "GPraE",
+              "x": 0,
+              "y": 0,
+              "fill": "#20365C",
+              "content": "Card Designer",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "y783j",
+              "x": 160,
+              "y": 0,
+              "fill": "#6A7EA0",
+              "content": "Create, inspect, and AI-assist pack cards inside the authenticated workspace.",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "u2qm2",
+          "x": 292,
+          "y": 146,
+          "name": "newEditor",
+          "width": 430,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "9dSXK",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Create / Edit Card",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "6Dqwu",
+              "x": 24,
+              "y": 66,
+              "fill": "#516684",
+              "content": "Type",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "2rUac",
+              "x": 24,
+              "y": 88,
+              "width": 382,
+              "height": 52,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "zWNy2",
+                  "fill": "#2F4770",
+                  "content": "quest",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "xI1g7",
+              "x": 24,
+              "y": 152,
+              "fill": "#516684",
+              "content": "Card ID",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "Q1kSj",
+              "x": 24,
+              "y": 174,
+              "width": 382,
+              "height": 52,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZuGcM",
+                  "fill": "#2F4770",
+                  "content": "guild_intro_contract",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "hF21e",
+              "x": 24,
+              "y": 238,
+              "fill": "#516684",
+              "content": "Frontmatter + Body",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "P6QNE",
+              "x": 24,
+              "y": 260,
+              "width": 382,
+              "height": 356,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MOxMV",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 344,
+                  "content": "id: guild_intro_contract\ntype: quest\ntags:\n- tavern\n- guild\n\nThe bartender points toward the sealed upstairs room and lowers his voice.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6fLzD",
+              "x": 24,
+              "y": 640,
+              "width": 382,
+              "height": 48,
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ljc3a",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#E8EEFF",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2DP7U",
+                      "fill": "#426BFF",
+                      "content": "New",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "i2aNL",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eaVjH",
+                      "fill": "#2A9E5B",
+                      "content": "Save",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NlZz3",
+                  "width": 96,
+                  "height": 40,
+                  "fill": "#FFF2E2",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "k3iOd",
+                      "fill": "#C6801A",
+                      "content": "Validate",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Vcbn6",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#FFE7E7",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pcG0g",
+                      "fill": "#CF4A4A",
+                      "content": "Delete",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XpXGC",
+          "x": 746,
+          "y": 146,
+          "name": "newLibrary",
+          "width": 278,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "DQ83T",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Existing Cards",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "rA078",
+              "x": 24,
+              "y": 76,
+              "width": 230,
+              "height": 46,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZfEnx",
+                  "fill": "#2F4770",
+                  "content": "All categories",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Velfn",
+              "x": 24,
+              "y": 136,
+              "width": 230,
+              "height": 46,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QW4hj",
+                  "fill": "#8B9AB4",
+                  "content": "Search filename or keyword",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "1xj3R",
+              "x": 24,
+              "y": 202,
+              "width": 230,
+              "height": 394,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sBzOp",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 188,
+                  "content": "Mindmap / indexed cards\n\ncharacters\n- bartender.md\n- player.md\n\nquests\n- guild_intro_contract.md\n- sealed_room_rumor.md",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LeugM",
+              "x": 24,
+              "y": 620,
+              "width": 230,
+              "height": 92,
+              "fill": "#F5F8FF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Sa2y2",
+                  "fill": "#20365C",
+                  "content": "Quick Load",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "7Hca1",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 190,
+                  "content": "Load selected card into the editor and preview the parsed result.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gCUAQ",
+          "x": 1048,
+          "y": 146,
+          "name": "newAgent",
+          "width": 356,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "wL3YS",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Pack Builder Agent",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "uYaCR",
+              "x": 24,
+              "y": 68,
+              "width": 308,
+              "height": 506,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "irSZV",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 270,
+                  "content": "USER\nHelp me build a tavern guild pack with onboarding quests and rumor cards.\n\nASSISTANT\nI can start with a quest spine, create 2 location cards, and propose a bartender-driven rumor chain.\n\nTOOL EVENT\nsave_card -> starter_kingdom/quest/guild_intro_contract",
+                  "lineHeight": 1.6,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "n2Hws",
+              "x": 24,
+              "y": 596,
+              "width": 308,
+              "height": 94,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "wzHZH",
+                  "fill": "#8B9AB4",
+                  "content": "Describe the pack requirements, then run.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "RHmzb",
+                  "width": 68,
+                  "height": 32,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wf8hA",
+                      "fill": "#2A9E5B",
+                      "content": "Run",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "kifFi",
+      "x": 13920,
+      "y": 80,
+      "name": "TextRPG Card Designer Create Pack",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "qVBBs",
+          "x": 0,
+          "y": 0,
+          "name": "createSidebar",
+          "width": 260,
+          "height": 960,
+          "fill": "#E9F1FF",
+          "stroke": {
+            "thickness": {
+              "right": 1
+            },
+            "fill": "#D7E3F5"
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            28,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "48pI9",
+              "fill": "#20365C",
+              "content": "TextRPG UI",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "gR6u9",
+              "fill": "#647A9B",
+              "content": "Pages",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "buLrr",
+              "name": "createNav",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vTrKq",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Fo94V",
+                      "fill": "#35507C",
+                      "content": "Sessions",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XkXrk",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YSMEy",
+                      "fill": "#35507C",
+                      "content": "Play",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Nx20u",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A6Rxu",
+                      "fill": "#35507C",
+                      "content": "Pack Manager",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "yqKBx",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#DCE8FF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vPNhU",
+                      "fill": "#3764FF",
+                      "content": "Card Designer",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CzV8m",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "q7UA9",
+                      "fill": "#35507C",
+                      "content": "Settings",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DFsrd",
+          "x": 292,
+          "y": 26,
+          "name": "createHeader",
+          "width": 1112,
+          "height": 88,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "dGRxo",
+              "x": 28,
+              "y": 28,
+              "fill": "#20365C",
+              "content": "Card Designer / Create Pack",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "oLYcf",
+              "x": 388,
+              "y": 33,
+              "fill": "#6A7EA0",
+              "content": "Define the manifest, target card mix, and AI brief before writing cards.",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "yNavq",
+          "x": 292,
+          "y": 146,
+          "name": "createEditor",
+          "width": 430,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "2nrJn",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "New Pack Manifest",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "ArWCn",
+              "x": 24,
+              "y": 70,
+              "width": 382,
+              "height": 332,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kgBwh",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 336,
+                  "content": "pack_id: moonlit_guild\nname: Moonlit Guild\nversion: 0.1.0\nauthor: Only-Wion\ndescription: Tavern-centered onboarding quests and rumor chains\ncards_root: cards",
+                  "lineHeight": 1.55,
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jVtw1",
+              "x": 24,
+              "y": 430,
+              "width": 382,
+              "height": 96,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weyyy",
+                  "fill": "#20365C",
+                  "content": "Pack goals",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "CtmBO",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 336,
+                  "content": "Create a strong opening tavern loop, 2 rumor cards, 1 bartender NPC, and 1 upstairs mystery quest chain.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mBnWW",
+              "x": 24,
+              "y": 560,
+              "width": 382,
+              "height": 48,
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yKnFh",
+                  "width": 118,
+                  "height": 40,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "1Q81H",
+                      "fill": "#2A9E5B",
+                      "content": "Save Pack",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uCQgw",
+                  "width": 118,
+                  "height": 40,
+                  "fill": "#E8EEFF",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "y5Fh6",
+                      "fill": "#426BFF",
+                      "content": "Back to Edit",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jscoL",
+          "x": 746,
+          "y": 146,
+          "name": "createLibrary",
+          "width": 278,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "X4fDH",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Planned Card Mix",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "9KDJc",
+              "x": 24,
+              "y": 76,
+              "width": 230,
+              "height": 296,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "6slfQ",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 188,
+                  "content": "characters\n- bartender\n- newcomer_player\n\nquests\n- guild_intro_contract\n- sealed_room_rumor\n\nlocations\n- tavern_main_hall\n- upstairs_corridor",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cQ3LK",
+          "x": 1048,
+          "y": 146,
+          "name": "createAgent",
+          "width": 356,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "cMEDD",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Pack Builder Agent",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "3K1Lz",
+              "x": 24,
+              "y": 68,
+              "width": 308,
+              "height": 506,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ifMUq",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 270,
+                  "content": "USER\nI want a beginner-friendly guild pack built around one tavern and one mystery upstairs room.\n\nASSISTANT\nI can first create the manifest, then draft the first 4 cards and ask whether you want more combat or more social choices.",
+                  "lineHeight": 1.6,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nWmr8",
+              "x": 24,
+              "y": 596,
+              "width": 308,
+              "height": 94,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AbMcQ",
+                  "fill": "#8B9AB4",
+                  "content": "Describe the new pack, then run.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "pnuf9",
+                  "width": 68,
+                  "height": 32,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "NFa2S",
+                      "fill": "#2A9E5B",
+                      "content": "Run",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -2,6 +2,11 @@ import type {
   AuthUser,
   AuthTokenResponse,
   GameActionResponse,
+  CreateDesignerPackRequest,
+  DesignerAgentMessageResponse,
+  DesignerAgentSession,
+  DesignerCardPayload,
+  DesignerCardSummary,
   DuplicateSessionRequest,
   LLMSettingsPublic,
   LoginRequest,
@@ -14,9 +19,11 @@ import type {
   RegisterRequest,
   SessionManagerView,
   SetupBootstrapView,
+  SaveDesignerCardRequest,
   StartGameRequest,
   StateView,
   StepRequest,
+  ValidateDesignerCardRequest,
 } from "./api-contract";
 import { getClientAccessToken } from "./auth";
 import {
@@ -238,6 +245,104 @@ export async function exportPack(packId: string): Promise<PackExportResponse> {
 
 export async function updateLLMSettings(payload: LLMSettingsUpdateRequest): Promise<LLMSettingsPublic> {
   return jsonRequest<LLMSettingsPublic, LLMSettingsUpdateRequest>("/settings/llm", "PUT", payload);
+}
+
+export async function getDesignerPacks(): Promise<PackRecord[]> {
+  return safeJsonFetch<PackRecord[]>("/card-designer/packs").then((payload) => normalizePacks(payload));
+}
+
+export async function createDesignerPack(payload: CreateDesignerPackRequest): Promise<CreateDesignerPackRequest> {
+  return jsonRequest<CreateDesignerPackRequest, CreateDesignerPackRequest>("/card-designer/packs", "POST", payload);
+}
+
+export async function getDesignerCardTypes(packId: string): Promise<string[]> {
+  return (await safeJsonFetch<string[]>(`/card-designer/packs/${packId}/card-types`)) ?? [];
+}
+
+export async function getDesignerCards(
+  packId: string,
+  params?: { category?: string; keyword?: string },
+): Promise<DesignerCardSummary[]> {
+  const search = new URLSearchParams();
+  if (params?.category) {
+    search.set("category", params.category);
+  }
+  if (params?.keyword) {
+    search.set("keyword", params.keyword);
+  }
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return (await safeJsonFetch<DesignerCardSummary[]>(`/card-designer/packs/${packId}/cards${suffix}`)) ?? [];
+}
+
+export async function loadDesignerCard(packId: string, cardPath: string): Promise<DesignerCardPayload> {
+  const payload = await safeJsonFetch<DesignerCardPayload>(
+    `/card-designer/packs/${packId}/cards/${encodeURI(cardPath)}`,
+  );
+  if (!payload) {
+    throw new Error("Failed to load card.");
+  }
+  return payload;
+}
+
+export async function getDesignerCardTemplate(
+  packId: string,
+  cardType: string,
+): Promise<Record<string, unknown>> {
+  return jsonRequest<Record<string, unknown>, { card_type: string }>(
+    `/card-designer/packs/${packId}/cards/template`,
+    "POST",
+    { card_type: cardType },
+  );
+}
+
+export async function saveDesignerCard(
+  packId: string,
+  payload: SaveDesignerCardRequest,
+): Promise<DesignerCardPayload> {
+  return jsonRequest<DesignerCardPayload, SaveDesignerCardRequest>(
+    `/card-designer/packs/${packId}/cards`,
+    "POST",
+    payload,
+  );
+}
+
+export async function validateDesignerCard(payload: ValidateDesignerCardRequest): Promise<OkResponse> {
+  return jsonRequest<OkResponse, ValidateDesignerCardRequest>("/card-designer/cards/validate", "POST", payload);
+}
+
+export async function deleteDesignerCard(packId: string, cardPath: string): Promise<OkResponse> {
+  return jsonRequest<OkResponse, Record<string, never>>(
+    `/card-designer/packs/${packId}/cards/${encodeURI(cardPath)}`,
+    "DELETE",
+    {},
+  );
+}
+
+export async function createDesignerAgentSession(packId?: string): Promise<DesignerAgentSession> {
+  return jsonRequest<DesignerAgentSession, { pack_id?: string }>(
+    "/card-designer/agent/sessions",
+    "POST",
+    packId ? { pack_id: packId } : {},
+  );
+}
+
+export async function getDesignerAgentSession(sessionId: string): Promise<DesignerAgentSession> {
+  const payload = await safeJsonFetch<DesignerAgentSession>(`/card-designer/agent/sessions/${sessionId}`);
+  if (!payload) {
+    throw new Error("Failed to load designer session.");
+  }
+  return payload;
+}
+
+export async function sendDesignerAgentMessage(
+  sessionId: string,
+  message: string,
+): Promise<DesignerAgentMessageResponse> {
+  return jsonRequest<DesignerAgentMessageResponse, { message: string }>(
+    `/card-designer/agent/sessions/${sessionId}/messages`,
+    "POST",
+    { message },
+  );
 }
 
 export function normalizeStateViewFromAction(payload: Partial<StateView>): StateView {
