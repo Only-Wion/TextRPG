@@ -114,6 +114,19 @@ Fields:
 - `history_json`
 - `updated_at`
 
+### `user_card_designer_sessions`
+
+Purpose:
+- Persist the authenticated user's Card Designer AI/draft workspace state.
+
+Fields:
+- `session_id`
+- `user_id`
+- `selected_pack_id`
+- `mode`
+- `state_json`
+- `updated_at`
+
 ### `game_sessions`
 
 Purpose:

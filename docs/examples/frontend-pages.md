@@ -113,3 +113,33 @@ Current data sources:
 - `frontend/lib/api.ts#getSetupBootstrapView`
 - `frontend/lib/api.ts#getPacks`
 - `frontend/lib/api.ts#getLLMSettings`
+
+## Card Designer View
+
+Route:
+- `/card-designer`
+
+Key regions:
+- shared left sidebar with account block
+- shared collapsible sidebar handle
+- card editor panel
+- existing cards / structure panel
+- Pack Builder Agent panel
+
+Workspace states:
+- default edit workbench
+- create-pack workbench
+
+Current data sources:
+- `GET /card-designer/packs`
+- `POST /card-designer/packs`
+- `GET /card-designer/packs/{pack_id}/card-types`
+- `GET /card-designer/packs/{pack_id}/cards`
+- `GET /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/packs/{pack_id}/cards/template`
+- `POST /card-designer/packs/{pack_id}/cards`
+- `POST /card-designer/cards/validate`
+- `DELETE /card-designer/packs/{pack_id}/cards/{card_path}`
+- `POST /card-designer/agent/sessions`
+- `GET /card-designer/agent/sessions/{session_id}`
+- `POST /card-designer/agent/sessions/{session_id}/messages`

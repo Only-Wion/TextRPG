@@ -5,7 +5,14 @@ from functools import lru_cache
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from game.application.services import AuthService, GameServiceRegistry, PackService, SessionService, SettingsService
+from game.application.services import (
+    AuthService,
+    CardDesignerService,
+    GameServiceRegistry,
+    PackService,
+    SessionService,
+    SettingsService,
+)
 from game.infrastructure.auth_sqlite import SqliteAuthRepository
 from game.service.api import GameService
 
@@ -43,6 +50,10 @@ def get_pack_service() -> PackService:
 
 def get_settings_service() -> SettingsService:
     return SettingsService(get_auth_repository(), get_game_service_registry())
+
+
+def get_card_designer_service() -> CardDesignerService:
+    return CardDesignerService(get_game_service(), get_auth_repository())
 
 
 def get_current_token(

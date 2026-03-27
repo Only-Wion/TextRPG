@@ -251,6 +251,33 @@ Card editing methods currently exposed through the same facade:
 - `delete_card(pack_id, path) -> None`
 - `get_card_template(card_type) -> dict`
 
+## CardDesignerService
+
+Purpose:
+- Provide the authenticated Card Designer workbench use case boundary.
+
+Methods:
+
+### `list_packs(user_id) -> list[dict]`
+### `create_pack(user_id, manifest) -> dict`
+### `list_card_types(user_id, pack_id) -> list[str]`
+### `list_cards(user_id, pack_id, category=None, keyword=None) -> list[dict]`
+### `load_card(user_id, pack_id, card_path) -> dict`
+### `get_card_template(user_id, card_type) -> dict`
+### `save_card(user_id, pack_id, card_type, card_id, frontmatter, body, original_path=None) -> dict`
+### `validate_card(user_id, frontmatter, body) -> None`
+### `delete_card(user_id, pack_id, card_path) -> None`
+
+AI session methods:
+- `create_agent_session(user_id, pack_id=None) -> dict`
+- `get_agent_session(user_id, session_id) -> dict`
+- `send_agent_message(user_id, session_id, message) -> dict`
+
+Behavior notes:
+- Pack and card files remain filesystem-backed.
+- Card Designer AI/draft session state is persisted through the designer-session repository.
+- The current implementation reuses the existing Pack Builder Agent state shape and tool loop.
+
 ## SettingsService
 
 Purpose:

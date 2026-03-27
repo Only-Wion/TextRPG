@@ -121,6 +121,29 @@ Current implementation:
 Contract:
 - `game/infrastructure/contracts.py::UserChatHistoryRepositoryProtocol`
 
+## Card Designer Session Repository
+
+Purpose:
+- Persist the authenticated user's Card Designer AI/draft workspace state.
+
+Canonical operations:
+
+### `create_designer_session(user_id, pack_id=None) -> dict`
+### `get_designer_session(user_id, session_id) -> dict | None`
+### `save_designer_session(user_id, session_id, payload) -> dict`
+### `delete_designer_session(user_id, session_id) -> None`
+
+Current implementation:
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+
+Contract:
+- `game/infrastructure/contracts.py::CardDesignerSessionRepositoryProtocol`
+
+Notes:
+- Current local implementation stores the designer agent state JSON in sqlite.
+- Target production design remains PostgreSQL for the designer session state and file storage
+  for pack/card files.
+
 ## World Attribute Store
 
 Purpose:
