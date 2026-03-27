@@ -4,7 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-from .api.routes import auth, card_designer, game, health, packs, settings
+from .api.routes.auth import router as auth_router
+from .api.routes.card_designer import router as card_designer_router
+from .api.routes.game import router as game_router
+from .api.routes.health import router as health_router
+from .api.routes.packs import router as packs_router
+from .api.routes.settings import router as settings_router
 from .errors import register_exception_handlers
 
 
@@ -46,12 +51,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_exception_handlers(app)
-    app.include_router(health.router)
-    app.include_router(auth.router)
-    app.include_router(game.router)
-    app.include_router(card_designer.router)
-    app.include_router(packs.router)
-    app.include_router(settings.router)
+    app.include_router(health_router)
+    app.include_router(auth_router)
+    app.include_router(game_router)
+    app.include_router(card_designer_router)
+    app.include_router(packs_router)
+    app.include_router(settings_router)
     return app
 
 
