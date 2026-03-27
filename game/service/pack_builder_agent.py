@@ -30,6 +30,30 @@ class PackBuilderAgent:
     MAX_AUTORUN_STEPS = 5
     MAX_PLAN_RETRIES = 3
 
+    def _intent_match(self, normalized: str, words: set[str]) -> bool:
+        """Match intent words without accidental substring collisions."""
+        text = normalized.strip().lower()
+        if not text:
+            return False
+
+        english_tokens = set(re.findall(r"[a-z]+", text))
+        for word in words:
+            w = str(word).strip().lower()
+            if not w:
+                continue
+            if re.fullmatch(r"[a-z]+", w):
+                # Single-letter confirmations/rejections should be exact inputs only.
+                if len(w) == 1:
+                    if text == w:
+                        return True
+                    continue
+                if w in english_tokens:
+                    return True
+                continue
+            if w in text:
+                return True
+        return False
+
     def __init__(self, service: GameService):
         self.service = service
         prompts_dir = Path(__file__).resolve().parents[1] / "prompts"
@@ -96,25 +120,20 @@ class PackBuilderAgent:
 
     def _handle_pending_confirmation(self, user_input: str, state: Dict[str, Any]) -> tuple[str, List[str]] | None:
         normalized = user_input.strip().lower()
-        if any(word in normalized for word in self.REJECT_WORDS):
+        if self._intent_match(normalized, self.REJECT_WORDS):
             state.pop("pending_write_plan", None)
             return "已取消本次修改计划。你可以继续提需求，我会重新规划。", []
-        if not any(word in normalized for word in self.CONFIRM_WORDS):
+        if not self._intent_match(normalized, self.CONFIRM_WORDS):
             return "检测到有待执行的修改计划。请回复“确认执行”或“取消”。", []
 
         pending = state.pop("pending_write_plan", {})
         actions = list(pending.get("actions", []))
         tool_logs = self._execute_actions(actions, state)
 
-        followup_seed = "继续基于最新执行结果推进任务，直到可以自然收束。"
-        followup_reply, followup_logs = self._plan_and_run_loop(followup_seed, state)
-        all_logs = tool_logs + followup_logs
         reply = "已执行你确认的修改计划。"
-        if followup_reply.strip():
-            reply += "\n" + followup_reply.strip()
-        if all_logs:
-            reply += "\n\n执行记录：\n" + "\n".join(f"- {x}" for x in all_logs)
-        return reply, all_logs
+        if tool_logs:
+            reply += "\n\n执行记录：\n" + "\n".join(f"- {x}" for x in tool_logs)
+        return reply, tool_logs
 
     def _question_mode_tool_shortcut(self, user_input: str) -> str:
         normalized = user_input.strip().lower()

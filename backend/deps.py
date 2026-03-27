@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from game.config import SETTINGS
 from game.application.services import (
     AuthService,
     CardDesignerService,
@@ -14,6 +15,7 @@ from game.application.services import (
     SettingsService,
 )
 from game.infrastructure.auth_sqlite import SqliteAuthRepository
+from game.infrastructure.postgres.auth_repository import PostgresAuthRepository
 from game.service.api import GameService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -31,7 +33,11 @@ def get_game_service_registry() -> GameServiceRegistry:
 
 
 @lru_cache(maxsize=1)
-def get_auth_repository() -> SqliteAuthRepository:
+def get_auth_repository() -> SqliteAuthRepository | PostgresAuthRepository:
+    if SETTINGS.storage_backend == "postgres":
+        if not SETTINGS.postgres_dsn:
+            raise ValueError("TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres")
+        return PostgresAuthRepository(SETTINGS.postgres_dsn)
     return SqliteAuthRepository()
 
 

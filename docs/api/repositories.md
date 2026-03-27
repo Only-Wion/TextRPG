@@ -26,7 +26,8 @@ Canonical operations:
 ### `revoke_token(token) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserRepositoryProtocol`
@@ -45,7 +46,8 @@ Canonical operations:
 ### `archive_binding(user_id, save_slot) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserSessionIndexProtocol`
@@ -65,7 +67,8 @@ Behavior:
 - Preserves the stored API key when the incoming payload leaves `api_key` blank.
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserSettingsRepositoryProtocol`
@@ -82,7 +85,8 @@ Canonical operations:
 ### `replace_enabled_pack_ids(user_id, pack_ids) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserPackStateRepositoryProtocol`
@@ -99,7 +103,8 @@ Canonical operations:
 ### `delete_session_metadata(user_id, save_slot) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserSessionMetadataRepositoryProtocol`
@@ -116,7 +121,8 @@ Canonical operations:
 ### `delete_chat_history(user_id, save_slot) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UserChatHistoryRepositoryProtocol`
@@ -134,7 +140,8 @@ Canonical operations:
 ### `delete_designer_session(user_id, session_id) -> None`
 
 Current implementation:
-- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository`
+- `game/infrastructure/auth_sqlite.py::SqliteAuthRepository` (local backend)
+- `game/infrastructure/postgres/auth_repository.py::PostgresAuthRepository` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::CardDesignerSessionRepositoryProtocol`
@@ -162,8 +169,8 @@ Behavior:
 - Returns all attributes grouped by entity id.
 
 Current implementation:
-- `game/core/world_store.py`
-- PostgreSQL skeleton: `game/infrastructure/postgres/stores.py::PostgresWorldStore`
+- `game/core/world_store.py` (local backend)
+- `game/infrastructure/postgres/stores.py::PostgresWorldStore` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::WorldStoreProtocol`
@@ -184,8 +191,8 @@ Canonical operations:
 ### `all_edges() -> list[dict]`
 
 Current implementation:
-- `game/core/kg_store.py`
-- PostgreSQL skeleton: `game/infrastructure/postgres/stores.py::PostgresKGStore`
+- `game/core/kg_store.py` (local backend)
+- `game/infrastructure/postgres/stores.py::PostgresKGStore` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::KGStoreProtocol`
@@ -214,15 +221,16 @@ Search result shape:
 - `metadata`
 
 Current implementation:
-- `game/core/rag_store.py`
-- PostgreSQL skeleton: `game/infrastructure/postgres/stores.py::PostgresRAGStore`
+- `game/core/rag_store.py` (local backend)
+- `game/infrastructure/postgres/stores.py::PostgresRAGStore` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::RAGStoreProtocol`
 
-Future note:
-- A `pgvector`-based implementation should preserve the same search payload contract for
-  the application layer.
+Current postgres note:
+- The current PostgreSQL implementation uses keyword matching fallback in SQL.
+- A future `pgvector` upgrade should preserve the same search payload contract for the
+  application layer.
 
 ## Pack Registry Store
 
@@ -262,11 +270,11 @@ Session identity rule:
 - The PostgreSQL path uses a canonical `session_key`.
 - Current derivation is documented in `docs/data-contracts/postgres-storage-model.md`.
 
-Future note:
-- PostgreSQL migration should swap implementations behind this factory before changing
-  application services.
-- The factory now recognizes `TEXTRPG_STORAGE_BACKEND=postgres`, but the PostgreSQL
-  implementations are still skeletons and raise `NotImplementedError`.
+Backend switch note:
+- `SessionStoreFactory` switches by `TEXTRPG_STORAGE_BACKEND`.
+- `local` uses sqlite/chroma implementations.
+- `postgres` uses PostgreSQL-backed world/kg/rag implementations.
+- `TEXTRPG_POSTGRES_DSN` is required when backend is `postgres`.
 
 ## Chat History Store
 
@@ -279,15 +287,15 @@ Canonical operations:
 ### `save(path, history) -> None`
 
 Current implementation:
-- `game/infrastructure/session_files.py::ChatHistoryStore`
-- PostgreSQL skeleton: `game/infrastructure/postgres/session_files.py::PostgresChatHistoryStore`
+- `game/infrastructure/session_files.py::ChatHistoryStore` (local backend)
+- `game/infrastructure/postgres/session_files.py::PostgresChatHistoryStore` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::ChatHistoryStoreProtocol`
 
-Future note:
-- `GameService` currently delegates chat history persistence to this store.
-- A PostgreSQL-backed implementation should preserve the same load and save behavior.
+Current note:
+- `GameService` delegates chat history persistence to this store and selects
+  the concrete implementation by backend.
 
 ## UI Panel Cache Store
 
@@ -300,14 +308,15 @@ Canonical operations:
 ### `save(path, panels) -> None`
 
 Current implementation:
-- `game/infrastructure/session_files.py::UIPanelStore`
-- PostgreSQL skeleton: `game/infrastructure/postgres/session_files.py::PostgresUIPanelStore`
+- `game/infrastructure/session_files.py::UIPanelStore` (local backend)
+- `game/infrastructure/postgres/session_files.py::PostgresUIPanelStore` (postgres backend)
 
 Contract:
 - `game/infrastructure/contracts.py::UIPanelStoreProtocol`
 
-Future note:
-- `GameService` currently delegates UI panel cache persistence to this store.
+Current note:
+- `GameService` delegates UI panel cache persistence to this store and selects
+  the concrete implementation by backend.
 
 ## Transaction Boundary
 

@@ -26,8 +26,8 @@ This file maps the current repository modules to the target layered architecture
 | `game/infrastructure/contracts.py` | infrastructure | keep | Canonical store contracts for application-layer dependencies. |
 | `game/infrastructure/session_files.py` | infrastructure | keep | Filesystem chat history and UI panel cache stores. |
 | `game/infrastructure/store_factory.py` | infrastructure | keep | Session-scoped store creation boundary for future PostgreSQL swaps. |
-| `game/infrastructure/postgres/stores.py` | infrastructure | keep | PostgreSQL store skeletons for world, KG, and RAG. |
-| `game/infrastructure/postgres/session_files.py` | infrastructure | keep | PostgreSQL store skeletons for chat history and UI panels. |
+| `game/infrastructure/postgres/stores.py` | infrastructure | keep | PostgreSQL store implementations for world, KG, and RAG (RAG currently uses SQL keyword fallback). |
+| `game/infrastructure/postgres/session_files.py` | infrastructure | keep | PostgreSQL store implementations for chat history and UI panels. |
 | `game/llm.py` | infrastructure | split later | Mixes prompts with client wiring. |
 | `game/main.py` | entrypoint | keep | CLI/debug entrypoint. |
 | `ui/*` | legacy frontend | keep during transition | Transitional Streamlit UI. |

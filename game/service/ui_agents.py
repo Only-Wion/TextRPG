@@ -43,6 +43,43 @@ class UICardPlannerAgent:
         # 读取卡牌文本并提取 frontmatter 与正文
         raw_text = card.path.read_text(encoding='utf-8')
         fm_text, body_text = _split_frontmatter_and_body(raw_text)
+
+        frontmatter: Dict[str, Any] = {}
+        if fm_text.strip():
+            try:
+                parsed_fm = yaml.safe_load(fm_text)
+                if isinstance(parsed_fm, dict):
+                    frontmatter = parsed_fm
+            except Exception:
+                frontmatter = {}
+
+        schema = _extract_schema(frontmatter, body_text)
+        if isinstance(schema, dict) and schema:
+            layout_default = _build_panel_layouts(1)[0]
+            layout = schema.get('layout', {})
+            if not isinstance(layout, dict):
+                layout = {}
+            sections = schema.get('sections', [])
+            if not isinstance(sections, list):
+                sections = []
+
+            return [
+                {
+                    'panel_id': str(schema.get('panel_id') or card.id),
+                    'title': str(schema.get('title') or card.id),
+                    'panel_type': str(schema.get('panel_type') or 'facts_list'),
+                    'visible_by_default': bool(schema.get('visible_by_default', True)),
+                    'layout': {
+                        'x': int(layout.get('x', layout_default['x'])),
+                        'y': int(layout.get('y', layout_default['y'])),
+                        'width': int(layout.get('width', layout_default['width'])),
+                        'height': int(layout.get('height', layout_default['height'])),
+                    },
+                    'html': str(schema.get('html', '')).strip(),
+                    'sections': sections,
+                }
+            ]
+
         instruction_text = raw_text if not fm_text else f"{fm_text.strip()}\n\n{body_text.strip()}"
 
         # 通过 LLM 根据卡牌描述生成 UI 面板的 HTML 内容
