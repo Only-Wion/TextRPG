@@ -156,6 +156,11 @@ export type GameActionResponse = {
   state_view: Partial<StateView>;
 };
 
+export type GameStepStreamEvent =
+  | { type: "narration_delta"; delta: string }
+  | { type: "done"; response: GameActionResponse }
+  | { type: "error"; detail: string };
+
 export type DesignerCardSummary = {
   path: string;
   card_id: string;

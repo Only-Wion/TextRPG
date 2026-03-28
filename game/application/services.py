@@ -114,6 +114,13 @@ class SessionService:
         self._sync_current_session_metadata(user_id)
         return result
 
+    def step_stream(self, user_id: str, input_text: str):
+        for event in self._registry.for_user(user_id).step_stream(input_text):
+            if event.get('type') == 'done':
+                self._sync_current_chat_history(user_id)
+                self._sync_current_session_metadata(user_id)
+            yield event
+
     def get_current_state_view(self, user_id: str) -> dict[str, Any]:
         return self._registry.for_user(user_id).get_current_state_view()
 

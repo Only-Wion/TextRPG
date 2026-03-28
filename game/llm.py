@@ -252,6 +252,26 @@ def llm_narrate(state: Dict[str, Any]) -> str:
     return response.content
 
 
+def llm_narrate_stream(state: Dict[str, Any]):
+    """调用 LLM 流式生成叙事文本增量。"""
+    llm = get_llm()
+    if isinstance(llm, MockLLM):
+        yield llm.narrate(state)
+        return
+
+    messages = build_narrate_prompt(state)
+    try:
+        for chunk in llm.stream(messages):
+            delta = getattr(chunk, 'content', '')
+            if isinstance(delta, str) and delta:
+                yield delta
+    except Exception:
+        # Stream 不可用时回退到单次调用，保证行为稳定。
+        response = llm.invoke(messages)
+        if response.content:
+            yield response.content
+
+
 def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
     """调用 LLM 生成 UI 面板 HTML JSON。"""
     llm = get_llm()

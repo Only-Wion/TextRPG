@@ -25,7 +25,17 @@ from ..core.rule_engine import RuleEngine
 from ..core.rag_store import RAGStore
 from ..core.kg_store import KGStore
 from ..core.world_store import WorldStore
-from ..core.graph import build_graph
+from ..core.graph import (
+    apply_updates,
+    build_graph,
+    checkpoint,
+    ingest_input,
+    load_overlays,
+    plan_ops,
+    retrieve_context,
+    validate_ops,
+)
+from ..llm import llm_narrate_stream
 from ..infrastructure.contracts import (
     ChatHistoryStoreProtocol,
     KGStoreProtocol,
@@ -101,8 +111,15 @@ class GameService:
         session = self._session
         session.state['turn_id'] = session.state.get('turn_id', 0) + 1
         session.state['player_input'] = input_text
-        with self._llm_settings_scope():
-            result = session.app.invoke(session.state)
+        try:
+            with self._llm_settings_scope():
+                result = session.app.invoke(session.state)
+        except Exception as exc:
+            message = str(exc)
+            # Surface common provider/model mismatches as a user-fixable 400 error.
+            if 'invalid_parameter_error' in message or 'not supported' in message:
+                raise ValueError(f'LLM settings invalid: {message}') from exc
+            raise
         narration = result.get('narration', '')
         session.state.update(result)
         history = list(session.state.get('chat_history', []))
@@ -122,6 +139,66 @@ class GameService:
         self._save_chat_history(session)
         self._persist_session_metadata(session)
         return result
+
+    def step_stream(self, input_text: str):
+        if not self._session:
+            raise RuntimeError('game not started')
+
+        session = self._session
+        session.state['turn_id'] = session.state.get('turn_id', 0) + 1
+        session.state['player_input'] = input_text
+
+        try:
+            with self._llm_settings_scope():
+                session.state.update(ingest_input(session.state))
+                session.state.update(load_overlays(session.state, session.repo))
+                session.state.update(
+                    retrieve_context(session.state, session.repo, session.rag, session.world, session.kg, session.rules)
+                )
+                session.state.update(plan_ops(session.state))
+                session.state.update(validate_ops(session.state, session.rules))
+                session.state.update(apply_updates(session.state, session.world, session.kg, session.rag))
+
+                narration_parts: List[str] = []
+                for delta in llm_narrate_stream(session.state):
+                    narration_parts.append(delta)
+                    yield {'type': 'narration_delta', 'delta': delta}
+
+                narration = ''.join(narration_parts)
+                session.state['narration'] = narration
+                session.state.update(checkpoint(session.state, session.world, session.kg, session.rag))
+        except Exception as exc:
+            message = str(exc)
+            if 'invalid_parameter_error' in message or 'not supported' in message:
+                raise ValueError(f'LLM settings invalid: {message}') from exc
+            raise
+
+        result = {
+            'narration': session.state.get('narration', ''),
+            'validated_ops': session.state.get('validated_ops', []),
+            'errors': session.state.get('errors', []),
+        }
+        history = list(session.state.get('chat_history', []))
+        history.append({'role': 'user', 'content': input_text})
+        history.append({'role': 'assistant', 'content': result['narration']})
+        session.state['chat_history'] = history
+        session.state['recent_messages'] = history[-10:]
+        self._refresh_world_facts(session)
+        if session.state.get('ui_update_mode', 'manual') == 'auto':
+            every = int(session.state.get('ui_auto_update_every', 1) or 1)
+            if every <= 0:
+                every = 1
+            if session.state['turn_id'] % every == 0:
+                self._schedule_ui_update()
+        else:
+            self._refresh_custom_ui_panels(session)
+        self._save_chat_history(session)
+        self._persist_session_metadata(session)
+        yield {
+            'type': 'done',
+            'result': result,
+            'state_view': self.get_current_state_view(),
+        }
 
     def set_language(self, language: str) -> None:
         if not self._session:

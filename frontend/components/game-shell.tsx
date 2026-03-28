@@ -1,11 +1,11 @@
 "use client";
 
-import type { FormEvent, MutableRefObject } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { AuthUser, StateView } from "../lib/api-contract";
-import { normalizeStateViewFromAction, stepGameSession } from "../lib/api";
+import { normalizeStateViewFromAction, stepGameSessionStream } from "../lib/api";
 import { AppSidebar } from "./app-sidebar";
 
 type GameShellProps = {
@@ -23,7 +23,6 @@ export function GameShell({ state, currentUser }: GameShellProps) {
   const [streamingAssistantText, setStreamingAssistantText] = useState("");
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
-  const animationRef = useRef<number | null>(null);
 
   const baseChatFeed =
     runtimeState.recent_messages.length > 0 ? runtimeState.recent_messages : runtimeState.chat_history;
@@ -44,14 +43,6 @@ export function GameShell({ state, currentUser }: GameShellProps) {
     feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [chatFeed]);
 
-  useEffect(() => {
-    return () => {
-      if (animationRef.current !== null) {
-        window.clearTimeout(animationRef.current);
-      }
-    };
-  }, []);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -67,11 +58,12 @@ export function GameShell({ state, currentUser }: GameShellProps) {
       setPendingUserMessage(trimmed);
       setStreamingAssistantText("");
 
-      const response = await stepGameSession({ input_text: trimmed });
+      let streamedNarration = "";
+      const response = await stepGameSessionStream({ input_text: trimmed }, (delta) => {
+        streamedNarration += delta;
+        setStreamingAssistantText(streamedNarration);
+      });
       const nextState = normalizeStateViewFromAction(response.state_view);
-      const fullNarration = nextState.narration || "";
-
-      await animateNarration(fullNarration, setStreamingAssistantText, animationRef);
       setRuntimeState(nextState);
       setPendingUserMessage(null);
       setStreamingAssistantText("");
@@ -202,37 +194,4 @@ export function GameShell({ state, currentUser }: GameShellProps) {
       </div>
     </main>
   );
-}
-
-function animateNarration(
-  narration: string,
-  setStreamingAssistantText: (value: string) => void,
-  animationRef: MutableRefObject<number | null>,
-): Promise<void> {
-  if (!narration) {
-    setStreamingAssistantText("");
-    return Promise.resolve();
-  }
-
-  const stepSize = narration.length > 280 ? 12 : 6;
-  const frameDelay = narration.length > 280 ? 24 : 32;
-
-  return new Promise((resolve) => {
-    let cursor = 0;
-
-    const tick = () => {
-      cursor = Math.min(cursor + stepSize, narration.length);
-      setStreamingAssistantText(narration.slice(0, cursor));
-
-      if (cursor >= narration.length) {
-        animationRef.current = null;
-        resolve();
-        return;
-      }
-
-      animationRef.current = window.setTimeout(tick, frameDelay);
-    };
-
-    tick();
-  });
 }
