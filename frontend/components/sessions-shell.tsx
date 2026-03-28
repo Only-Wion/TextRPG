@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   archiveGameSession,
@@ -27,9 +27,12 @@ type CreateDraft = {
 
 export function SessionsShell({ view, availablePacks, currentUser }: SessionsShellProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [runtimeView, setRuntimeView] = useState(view);
   const [selectedSlot, setSelectedSlot] = useState(view.selected_slot);
-  const [panelMode, setPanelMode] = useState<"list" | "create">("list");
+  const [panelMode, setPanelMode] = useState<"list" | "create">(
+    searchParams.get("mode") === "create" ? "create" : "list",
+  );
   const [createDraft, setCreateDraft] = useState<CreateDraft>(() => buildInitialDraft(view, availablePacks));
   const [isLoading, setIsLoading] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);

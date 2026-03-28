@@ -5,9 +5,9 @@ contract and migration target, not a claim that PostgreSQL persistence is active
 
 ## Status
 
-- Current active backend: `local`
-- Planned backend: `postgres`
-- PostgreSQL code path currently exists as skeletons only
+- Current default backend: `local`
+- Optional backend: `postgres` (enabled by `TEXTRPG_STORAGE_BACKEND=postgres`)
+- Current rollout posture: local remains default for existing deployments; PostgreSQL path is available for migration and testing
 
 ## Session Identity
 
@@ -199,3 +199,15 @@ Reference file:
 - `game/infrastructure/postgres/schema.sql`
 
 This SQL file is the authoritative draft schema for the PostgreSQL migration path.
+
+## Runtime Switch
+
+- `TEXTRPG_STORAGE_BACKEND=local` uses sqlite/chroma/filesystem stores.
+- `TEXTRPG_STORAGE_BACKEND=postgres` uses PostgreSQL-backed world/kg/rag stores,
+  and PostgreSQL-backed chat/ui persistence for runtime session files.
+- `TEXTRPG_POSTGRES_DSN` is required when backend is set to `postgres`.
+
+## User-Scoped Repository Backend
+
+- Auth and user-scoped repositories support both local sqlite and PostgreSQL implementations.
+- Dependency injection selects the implementation from `TEXTRPG_STORAGE_BACKEND`.

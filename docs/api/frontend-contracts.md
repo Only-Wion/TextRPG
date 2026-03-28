@@ -108,26 +108,6 @@ Primary backend dependencies:
 - `GET /settings/llm`
 - `PUT /settings/llm`
 
-### `/setup`
-
-Purpose:
-- Session bootstrap and launch review
-
-Responsibilities:
-- new-session slot choice
-- language choice
-- selected pack summary
-- selected runtime summary
-- launch preview
-- launch action
-
-Primary backend dependencies:
-- `GET /auth/me`
-- `GET /game/state`
-- `GET /packs`
-- `GET /settings/llm`
-- `POST /game/start`
-
 ### `/card-designer`
 
 Purpose:
@@ -211,7 +191,7 @@ The frontend still normalizes fallback values when the backend is unavailable.
 - This keeps local page development unblocked before full backend integration.
 - Client-side write actions do not use mock fallbacks. Failed writes surface an error message in the UI.
 - Authenticated server-rendered pages now expect a `textrpg_token` cookie to be present.
-- `/`, `/sessions`, `/packs`, `/settings`, and `/setup` redirect to `/login` when the token is missing or does not resolve to a current user.
+- `/`, `/sessions`, `/packs`, `/settings`, and `/card-designer` redirect to `/login` when the token is missing or does not resolve to a current user.
 
 Environment variables:
 - `NEXT_PUBLIC_API_BASE_URL`

@@ -102,7 +102,7 @@ Current backend dependencies:
 - `POST /game/load`
 
 Current frontend behaviors:
-- `Start` shortcut routes to `/setup`
+- `Start` shortcut routes to `/sessions?mode=create`
 - `Load` shortcut routes to `/sessions`
 - top control drawer expands/collapses locally via handle arrows
 - shared left sidebar expands/collapses locally via a vertical handle
@@ -176,35 +176,6 @@ Current backend dependencies:
 - `GET /settings/llm`
 - `PUT /settings/llm`
 
-### `/setup`
-
-Primary job:
-- Pre-flight review and start.
-
-Owns:
-- slot choice for new start
-- language choice
-- launch preview
-- environment check
-- start action
-
-May show:
-- selected pack summary
-- selected runtime/settings summary
-- links or shortcuts to `/packs` and `/settings`
-
-Must not own:
-- full pack manager UI
-- full runtime settings form
-- session inventory management
-
-Current backend dependencies:
-- `GET /auth/me`
-- `GET /game/state`
-- `GET /packs`
-- `GET /settings/llm`
-- `POST /game/start`
-
 ### `/card-designer`
 
 Primary job:
@@ -240,9 +211,6 @@ Current backend dependencies:
 - `GET /card-designer/agent/sessions/{session_id}`
 - `POST /card-designer/agent/sessions/{session_id}/messages`
 
-Design note:
-- `/setup` should summarize configuration, not replace `/packs` or `/settings`.
-
 ## Local Dev Behavior
 
 - Read-only page bootstrap fetches can fall back to mock data when the backend is unavailable.
@@ -256,7 +224,7 @@ Design note:
 
 ## Shared Sidebar Contract
 
-- `/`, `/setup`, `/sessions`, `/packs`, and `/settings` all use the shared `AppSidebar`.
+- `/`, `/sessions`, `/packs`, and `/settings` all use the shared `AppSidebar`.
 - The shared sidebar owns:
   - page navigation
   - current authenticated user identity and logout action when available
@@ -269,13 +237,12 @@ Design note:
 ## Page Relationship Rules
 
 1. `/login` and `/register` bootstrap authenticated access.
-1. `/`, `/sessions`, `/packs`, `/settings`, `/setup`, and `/card-designer` require an authenticated user context.
-1. `/setup` summarizes choices and launches.
+1. `/`, `/sessions`, `/packs`, `/settings`, and `/card-designer` require an authenticated user context.
+1. `/sessions` manages existing saves and owns new-session creation/launch.
 2. `/packs` edits world modules.
 3. `/settings` edits runtime behavior.
-4. `/sessions` manages existing saves.
-5. `/card-designer` owns pack/card authoring workflows.
-6. `/` is only for active play.
+4. `/card-designer` owns pack/card authoring workflows.
+5. `/` is only for active play.
 
 ## Trigger Checklist For Future Changes
 

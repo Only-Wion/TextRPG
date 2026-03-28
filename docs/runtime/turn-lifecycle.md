@@ -54,7 +54,7 @@ session store factory in `game/infrastructure/store_factory.py`.
 
 The store factory currently supports:
 - `local`: active implementation using SQLite, Chroma, and filesystem persistence
-- `postgres`: reserved path for PostgreSQL-backed stores; current code provides skeletons only
+- `postgres`: PostgreSQL-backed implementation for world/KG/RAG and chat/UI persistence
 
 For the PostgreSQL path, one runtime session maps to one canonical `session_key`.
 That mapping is documented in `docs/data-contracts/postgres-storage-model.md`.

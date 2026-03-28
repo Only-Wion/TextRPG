@@ -18,7 +18,7 @@ Key regions:
 Current interactive behaviors:
 - transcript auto-scrolls to the latest message
 - submitted turns animate the final narration into the transcript after the turn response returns
-- `Start` routes to `/setup`
+- `Start` routes to `/sessions?mode=create`
 - `Load` routes to `/sessions`
 - shared sidebar handle collapses and expands the left rail locally
 - top drawer handle expands/collapses the control strip locally
@@ -90,29 +90,6 @@ Key regions:
 Current data sources:
 - `frontend/lib/api.ts#getLLMSettings`
 - `frontend/lib/api.ts#updateLLMSettings`
-
-## Session Setup View
-
-Route:
-- `/setup`
-
-Key regions:
-- session bootstrap header
-- shared left sidebar with account block
-- shared collapsible sidebar handle
-- three-step preflight strip
-- slot and language cards
-- selected packs summary card
-- runtime summary card
-- launch preview card
-- environment/launch checklist card
-- start-session action and inline setup error feedback
-
-Current data sources:
-- `frontend/lib/api.ts#getGameStateView`
-- `frontend/lib/api.ts#getSetupBootstrapView`
-- `frontend/lib/api.ts#getPacks`
-- `frontend/lib/api.ts#getLLMSettings`
 
 ## Card Designer View
 

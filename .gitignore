@@ -5,6 +5,7 @@ __pycache__/
 
 # virtual environment
 venv/
+.venv/
 .env/
 
 # IDE
@@ -15,14 +16,16 @@ venv/
 .DS_Store
 Thumbs.db
 # frontend
-node_modules/.next/
+node_modules/
+.next/
 dist/
 coverage/
 
 # local temp
 .tmp/
 
-# npm cache.npm-cache/
+# npm cache
+.npm-cache/
 frontend/.npm-cache/
 
 .conda/

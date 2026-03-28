@@ -60,7 +60,7 @@ Contains:
 - Filesystem-based pack registry and pack storage.
 - JSON persistence for chat history and UI panel cache.
 - Session store factory used by the application layer to resolve concrete store implementations.
-- PostgreSQL infrastructure skeletons for future server-side persistence.
+- PostgreSQL infrastructure implementations for server-side persistence.
 - LLM client wiring and embedding client wiring.
 
 Rules:

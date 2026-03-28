@@ -35,6 +35,7 @@ from ..infrastructure.contracts import (
     WorldStoreProtocol,
 )
 from ..infrastructure.session_files import ChatHistoryStore, SessionMetadataStore, UIPanelStore
+from ..infrastructure.postgres.session_files import PostgresChatHistoryStore, PostgresUIPanelStore
 from ..infrastructure.store_factory import SessionStoreFactory
 from ..packs.manager import PackManager
 from ..packs.registry import PackRecord
@@ -58,8 +59,14 @@ class GameSession:
 class GameService:
     def __init__(self, packs_root: Path | None = None, store_factory: SessionStoreFactory | None = None):
         self.pack_manager = PackManager(packs_root=packs_root) if packs_root else PackManager()
-        self.chat_history_store: ChatHistoryStoreProtocol = ChatHistoryStore()
-        self.ui_panel_store: UIPanelStoreProtocol = UIPanelStore()
+        if SETTINGS.storage_backend == 'postgres':
+            if not SETTINGS.postgres_dsn:
+                raise ValueError('TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres')
+            self.chat_history_store = PostgresChatHistoryStore(SETTINGS.postgres_dsn)
+            self.ui_panel_store = PostgresUIPanelStore(SETTINGS.postgres_dsn)
+        else:
+            self.chat_history_store = ChatHistoryStore()
+            self.ui_panel_store = UIPanelStore()
         self.session_metadata_store: SessionMetadataStoreProtocol = SessionMetadataStore()
         self.store_factory = store_factory or SessionStoreFactory()
         self._session: GameSession | None = None

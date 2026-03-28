@@ -11,7 +11,7 @@ The repository now includes:
 - application-service boundaries
 - infrastructure store contracts
 - session store factory
-- PostgreSQL storage skeletons
+- PostgreSQL storage implementations (auth, user-scoped state, session stores)
 - PostgreSQL draft schema
 - interface and runtime documentation for the migration path
 
@@ -31,7 +31,7 @@ The following steps should be done in a real environment, not just in local code
 - any reverse-proxy or deployment-specific settings
 
 4. Convert the draft schema into executable migrations and run them.
-5. Implement and test the PostgreSQL repositories against a live database.
+5. Validate and harden the PostgreSQL repositories against a live database.
 6. Run the FastAPI app under a production process manager.
 7. Configure reverse proxy, domain, HTTPS, and firewall rules if needed.
 
@@ -41,13 +41,13 @@ The following steps should be done in a real environment, not just in local code
 2. Start FastAPI locally on the server with `local` storage first.
 3. Provision PostgreSQL.
 4. Apply schema and verify connectivity.
-5. Implement or finish PostgreSQL repository code.
+5. Validate PostgreSQL repository behavior and performance under real load.
 6. Switch `TEXTRPG_STORAGE_BACKEND=postgres`.
 7. Run integration tests against the server environment.
 8. Put the service behind a reverse proxy.
 
 ## Current Safety Note
 
-The repository recognizes the `postgres` backend flag, but the PostgreSQL store classes
-still raise `NotImplementedError`. Do not switch production traffic to `postgres` until
-those repositories are implemented and tested.
+The repository recognizes the `postgres` backend flag and includes concrete PostgreSQL
+implementations. Do not switch production traffic to `postgres` until migrations,
+integration tests, and operational checks are completed in the target environment.

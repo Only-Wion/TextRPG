@@ -1,5 +1,6 @@
--- PostgreSQL schema draft for the future TextRPG persistence backend.
--- This file is documentation-oriented at the current stage. It is not executed yet.
+-- PostgreSQL schema for TextRPG persistence backend.
+-- This schema is executed by game.infrastructure.postgres.db.ensure_schema at runtime.
+-- For production, migrate to versioned SQL migrations and controlled rollout.
 
 create table if not exists users (
     id text primary key,
