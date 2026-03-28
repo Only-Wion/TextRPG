@@ -28,7 +28,6 @@ import type {
 import { getClientAccessToken } from "./auth";
 import {
   createMockLLMSettings,
-  createMockPacks,
   createMockSessionManagerView,
   createMockSetupBootstrapView,
   createMockStateView,
@@ -112,7 +111,7 @@ function normalizeStateView(payload: Partial<StateView> | null): StateView {
 }
 
 function normalizePacks(payload: PackRecord[] | null): PackRecord[] {
-  return payload && payload.length > 0 ? payload : createMockPacks();
+  return payload ?? [];
 }
 
 function normalizeLLMSettings(payload: Partial<LLMSettingsPublic> | null): LLMSettingsPublic {
@@ -229,6 +228,107 @@ export async function archiveGameSession(slotId: string): Promise<SessionManager
 
 export async function stepGameSession(payload: StepRequest): Promise<GameActionResponse> {
   return jsonRequest<GameActionResponse, StepRequest>("/game/step", "POST", payload);
+}
+
+function parseSSEFrame(frame: string): { event: string; data: unknown } | null {
+  const lines = frame.split("\n");
+  let eventName = "message";
+  const dataLines: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim();
+      continue;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  }
+
+  if (dataLines.length === 0) {
+    return null;
+  }
+
+  const rawData = dataLines.join("\n");
+  try {
+    return { event: eventName, data: JSON.parse(rawData) };
+  } catch {
+    return { event: eventName, data: rawData };
+  }
+}
+
+export async function stepGameSessionStream(
+  payload: StepRequest,
+  onDelta: (delta: string) => void,
+): Promise<GameActionResponse> {
+  const headers = await buildHeaders({
+    Accept: "text/event-stream",
+    "Content-Type": "application/json",
+  });
+  const response = await fetch(`${API_BASE_URL}/game/step/stream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload.detail) {
+        message = payload.detail;
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  if (!response.body) {
+    throw new Error("Streaming response has no body.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let donePayload: GameActionResponse | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+
+    let frameEnd = buffer.indexOf("\n\n");
+    while (frameEnd >= 0) {
+      const frame = buffer.slice(0, frameEnd);
+      buffer = buffer.slice(frameEnd + 2);
+      const parsed = parseSSEFrame(frame);
+      if (parsed) {
+        if (parsed.event === "narration_delta") {
+          const delta = (parsed.data as { delta?: string }).delta ?? "";
+          if (delta) {
+            onDelta(delta);
+          }
+        } else if (parsed.event === "done") {
+          const data = parsed.data as GameActionResponse;
+          donePayload = data;
+        } else if (parsed.event === "error") {
+          const detail = (parsed.data as { detail?: string }).detail ?? "stream step failed";
+          throw new Error(detail);
+        }
+      }
+      frameEnd = buffer.indexOf("\n\n");
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  if (!donePayload) {
+    throw new Error("Streaming ended without final state payload.");
+  }
+
+  return donePayload;
 }
 
 export async function setPackEnabled(packId: string, enabled: boolean): Promise<OkResponse> {

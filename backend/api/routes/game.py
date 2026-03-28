@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from ...deps import get_current_user, get_session_service
 from ...schemas.common import OkResponse
@@ -18,6 +21,10 @@ from ...schemas.game import (
 from game.application.services import SessionService
 
 router = APIRouter(prefix="/game", tags=["game"])
+
+
+def _sse(event_name: str, payload: dict) -> str:
+    return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 @router.post("/start", response_model=OkResponse)
@@ -48,6 +55,39 @@ def step_game(
 ) -> GameActionResponse:
     result = service.step(current_user["id"], payload.input_text)
     return GameActionResponse(result=result, state_view=service.get_current_state_view(current_user["id"]))
+
+
+@router.post("/step/stream")
+def step_game_stream(
+    payload: StepRequest,
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> StreamingResponse:
+    def event_stream():
+        try:
+            for event in service.step_stream(current_user["id"], payload.input_text):
+                if event.get("type") == "narration_delta":
+                    yield _sse("narration_delta", {"delta": str(event.get("delta", ""))})
+                elif event.get("type") == "done":
+                    yield _sse(
+                        "done",
+                        {
+                            "result": event.get("result", {}),
+                            "state_view": event.get("state_view", {}),
+                        },
+                    )
+        except Exception as exc:
+            yield _sse("error", {"detail": str(exc) or "stream step failed"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/state", response_model=dict)
