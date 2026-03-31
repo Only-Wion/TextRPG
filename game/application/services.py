@@ -12,7 +12,12 @@ from game.infrastructure.contracts import (
     UserSessionMetadataRepositoryProtocol,
     UserSettingsRepositoryProtocol,
 )
-from game.config import SETTINGS
+from game.config import (
+    SETTINGS,
+    activate_runtime_llm_settings,
+    load_runtime_llm_settings,
+    normalize_llm_settings,
+)
 from game.service.api import GameService
 from game.service.pack_builder_agent import PackBuilderAgent
 
@@ -29,7 +34,9 @@ class GameServiceRegistry:
         if service is None:
             service = GameService()
             self._services[user_id] = service
-        service.set_runtime_llm_settings(self._settings_repository.get_llm_settings(user_id))
+        service.set_runtime_llm_settings(
+            self._settings_repository.get_llm_settings(user_id)
+        )
         return service
 
 
@@ -99,14 +106,18 @@ class SessionService:
         if pack_ids is not None:
             self._pack_state_repository.replace_enabled_pack_ids(user_id, pack_ids)
 
-    def load_game(self, user_id: str, save_slot: str, language: str | None = None) -> None:
+    def load_game(
+        self, user_id: str, save_slot: str, language: str | None = None
+    ) -> None:
         self._ensure_user_owns_slot(user_id, save_slot)
         service = self._registry.for_user(user_id)
         service.load_game(save_slot, language=language)
         self._hydrate_or_backfill_chat_history(user_id, save_slot)
         self._sync_current_session_metadata(user_id)
         state = service.get_current_state_view()
-        self._pack_state_repository.replace_enabled_pack_ids(user_id, state.get('enabled_packs', []))
+        self._pack_state_repository.replace_enabled_pack_ids(
+            user_id, state.get("enabled_packs", [])
+        )
 
     def step(self, user_id: str, input_text: str) -> dict[str, Any]:
         result = self._registry.for_user(user_id).step(input_text)
@@ -116,7 +127,7 @@ class SessionService:
 
     def step_stream(self, user_id: str, input_text: str):
         for event in self._registry.for_user(user_id).step_stream(input_text):
-            if event.get('type') == 'done':
+            if event.get("type") == "done":
                 self._sync_current_chat_history(user_id)
                 self._sync_current_session_metadata(user_id)
             yield event
@@ -127,10 +138,16 @@ class SessionService:
     def list_sessions(self, user_id: str) -> dict[str, Any]:
         service = self._registry.for_user(user_id)
         allowed_slots = self._session_index.list_session_slots(user_id)
-        persisted_summaries = self._session_metadata_repository.list_session_summaries(user_id)
-        persisted_by_slot = {summary["slot_id"]: summary for summary in persisted_summaries}
+        persisted_summaries = self._session_metadata_repository.list_session_summaries(
+            user_id
+        )
+        persisted_by_slot = {
+            summary["slot_id"]: summary for summary in persisted_summaries
+        }
 
-        missing_slots = [slot for slot in allowed_slots if slot not in persisted_by_slot]
+        missing_slots = [
+            slot for slot in allowed_slots if slot not in persisted_by_slot
+        ]
         if missing_slots:
             fallback = service.list_sessions(allowed_slots=missing_slots)
             for summary in fallback.get("sessions", []):
@@ -139,13 +156,21 @@ class SessionService:
                     summary["slot_id"],
                     self._summary_to_metadata(summary),
                 )
-            persisted_summaries = self._session_metadata_repository.list_session_summaries(user_id)
+            persisted_summaries = (
+                self._session_metadata_repository.list_session_summaries(user_id)
+            )
 
         active_state = service.get_current_state_view()
         active_slot = active_state.get("save_slot")
-        selected_slot = active_slot if active_slot in {summary["slot_id"] for summary in persisted_summaries} else None
+        selected_slot = (
+            active_slot
+            if active_slot in {summary["slot_id"] for summary in persisted_summaries}
+            else None
+        )
         if not selected_slot:
-            selected_slot = persisted_summaries[0]["slot_id"] if persisted_summaries else "slot_001"
+            selected_slot = (
+                persisted_summaries[0]["slot_id"] if persisted_summaries else "slot_001"
+            )
         return {
             "selected_slot": selected_slot,
             "backend_status": "online",
@@ -154,7 +179,9 @@ class SessionService:
             "sessions": persisted_summaries,
         }
 
-    def duplicate_session(self, user_id: str, source_slot: str, target_slot: str | None = None) -> dict[str, Any]:
+    def duplicate_session(
+        self, user_id: str, source_slot: str, target_slot: str | None = None
+    ) -> dict[str, Any]:
         self._ensure_user_owns_slot(user_id, source_slot)
         service = self._registry.for_user(user_id)
         result = service.duplicate_session(source_slot, target_slot)
@@ -162,7 +189,11 @@ class SessionService:
         if duplicated_slot:
             self._session_index.clone_binding(user_id, source_slot, duplicated_slot)
             duplicated_summary = next(
-                (summary for summary in result.get("sessions", []) if summary.get("slot_id") == duplicated_slot),
+                (
+                    summary
+                    for summary in result.get("sessions", [])
+                    if summary.get("slot_id") == duplicated_slot
+                ),
                 None,
             )
             if duplicated_summary:
@@ -171,9 +202,13 @@ class SessionService:
                     duplicated_slot,
                     self._summary_to_metadata(duplicated_summary),
                 )
-            source_history = self._chat_history_repository.load_chat_history(user_id, source_slot)
+            source_history = self._chat_history_repository.load_chat_history(
+                user_id, source_slot
+            )
             if source_history:
-                self._chat_history_repository.save_chat_history(user_id, duplicated_slot, source_history)
+                self._chat_history_repository.save_chat_history(
+                    user_id, duplicated_slot, source_history
+                )
         return self.list_sessions(user_id)
 
     def archive_session(self, user_id: str, save_slot: str) -> dict[str, Any]:
@@ -208,7 +243,9 @@ class SessionService:
         service = self._registry.for_user(user_id)
         metadata = service.get_current_session_metadata()
         if metadata:
-            self._session_metadata_repository.save_session_metadata(user_id, metadata["save_slot"], metadata)
+            self._session_metadata_repository.save_session_metadata(
+                user_id, metadata["save_slot"], metadata
+            )
 
     def _sync_current_chat_history(self, user_id: str) -> None:
         service = self._registry.for_user(user_id)
@@ -216,15 +253,21 @@ class SessionService:
         save_slot = state.get("save_slot")
         if not save_slot:
             return
-        self._chat_history_repository.save_chat_history(user_id, save_slot, service.get_current_chat_history())
+        self._chat_history_repository.save_chat_history(
+            user_id, save_slot, service.get_current_chat_history()
+        )
 
     def _hydrate_or_backfill_chat_history(self, user_id: str, save_slot: str) -> None:
         service = self._registry.for_user(user_id)
-        persisted_history = self._chat_history_repository.load_chat_history(user_id, save_slot)
+        persisted_history = self._chat_history_repository.load_chat_history(
+            user_id, save_slot
+        )
         if persisted_history:
             service.set_current_chat_history(persisted_history)
             return
-        self._chat_history_repository.save_chat_history(user_id, save_slot, service.get_current_chat_history())
+        self._chat_history_repository.save_chat_history(
+            user_id, save_slot, service.get_current_chat_history()
+        )
 
     def _summary_to_metadata(self, summary: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -240,15 +283,21 @@ class SessionService:
 class PackService:
     """Application contract for pack lifecycle and card editing workflows."""
 
-    def __init__(self, game_service: GameService, pack_state_repository: UserPackStateRepositoryProtocol):
+    def __init__(
+        self,
+        game_service: GameService,
+        pack_state_repository: UserPackStateRepositoryProtocol,
+    ):
         self._game_service = game_service
         self._pack_state_repository = pack_state_repository
 
     def list_packs(self, user_id: str) -> list[dict[str, Any]]:
-        enabled_pack_ids = set(self._pack_state_repository.list_enabled_pack_ids(user_id))
+        enabled_pack_ids = set(
+            self._pack_state_repository.list_enabled_pack_ids(user_id)
+        )
         records = self._game_service.list_packs()
         for record in records:
-            record['enabled'] = record['pack_id'] in enabled_pack_ids
+            record["enabled"] = record["pack_id"] in enabled_pack_ids
         return records
 
     def install_pack_from_url(self, url: str) -> dict[str, Any]:
@@ -261,9 +310,9 @@ class PackService:
         self._game_service.remove_pack(pack_id)
 
     def enable_pack(self, user_id: str, pack_id: str, enabled: bool) -> None:
-        records = {record['pack_id'] for record in self._game_service.list_packs()}
+        records = {record["pack_id"] for record in self._game_service.list_packs()}
         if pack_id not in records:
-            raise ValueError('pack not found')
+            raise ValueError("pack not found")
         self._pack_state_repository.set_pack_enabled(user_id, pack_id, enabled)
 
     def export_pack(self, pack_id: str, output_path: Path) -> None:
@@ -295,7 +344,9 @@ class PackService:
         frontmatter: dict[str, Any],
         body: str,
     ) -> Path:
-        return self._game_service.create_card(pack_id, card_type, card_id, frontmatter, body)
+        return self._game_service.create_card(
+            pack_id, card_type, card_id, frontmatter, body
+        )
 
     def save_card(
         self,
@@ -306,7 +357,9 @@ class PackService:
         body: str,
         original_path: Path | None = None,
     ) -> Path:
-        return self._game_service.save_card(pack_id, card_type, card_id, frontmatter, body, original_path=original_path)
+        return self._game_service.save_card(
+            pack_id, card_type, card_id, frontmatter, body, original_path=original_path
+        )
 
     def update_card(self, path: Path, frontmatter: dict[str, Any], body: str) -> None:
         self._game_service.update_card(path, frontmatter, body)
@@ -324,7 +377,11 @@ class PackService:
 class SettingsService:
     """Application contract for runtime settings management."""
 
-    def __init__(self, settings_repository: UserSettingsRepositoryProtocol, registry: GameServiceRegistry):
+    def __init__(
+        self,
+        settings_repository: UserSettingsRepositoryProtocol,
+        registry: GameServiceRegistry,
+    ):
         self._settings_repository = settings_repository
         self._registry = registry
 
@@ -332,35 +389,43 @@ class SettingsService:
         settings = self._settings_repository.get_llm_settings(user_id)
         self._registry.for_user(user_id)
         return {
-            'provider': settings['provider'],
-            'model_name': settings['model_name'],
-            'embedding_model': settings['embedding_model'],
-            'base_url': settings['base_url'],
-            'api_key_set': bool(settings['api_key']),
-            'use_mock_llm': settings['use_mock_llm'],
-            'force_fake_embeddings': settings['force_fake_embeddings'],
+            "provider": settings["provider"],
+            "model_name": settings["model_name"],
+            "embedding_model": settings["embedding_model"],
+            "base_url": settings["base_url"],
+            "api_key_set": bool(settings["api_key"]),
+            "use_mock_llm": settings["use_mock_llm"],
+            "force_fake_embeddings": settings["force_fake_embeddings"],
         }
 
-    def update_llm_settings(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def update_llm_settings(
+        self, user_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         settings = self._settings_repository.update_llm_settings(user_id, payload)
         self._registry.for_user(user_id)
         return {
-            'provider': settings['provider'],
-            'model_name': settings['model_name'],
-            'embedding_model': settings['embedding_model'],
-            'base_url': settings['base_url'],
-            'api_key_set': bool(settings['api_key']),
-            'use_mock_llm': settings['use_mock_llm'],
-            'force_fake_embeddings': settings['force_fake_embeddings'],
+            "provider": settings["provider"],
+            "model_name": settings["model_name"],
+            "embedding_model": settings["embedding_model"],
+            "base_url": settings["base_url"],
+            "api_key_set": bool(settings["api_key"]),
+            "use_mock_llm": settings["use_mock_llm"],
+            "force_fake_embeddings": settings["force_fake_embeddings"],
         }
 
 
 class CardDesignerService:
     """Application contract for the Card Designer workbench."""
 
-    def __init__(self, game_service: GameService, designer_repository: CardDesignerSessionRepositoryProtocol):
+    def __init__(
+        self,
+        game_service: GameService,
+        designer_repository: CardDesignerSessionRepositoryProtocol,
+        settings_repository: UserSettingsRepositoryProtocol,
+    ):
         self._game_service = game_service
         self._designer_repository = designer_repository
+        self._settings_repository = settings_repository
         self._agent = PackBuilderAgent(game_service)
 
     def list_packs(self, user_id: str) -> list[dict[str, Any]]:
@@ -376,7 +441,13 @@ class CardDesignerService:
         del user_id
         return self._game_service.list_pack_card_types(pack_id)
 
-    def list_cards(self, user_id: str, pack_id: str, category: str | None = None, keyword: str | None = None) -> list[dict[str, Any]]:
+    def list_cards(
+        self,
+        user_id: str,
+        pack_id: str,
+        category: str | None = None,
+        keyword: str | None = None,
+    ) -> list[dict[str, Any]]:
         del user_id
         root = self._game_service._pack_cards_root(pack_id)
         normalized_category = (category or "").strip()
@@ -385,7 +456,11 @@ class CardDesignerService:
         for path in self._game_service.list_pack_cards(pack_id):
             rel_path = str(path.relative_to(root)).replace("\\", "/")
             category_name = path.parent.name
-            if normalized_category and normalized_category.lower() != "all" and category_name != normalized_category:
+            if (
+                normalized_category
+                and normalized_category.lower() != "all"
+                and category_name != normalized_category
+            ):
                 continue
             if normalized_keyword and normalized_keyword not in rel_path.lower():
                 continue
@@ -411,7 +486,9 @@ class CardDesignerService:
         card = self._game_service.load_card(target)
         frontmatter = card.get("frontmatter", {})
         return {
-            "path": str(target.relative_to(self._game_service._pack_cards_root(pack_id))).replace("\\", "/"),
+            "path": str(
+                target.relative_to(self._game_service._pack_cards_root(pack_id))
+            ).replace("\\", "/"),
             "pack_id": pack_id,
             "card_type": str(frontmatter.get("type", target.parent.name or "card")),
             "card_id": str(frontmatter.get("id", target.stem)),
@@ -434,19 +511,35 @@ class CardDesignerService:
         original_path: str | None = None,
     ) -> dict[str, Any]:
         del user_id
-        original = self._resolve_card_path(pack_id, original_path) if original_path else None
-        saved = self._game_service.save_card(pack_id, card_type, card_id, frontmatter, body, original_path=original)
-        return self.load_card("", pack_id, str(saved.relative_to(self._game_service._pack_cards_root(pack_id))).replace("\\", "/"))
+        original = (
+            self._resolve_card_path(pack_id, original_path) if original_path else None
+        )
+        saved = self._game_service.save_card(
+            pack_id, card_type, card_id, frontmatter, body, original_path=original
+        )
+        return self.load_card(
+            "",
+            pack_id,
+            str(
+                saved.relative_to(self._game_service._pack_cards_root(pack_id))
+            ).replace("\\", "/"),
+        )
 
-    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+    def validate_card(
+        self, user_id: str, frontmatter: dict[str, Any], body: str
+    ) -> None:
         del user_id
         self._game_service.validate_card(frontmatter, body)
 
     def delete_card(self, user_id: str, pack_id: str, card_path: str) -> None:
         del user_id
-        self._game_service.delete_card(pack_id, self._resolve_card_path(pack_id, card_path))
+        self._game_service.delete_card(
+            pack_id, self._resolve_card_path(pack_id, card_path)
+        )
 
-    def create_agent_session(self, user_id: str, pack_id: str | None = None) -> dict[str, Any]:
+    def create_agent_session(
+        self, user_id: str, pack_id: str | None = None
+    ) -> dict[str, Any]:
         return self._designer_repository.create_designer_session(user_id, pack_id)
 
     def get_agent_session(self, user_id: str, session_id: str) -> dict[str, Any]:
@@ -455,12 +548,22 @@ class CardDesignerService:
             raise ValueError("designer session not found")
         return session
 
-    def send_agent_message(self, user_id: str, session_id: str, message: str) -> dict[str, Any]:
+    def send_agent_message(
+        self, user_id: str, session_id: str, message: str
+    ) -> dict[str, Any]:
         session = self.get_agent_session(user_id, session_id)
+        runtime_settings = normalize_llm_settings(
+            self._settings_repository.get_llm_settings(user_id),
+            load_runtime_llm_settings(),
+        )
         state = dict(session.get("state", {}) or {})
-        result = self._agent.process(message, state)
+        with activate_runtime_llm_settings(runtime_settings):
+            result = self._agent.process(message, state)
         updated_state = result.get("state", state)
-        selected_pack_id = str(updated_state.get("selected_pack_id", "") or session.get("selected_pack_id", ""))
+        selected_pack_id = str(
+            updated_state.get("selected_pack_id", "")
+            or session.get("selected_pack_id", "")
+        )
         persisted = self._designer_repository.save_designer_session(
             user_id,
             session_id,

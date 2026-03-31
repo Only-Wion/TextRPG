@@ -34,10 +34,12 @@ Request body:
   "name": "Mystery Hotel",
   "version": "0.1.0",
   "author": "Only-Wion",
-  "description": "Narrative mystery pack",
-  "cards_root": "cards"
+  "description": "Narrative mystery pack"
 }
 ```
+
+Notes:
+- `cards_root` is now backend-managed and defaults to `cards`.
 
 Response:
 - Echoes the created manifest payload.
@@ -73,6 +75,10 @@ Response shape:
   }
 ]
 ```
+
+Notes:
+- This endpoint reads card files from pack filesystem paths (`game/cards_packs/<pack_id>/<version>/<cards_root>`), not from a PostgreSQL card table.
+- In `postgres` backend mode, PostgreSQL persists user/session metadata; pack/card content remains file-backed.
 
 ## `GET /card-designer/packs/{pack_id}/cards/{card_path}`
 
@@ -220,8 +226,13 @@ Response shape:
 }
 ```
 
+Behavior notes:
+- Write tools (for example `save_card` / `batch_save_cards`) are confirmation-gated. The assistant first returns a pending-write plan and waits for user confirmation.
+- When writes are executed, `selected_pack_id` in response is synchronized to the actual write target pack.
+- Agent execution now uses the authenticated user's LLM runtime settings for each message (same user-scoped settings source as Play flow).
+
 ## Current local-development note
 
-- Card files and pack manifests still live in filesystem storage.
-- Only the designer AI session/draft state is persisted through the local sqlite transition repository.
-- The production migration target remains PostgreSQL for designer session state and file storage for pack/card files.
+- Card files and pack manifests live in filesystem storage.
+- Designer AI/draft session state is persisted in the active auth repository backend (`sqlite` or `postgres`).
+- Current production path is PostgreSQL for user/session/settings metadata + filesystem storage for pack/card files.

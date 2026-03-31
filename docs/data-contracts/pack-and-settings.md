@@ -38,6 +38,7 @@ Canonical pack payload returned by the application service and HTTP API:
 Field notes:
 - `export_path` is a local filesystem path for the generated ZIP.
 - In the current phase this is intended for local development and operator visibility, not browser download streaming.
+- `cards_root` is kept in `PackRecord` for runtime compatibility, but Card Designer create-pack requests no longer require user input for it.
 
 ## Pack Enable State
 

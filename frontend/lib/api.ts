@@ -27,8 +27,6 @@ import type {
 } from "./api-contract";
 import { getClientAccessToken } from "./auth";
 import {
-  createMockLLMSettings,
-  createMockSessionManagerView,
   createMockSetupBootstrapView,
   createMockStateView,
 } from "./mock-data";
@@ -52,6 +50,35 @@ async function safeJsonFetch<T>(path: string): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+async function requiredJsonFetch<T>(path: string): Promise<T> {
+  const headers = await buildHeaders({ Accept: "application/json" });
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      cache: "no-store",
+      headers,
+    });
+  } catch {
+    throw new Error("Network request failed.");
+  }
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload.detail) {
+        message = payload.detail;
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
 }
 
 async function jsonRequest<TResponse, TBody>(path: string, method: string, body: TBody): Promise<TResponse> {
@@ -115,9 +142,28 @@ function normalizePacks(payload: PackRecord[] | null): PackRecord[] {
 }
 
 function normalizeLLMSettings(payload: Partial<LLMSettingsPublic> | null): LLMSettingsPublic {
+  const fallback: LLMSettingsPublic = {
+    provider: "custom",
+    model_name: "",
+    embedding_model: "",
+    base_url: "",
+    api_key_set: false,
+    use_mock_llm: false,
+    force_fake_embeddings: false,
+  };
   return {
-    ...createMockLLMSettings(),
+    ...fallback,
     ...(payload ?? {}),
+  };
+}
+
+function createEmptySessionManagerView(): SessionManagerView {
+  return {
+    selected_slot: "",
+    backend_status: "offline",
+    storage_backend: "unknown",
+    last_sync_label: "unavailable",
+    sessions: [],
   };
 }
 
@@ -177,14 +223,7 @@ export async function getSetupBootstrapView(): Promise<SetupBootstrapView> {
 
 export async function getSessionManagerView(): Promise<SessionManagerView> {
   const payload = await safeJsonFetch<SessionManagerView>("/game/sessions");
-  const fallback = createMockSessionManagerView();
-  if (!payload || payload.sessions.length === 0) {
-    return fallback;
-  }
-  return {
-    ...fallback,
-    ...payload,
-  };
+  return payload ?? createEmptySessionManagerView();
 }
 
 export async function startGameSession(payload: StartGameRequest): Promise<OkResponse> {
@@ -356,7 +395,7 @@ export async function createDesignerPack(payload: CreateDesignerPackRequest): Pr
 }
 
 export async function getDesignerCardTypes(packId: string): Promise<string[]> {
-  return (await safeJsonFetch<string[]>(`/card-designer/packs/${packId}/card-types`)) ?? [];
+  return requiredJsonFetch<string[]>(`/card-designer/packs/${packId}/card-types`);
 }
 
 export async function getDesignerCards(
@@ -371,16 +410,13 @@ export async function getDesignerCards(
     search.set("keyword", params.keyword);
   }
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
-  return (await safeJsonFetch<DesignerCardSummary[]>(`/card-designer/packs/${packId}/cards${suffix}`)) ?? [];
+  return requiredJsonFetch<DesignerCardSummary[]>(`/card-designer/packs/${packId}/cards${suffix}`);
 }
 
 export async function loadDesignerCard(packId: string, cardPath: string): Promise<DesignerCardPayload> {
-  const payload = await safeJsonFetch<DesignerCardPayload>(
+  const payload = await requiredJsonFetch<DesignerCardPayload>(
     `/card-designer/packs/${packId}/cards/${encodeURI(cardPath)}`,
   );
-  if (!payload) {
-    throw new Error("Failed to load card.");
-  }
   return payload;
 }
 
@@ -427,11 +463,7 @@ export async function createDesignerAgentSession(packId?: string): Promise<Desig
 }
 
 export async function getDesignerAgentSession(sessionId: string): Promise<DesignerAgentSession> {
-  const payload = await safeJsonFetch<DesignerAgentSession>(`/card-designer/agent/sessions/${sessionId}`);
-  if (!payload) {
-    throw new Error("Failed to load designer session.");
-  }
-  return payload;
+  return requiredJsonFetch<DesignerAgentSession>(`/card-designer/agent/sessions/${sessionId}`);
 }
 
 export async function sendDesignerAgentMessage(

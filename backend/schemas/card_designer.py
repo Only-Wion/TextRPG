@@ -11,7 +11,6 @@ class CreateDesignerPackRequest(BaseModel):
     version: str = Field(min_length=1, default="0.1.0")
     author: str = Field(min_length=1)
     description: str = ""
-    cards_root: str = Field(default="cards", min_length=1)
 
 
 class CreateCardTemplateRequest(BaseModel):

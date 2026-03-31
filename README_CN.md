@@ -67,7 +67,7 @@ uvicorn backend.main:app --reload
 game/cards_packs/<pack_id>/<version>/
 ```
 
-Zip 包内必须包含 `pack.json`（或 `pack.yaml`）与 `cards_root` 目录，目录结构需与内置卡牌一致。
+Zip 包内必须包含 `pack.json`（或 `pack.yaml`）与卡牌目录（默认 `cards`），目录结构需与内置卡牌一致；当未显式提供 `cards_root` 时后端默认使用 `cards`。
 
 冲突优先级：
 ```

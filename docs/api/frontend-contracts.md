@@ -117,8 +117,11 @@ Responsibilities:
 - render three-column designer layout
 - edit or create one card
 - browse existing cards with filtering
+- reload and clear Existing Cards filters from the library panel
 - create a new pack manifest
 - manage a persisted Pack Builder Agent session
+- render Pack Builder write-target indicator (`pack_id` + pack name)
+- render pending `batch_save_cards` confirmation payload as collapsed card previews (title-first)
 
 Primary backend dependencies:
 - `GET /auth/me`
@@ -187,8 +190,8 @@ The frontend still normalizes fallback values when the backend is unavailable.
 ## Runtime Behavior
 
 - The frontend first attempts to read from the FastAPI backend.
-- If the backend is unavailable, the current implementation falls back to local mock data.
-- This keeps local page development unblocked before full backend integration.
+- Card Designer library/session reads now use fail-fast fetches (`requiredJsonFetch`) and surface backend/auth errors directly instead of silently falling back to empty lists.
+- Selected generic views still normalize limited fallback values for local development.
 - Client-side write actions do not use mock fallbacks. Failed writes surface an error message in the UI.
 - Authenticated server-rendered pages now expect a `textrpg_token` cookie to be present.
 - `/`, `/sessions`, `/packs`, `/settings`, and `/card-designer` redirect to `/login` when the token is missing or does not resolve to a current user.

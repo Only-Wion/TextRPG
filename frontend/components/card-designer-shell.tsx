@@ -35,7 +35,6 @@ type CreatePackDraft = {
   version: string;
   author: string;
   description: string;
-  cards_root: string;
 };
 
 function stringifyFrontmatter(payload: Record<string, unknown>): string {
@@ -49,8 +48,73 @@ function createEmptyPackDraft(): CreatePackDraft {
     version: "0.1.0",
     author: "",
     description: "",
-    cards_root: "cards",
   };
+}
+
+type PendingCardPreview = {
+  title: string;
+  card_type: string;
+  card_id: string;
+  tags: string[];
+  body: string;
+};
+
+type PendingBatchSavePreview = {
+  pack_id: string;
+  cards: PendingCardPreview[];
+};
+
+function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview | null {
+  const marker = "以下动作将修改数据，请确认后执行：";
+  if (!content.includes(marker)) {
+    return null;
+  }
+
+  const line = content
+    .split("\n")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("- batch_save_cards:"));
+  if (!line) {
+    return null;
+  }
+
+  const jsonText = line.slice("- batch_save_cards:".length).trim();
+  if (!jsonText) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(jsonText) as {
+      pack_id?: unknown;
+      cards?: Array<{
+        card_type?: unknown;
+        card_id?: unknown;
+        frontmatter?: { title?: unknown; name?: unknown; tags?: unknown };
+        body?: unknown;
+      }>;
+    };
+    const rawCards = Array.isArray(payload.cards) ? payload.cards : [];
+    const cards: PendingCardPreview[] = rawCards.map((card) => {
+      const frontmatter = card.frontmatter ?? {};
+      const title = String(frontmatter.title ?? frontmatter.name ?? card.card_id ?? "untitled").trim() || "untitled";
+      const rawTags = frontmatter.tags;
+      const tags = Array.isArray(rawTags) ? rawTags.map((tag) => String(tag)) : [];
+      return {
+        title,
+        card_type: String(card.card_type ?? "card"),
+        card_id: String(card.card_id ?? "unknown"),
+        tags,
+        body: String(card.body ?? ""),
+      };
+    });
+
+    return {
+      pack_id: String(payload.pack_id ?? ""),
+      cards,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps) {
@@ -72,6 +136,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [agentInput, setAgentInput] = useState("");
   const [toolLogs, setToolLogs] = useState<string[]>([]);
   const [isBusy, setIsBusy] = useState(false);
+  const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -86,6 +151,26 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     return ["All", ...values];
   }, [cards]);
 
+  const agentTargetPackId = useMemo(() => {
+    const sessionPackId = String(agentSession?.selected_pack_id ?? "").trim();
+    if (sessionPackId) {
+      return sessionPackId;
+    }
+    const statePackId = String((agentSession?.state as { selected_pack_id?: unknown } | undefined)?.selected_pack_id ?? "").trim();
+    if (statePackId) {
+      return statePackId;
+    }
+    return selectedPackId;
+  }, [agentSession, selectedPackId]);
+
+  const agentTargetPackName = useMemo(() => {
+    if (!agentTargetPackId) {
+      return "Unknown";
+    }
+    const record = runtimePacks.find((pack) => pack.pack_id === agentTargetPackId);
+    return record?.name ?? "Unknown";
+  }, [agentTargetPackId, runtimePacks]);
+
   useEffect(() => {
     if (runtimePacks.length === 0) {
       setMode("create-pack");
@@ -99,6 +184,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
 
     let cancelled = false;
     async function loadDesignerData() {
+      setIsCardsLoading(true);
       try {
         const [nextTypes, nextCards] = await Promise.all([
           getDesignerCardTypes(selectedPackId),
@@ -116,6 +202,10 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : "Failed to load designer data.");
         }
+      } finally {
+        if (!cancelled) {
+          setIsCardsLoading(false);
+        }
       }
     }
 
@@ -126,14 +216,14 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }, [selectedPackId, mode]);
 
   useEffect(() => {
-    if (!selectedPackId || mode !== "edit" || agentSession) {
+    if (mode !== "edit" || agentSession) {
       return;
     }
 
     let cancelled = false;
     async function bootstrapAgentSession() {
       try {
-        const nextSession = await createDesignerAgentSession(selectedPackId);
+        const nextSession = await createDesignerAgentSession(selectedPackId || undefined);
         if (!cancelled) {
           setAgentSession(nextSession);
           setToolLogs([]);
@@ -158,11 +248,21 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }, [categoryOptions, selectedCategory]);
 
   async function refreshCards(packId: string, nextCategory?: string, nextKeyword?: string) {
-    const updated = await getDesignerCards(packId, {
-      category: nextCategory && nextCategory !== "All" ? nextCategory : undefined,
-      keyword: nextKeyword?.trim() ? nextKeyword.trim() : undefined,
-    });
-    setCards(updated);
+    if (!packId) {
+      return;
+    }
+    setIsCardsLoading(true);
+    try {
+      const updated = await getDesignerCards(packId, {
+        category: nextCategory && nextCategory !== "All" ? nextCategory : undefined,
+        keyword: nextKeyword?.trim() ? nextKeyword.trim() : undefined,
+      });
+      setCards(updated);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to refresh cards.");
+    } finally {
+      setIsCardsLoading(false);
+    }
   }
 
   function resetEditor() {
@@ -288,6 +388,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       await createDesignerPack(createPackDraft);
       const nextPack: PackRecord = {
         ...createPackDraft,
+        cards_root: "cards",
         enabled: false,
         source: "local",
       };
@@ -492,7 +593,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                 </div>
               ) : (
                 <div className="designer-editor-scroll">
-                  {(["pack_id", "name", "version", "author", "description", "cards_root"] as const).map((field) => (
+                  {(["pack_id", "name", "version", "author", "description"] as const).map((field) => (
                     <div className="settings-field" key={field}>
                       <label className="settings-label" htmlFor={`create-pack-${field}`}>
                         {field}
@@ -539,10 +640,10 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                   <div className="designer-filter-row">
                     <select
                       className="light-input"
-                      onChange={async (event) => {
+                      onChange={(event) => {
                         const nextCategory = event.target.value;
                         setSelectedCategory(nextCategory);
-                        await refreshCards(selectedPackId, nextCategory, keyword);
+                        void refreshCards(selectedPackId, nextCategory, keyword);
                       }}
                       value={selectedCategory}
                     >
@@ -554,14 +655,40 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                     </select>
                     <input
                       className="light-input"
-                      onChange={async (event) => {
+                      onChange={(event) => {
                         const nextKeyword = event.target.value;
                         setKeyword(nextKeyword);
-                        await refreshCards(selectedPackId, selectedCategory, nextKeyword);
+                        void refreshCards(selectedPackId, selectedCategory, nextKeyword);
                       }}
                       placeholder="Search cards"
                       value={keyword}
                     />
+                    <button
+                      className="light-action-button load"
+                      disabled={isCardsLoading || !selectedPackId}
+                      onClick={() => void refreshCards(selectedPackId, selectedCategory, keyword)}
+                      type="button"
+                    >
+                      {isCardsLoading ? "Loading..." : "Reload"}
+                    </button>
+                    <button
+                      className="light-action-button archive"
+                      disabled={isCardsLoading || (!keyword && selectedCategory === "All")}
+                      onClick={() => {
+                        setSelectedCategory("All");
+                        setKeyword("");
+                        void refreshCards(selectedPackId, "All", "");
+                      }}
+                      type="button"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+
+                  <div className="light-inline-note">
+                    {isCardsLoading
+                      ? "Loading existing cards..."
+                      : `Showing ${cards.length} card${cards.length === 1 ? "" : "s"}.`}
                   </div>
 
                   <div className="designer-card-list">
@@ -587,7 +714,6 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                   <div className="light-copy">Pack ID: {createPackDraft.pack_id || "pending"}</div>
                   <div className="light-copy">Name: {createPackDraft.name || "pending"}</div>
                   <div className="light-copy">Version: {createPackDraft.version || "0.1.0"}</div>
-                  <div className="light-copy">Cards root: {createPackDraft.cards_root || "cards"}</div>
                   <div className="light-inline-note">
                     This area will later host a richer structural preview. For the MVP it reflects the current pack draft summary.
                   </div>
@@ -596,7 +722,14 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
             </section>
 
             <section className="light-card designer-panel designer-agent-panel">
-              <h2 className="light-card-title">Pack Builder Agent</h2>
+              <div className="designer-panel-header">
+                <h2 className="light-card-title">Pack Builder Agent</h2>
+                <div className="designer-agent-target" title="Agent current write target">
+                  <div className="designer-agent-target-label">Write Target</div>
+                  <div className="designer-agent-target-value">{agentTargetPackId || "(none)"}</div>
+                  <div className="designer-agent-target-name">{agentTargetPackName}</div>
+                </div>
+              </div>
               <div className="designer-agent-history">
                 {agentHistory.length === 0 ? (
                   <div className="light-inline-note">No designer chat yet. Describe the pack or card changes you want.</div>
@@ -610,7 +743,36 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                     return (
                       <div className={`designer-chat-row ${role === "user" ? "user" : "assistant"}`} key={`${role}-${index}`}>
                         <div className="designer-chat-role">{role.toUpperCase()}</div>
-                        <div className="designer-chat-content">{content}</div>
+                        <div className="designer-chat-content">
+                          {(() => {
+                            const preview = role === "assistant" ? parsePendingBatchSavePreview(content) : null;
+                            if (!preview) {
+                              return content;
+                            }
+                            return (
+                              <div className="designer-pending-plan">
+                                <div className="designer-pending-plan-head">
+                                  待确认写入：pack_id={preview.pack_id || "(unknown)"}，共 {preview.cards.length} 张卡
+                                </div>
+                                <div className="designer-pending-plan-list">
+                                  {preview.cards.map((card) => (
+                                    <details className="designer-pending-item" key={`${card.card_type}-${card.card_id}`}>
+                                      <summary className="designer-pending-summary">
+                                        {card.title} ({card.card_type})
+                                      </summary>
+                                      <div className="designer-pending-body">
+                                        <div>card_id: {card.card_id}</div>
+                                        {card.tags.length > 0 ? <div>tags: {card.tags.join(", ")}</div> : null}
+                                        <div className="designer-pending-text">{card.body || "(empty body)"}</div>
+                                      </div>
+                                    </details>
+                                  ))}
+                                </div>
+                                <div className="light-inline-note">回复“确认执行”后才会真正写入。</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
                     );
                   })
@@ -632,12 +794,16 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
 
               <button
                 className="light-action-button new"
-                disabled={isBusy || !agentSession}
+                disabled={isBusy || !agentSession || !agentInput.trim()}
                 onClick={handleSendAgentMessage}
                 type="button"
               >
                 {isBusy ? "Working..." : "Send to Agent"}
               </button>
+
+              {!agentSession ? (
+                <div className="light-inline-note">Agent session is initializing. If it does not recover, switch packs or refresh the page.</div>
+              ) : null}
 
               {toolLogs.length > 0 ? (
                 <div className="designer-tool-log">

@@ -7,7 +7,9 @@ from game.service.pack_builder_agent import ActionPlan, PackBuilderAgent
 
 def build_service(tmp_path: Path) -> GameService:
     service = GameService(packs_root=tmp_path / "packs")
-    service.pack_manager = PackManager(packs_root=tmp_path / "packs", registry_path=tmp_path / "registry.json")
+    service.pack_manager = PackManager(
+        packs_root=tmp_path / "packs", registry_path=tmp_path / "registry.json"
+    )
     service.create_pack(
         {
             "pack_id": "demo_pack",
@@ -15,7 +17,6 @@ def build_service(tmp_path: Path) -> GameService:
             "version": "0.1.0",
             "author": "tester",
             "description": "demo",
-            "cards_root": "cards",
         }
     )
     return service
@@ -24,7 +25,12 @@ def build_service(tmp_path: Path) -> GameService:
 def test_read_only_question_shortcut_lists_packs(tmp_path: Path) -> None:
     service = build_service(tmp_path)
     agent = PackBuilderAgent(service)
-    state = {"history": [], "question_mode": True, "creation_started": False, "selected_pack_id": "demo_pack"}
+    state = {
+        "history": [],
+        "question_mode": True,
+        "creation_started": False,
+        "selected_pack_id": "demo_pack",
+    }
 
     result = agent.process("当前有哪些卡牌包", state)
 
@@ -76,7 +82,12 @@ def test_read_then_write_followup(tmp_path: Path) -> None:
         ActionPlan(reply="先看一下", actions=[{"tool": "list_packs", "args": {}}]),
         ActionPlan(
             reply="然后创建",
-            actions=[{"tool": "create_pack", "args": {"manifest": {"pack_id": "p2", "name": "P2"}}}],
+            actions=[
+                {
+                    "tool": "create_pack",
+                    "args": {"manifest": {"pack_id": "p2", "name": "P2"}},
+                }
+            ],
         ),
     ]
 
@@ -111,7 +122,12 @@ def test_read_card_tool(tmp_path: Path) -> None:
         state,
     )
     logs = agent._execute_actions(
-        [{"tool": "read_card", "args": {"pack_id": "demo_pack", "card_path": "events/e1.md"}}],
+        [
+            {
+                "tool": "read_card",
+                "args": {"pack_id": "demo_pack", "card_path": "events/e1.md"},
+            }
+        ],
         state,
     )
     assert any("read_card(demo_pack)" in x for x in logs)
