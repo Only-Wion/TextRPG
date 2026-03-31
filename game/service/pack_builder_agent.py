@@ -22,11 +22,29 @@ class ActionPlan:
 class PackBuilderAgent:
     """Conversational agent for pack creation/editing."""
 
-    START_CREATE_WORDS = {"开始创建", "开始", "start create", "create now", "开始进行创建"}
+    START_CREATE_WORDS = {
+        "开始创建",
+        "开始",
+        "start create",
+        "create now",
+        "开始进行创建",
+    }
     CONFIRM_WORDS = {"确认", "同意", "继续", "执行", "yes", "y", "ok", "go", "confirm"}
     REJECT_WORDS = {"取消", "不要", "拒绝", "否", "no", "n", "cancel", "stop"}
-    READ_ONLY_TOOLS = {"list_packs", "list_pack_cards", "list_pack_card_types", "read_card", "audit_pack"}
-    WRITE_TOOLS = {"create_pack", "select_pack", "save_card", "batch_save_cards", "delete_card"}
+    READ_ONLY_TOOLS = {
+        "list_packs",
+        "list_pack_cards",
+        "list_pack_card_types",
+        "read_card",
+        "audit_pack",
+    }
+    WRITE_TOOLS = {
+        "create_pack",
+        "select_pack",
+        "save_card",
+        "batch_save_cards",
+        "delete_card",
+    }
     MAX_AUTORUN_STEPS = 5
     MAX_PLAN_RETRIES = 3
 
@@ -57,8 +75,12 @@ class PackBuilderAgent:
     def __init__(self, service: GameService):
         self.service = service
         prompts_dir = Path(__file__).resolve().parents[1] / "prompts"
-        self.system_prompt = (prompts_dir / "pack_builder_system.md").read_text(encoding="utf-8")
-        self.question_prompt = (prompts_dir / "pack_builder_question_mode.md").read_text(encoding="utf-8")
+        self.system_prompt = (prompts_dir / "pack_builder_system.md").read_text(
+            encoding="utf-8"
+        )
+        self.question_prompt = (
+            prompts_dir / "pack_builder_question_mode.md"
+        ).read_text(encoding="utf-8")
         self.tool_schemas = [
             {"name": "list_packs", "args": {}},
             {"name": "create_pack", "args": {"manifest": "dict"}},
@@ -77,7 +99,10 @@ class PackBuilderAgent:
                 },
             },
             {"name": "delete_card", "args": {"pack_id": "str", "card_path": "str"}},
-            {"name": "batch_save_cards", "args": {"pack_id": "str", "cards": "list[dict]"}},
+            {
+                "name": "batch_save_cards",
+                "args": {"pack_id": "str", "cards": "list[dict]"},
+            },
             {"name": "audit_pack", "args": {"pack_id": "str"}},
         ]
 
@@ -118,7 +143,9 @@ class PackBuilderAgent:
         state["memory"] = self._update_memory(history)
         return {"assistant": assistant, "state": state, "tool_logs": tool_logs}
 
-    def _handle_pending_confirmation(self, user_input: str, state: Dict[str, Any]) -> tuple[str, List[str]] | None:
+    def _handle_pending_confirmation(
+        self, user_input: str, state: Dict[str, Any]
+    ) -> tuple[str, List[str]] | None:
         normalized = user_input.strip().lower()
         if self._intent_match(normalized, self.REJECT_WORDS):
             state.pop("pending_write_plan", None)
@@ -139,7 +166,9 @@ class PackBuilderAgent:
         normalized = user_input.strip().lower()
         pack_keywords = ["卡牌包", "卡包", "packs", "pack"]
         ask_list_keywords = ["哪些", "有哪些", "当前", "可用", "list", "show"]
-        if any(k in normalized for k in pack_keywords) and any(k in normalized for k in ask_list_keywords):
+        if any(k in normalized for k in pack_keywords) and any(
+            k in normalized for k in ask_list_keywords
+        ):
             packs = self.service.list_packs()
             if not packs:
                 return "当前没有可用卡牌包。若你愿意，我可以先为你创建一个基础卡牌包。"
@@ -150,7 +179,9 @@ class PackBuilderAgent:
             )
         return ""
 
-    def _plan_and_run_loop(self, seed_input: str, state: Dict[str, Any]) -> tuple[str, List[str]]:
+    def _plan_and_run_loop(
+        self, seed_input: str, state: Dict[str, Any]
+    ) -> tuple[str, List[str]]:
         logs: List[str] = []
         replies: List[str] = []
         next_input = seed_input
@@ -174,7 +205,9 @@ class PackBuilderAgent:
                 state["pending_write_plan"] = {"actions": actions, "reply": plan.reply}
                 confirm_msg = self._build_write_confirmation_message(plan)
                 if logs:
-                    confirm_msg += "\n\n已先执行只读记录：\n" + "\n".join(f"- {x}" for x in logs)
+                    confirm_msg += "\n\n已先执行只读记录：\n" + "\n".join(
+                        f"- {x}" for x in logs
+                    )
                 return confirm_msg, logs
 
             step_logs = self._execute_actions(actions, state)
@@ -206,7 +239,9 @@ class PackBuilderAgent:
             f"{detail}\n\n回复“确认执行”继续，回复“取消”放弃本次修改。"
         )
 
-    def _build_followup_input(self, original_input: str, latest_logs: List[str], state: Dict[str, Any]) -> str:
+    def _build_followup_input(
+        self, original_input: str, latest_logs: List[str], state: Dict[str, Any]
+    ) -> str:
         recent_logs = latest_logs[-6:]
         return json.dumps(
             {
@@ -246,7 +281,11 @@ class PackBuilderAgent:
 
         messages = [
             SystemMessage(content=self.question_prompt),
-            HumanMessage(content=json.dumps({"user_input": user_input, "state": state}, ensure_ascii=False)),
+            HumanMessage(
+                content=json.dumps(
+                    {"user_input": user_input, "state": state}, ensure_ascii=False
+                )
+            ),
         ]
         try:
             resp = llm.invoke(messages)
@@ -282,7 +321,9 @@ class PackBuilderAgent:
         for attempt in range(1, self.MAX_PLAN_RETRIES + 1):
             messages = [
                 SystemMessage(content=base_system),
-                HumanMessage(content=json.dumps(base_human_payload, ensure_ascii=False)),
+                HumanMessage(
+                    content=json.dumps(base_human_payload, ensure_ascii=False)
+                ),
             ]
             if attempt > 1:
                 messages.append(
@@ -297,7 +338,8 @@ class PackBuilderAgent:
                     HumanMessage(
                         content=json.dumps(
                             {
-                                "retry_reason": last_error or "invalid_json_or_invalid_schema",
+                                "retry_reason": last_error
+                                or "invalid_json_or_invalid_schema",
                                 "previous_invalid_output": last_raw[-3000:],
                             },
                             ensure_ascii=False,
@@ -307,12 +349,17 @@ class PackBuilderAgent:
             try:
                 resp = llm.invoke(messages)
             except Exception as exc:
-                return ActionPlan(reply=f"LLM call failed in planning: {exc}", actions=[])
+                return ActionPlan(
+                    reply=f"LLM call failed in planning: {exc}", actions=[]
+                )
 
             raw = str(resp.content)
             parsed, parse_error = self._parse_action_plan(raw)
             if parsed is not None:
-                return ActionPlan(reply=str(parsed.get("reply", "")), actions=list(parsed.get("actions", [])))
+                return ActionPlan(
+                    reply=str(parsed.get("reply", "")),
+                    actions=list(parsed.get("actions", [])),
+                )
 
             if self._looks_truncated_json(raw):
                 recovered = self._recover_truncated_plan(llm, raw)
@@ -328,13 +375,20 @@ class PackBuilderAgent:
             last_raw = raw
             last_error = parse_error
 
-        return ActionPlan(reply=f"规划输出解析失败（已自动重试{self.MAX_PLAN_RETRIES}次）：{last_error}", actions=[])
+        return ActionPlan(
+            reply=f"规划输出解析失败（已自动重试{self.MAX_PLAN_RETRIES}次）：{last_error}",
+            actions=[],
+        )
 
     def _safe_pack_id(self, raw: str, fallback: str = "generated_pack") -> str:
-        base = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(raw or "").strip()).strip("_").lower()
+        base = (
+            re.sub(r"[^a-zA-Z0-9_-]+", "_", str(raw or "").strip()).strip("_").lower()
+        )
         return base or fallback
 
-    def _build_manifest_with_defaults(self, manifest: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_manifest_with_defaults(
+        self, manifest: Dict[str, Any], state: Dict[str, Any]
+    ) -> Dict[str, Any]:
         source = dict(manifest)
         preferred = source.get("pack_id") or source.get("name") or "generated_pack"
         pack_id = self._safe_pack_id(str(preferred), fallback="generated_pack")
@@ -343,15 +397,27 @@ class PackBuilderAgent:
             "name": str(source.get("name") or pack_id.replace("_", " ").title()),
             "version": str(source.get("version") or "0.1.0"),
             "author": str(source.get("author") or "PackBuilderAgent"),
-            "description": str(source.get("description") or "Generated by Pack Builder Agent"),
+            "description": str(
+                source.get("description") or "Generated by Pack Builder Agent"
+            ),
             "cards_root": str(source.get("cards_root") or "cards"),
         }
 
-    def _normalize_card_payload(self, card: Dict[str, Any], default_type: str = "card") -> Dict[str, Any]:
+    def _normalize_card_payload(
+        self, card: Dict[str, Any], default_type: str = "card"
+    ) -> Dict[str, Any]:
         data = dict(card)
         frontmatter = dict(data.get("frontmatter", {}))
-        card_type = str(data.get("card_type") or frontmatter.get("type") or default_type).strip() or default_type
-        card_id = str(data.get("card_id") or frontmatter.get("id") or "new_card").strip() or "new_card"
+        card_type = (
+            str(
+                data.get("card_type") or frontmatter.get("type") or default_type
+            ).strip()
+            or default_type
+        )
+        card_id = (
+            str(data.get("card_id") or frontmatter.get("id") or "new_card").strip()
+            or "new_card"
+        )
 
         frontmatter.setdefault("id", card_id)
         frontmatter.setdefault("type", card_type)
@@ -366,7 +432,9 @@ class PackBuilderAgent:
             "body": str(data.get("body", "") or "TBD"),
         }
 
-    def _execute_actions(self, actions: List[Dict[str, Any]], state: Dict[str, Any]) -> List[str]:
+    def _execute_actions(
+        self, actions: List[Dict[str, Any]], state: Dict[str, Any]
+    ) -> List[str]:
         logs: List[str] = []
         tools = self._build_runtime_tools(state)
         for action in actions:
@@ -412,25 +480,37 @@ class PackBuilderAgent:
             "read_card": StructuredTool.from_function(
                 name="read_card",
                 description="读取卡牌文件内容（frontmatter + body）。card_path 支持相对 cards_root 路径。",
-                func=lambda pack_id="", card_path="": self._tool_read_card(pack_id, card_path, state),
+                func=lambda pack_id="", card_path="": self._tool_read_card(
+                    pack_id, card_path, state
+                ),
             ),
             "save_card": StructuredTool.from_function(
                 name="save_card",
                 description="保存单张卡牌。",
                 func=lambda pack_id="", card_type="card", card_id="new_card", frontmatter=None, body="": self._tool_save_card(
-                    {"pack_id": pack_id, "card_type": card_type, "card_id": card_id, "frontmatter": frontmatter or {}, "body": body},
+                    {
+                        "pack_id": pack_id,
+                        "card_type": card_type,
+                        "card_id": card_id,
+                        "frontmatter": frontmatter or {},
+                        "body": body,
+                    },
                     state,
                 ),
             ),
             "batch_save_cards": StructuredTool.from_function(
                 name="batch_save_cards",
                 description="批量保存卡牌。",
-                func=lambda pack_id="", cards=None: self._tool_batch_save_cards(pack_id, cards or [], state),
+                func=lambda pack_id="", cards=None: self._tool_batch_save_cards(
+                    pack_id, cards or [], state
+                ),
             ),
             "delete_card": StructuredTool.from_function(
                 name="delete_card",
                 description="删除指定卡牌文件。",
-                func=lambda pack_id="", card_path="": self._tool_delete_card(pack_id, card_path, state),
+                func=lambda pack_id="", card_path="": self._tool_delete_card(
+                    pack_id, card_path, state
+                ),
             ),
             "audit_pack": StructuredTool.from_function(
                 name="audit_pack",
@@ -442,7 +522,11 @@ class PackBuilderAgent:
     def _resolve_pack_id(self, raw_pack_id: str, state: Dict[str, Any]) -> str:
         explicit = self._safe_pack_id(str(raw_pack_id))
         selected = self._safe_pack_id(str(state.get("selected_pack_id", "")))
-        existing = {str(p.get("pack_id", "")) for p in self.service.list_packs() if p.get("pack_id")}
+        existing = {
+            str(p.get("pack_id", ""))
+            for p in self.service.list_packs()
+            if p.get("pack_id")
+        }
 
         if explicit and explicit in existing:
             return explicit
@@ -490,7 +574,9 @@ class PackBuilderAgent:
         types = self.service.list_pack_card_types(resolved)
         return f"list_pack_card_types({resolved}) -> {types}"
 
-    def _tool_read_card(self, pack_id: str, card_path: str, state: Dict[str, Any]) -> str:
+    def _tool_read_card(
+        self, pack_id: str, card_path: str, state: Dict[str, Any]
+    ) -> str:
         resolved = self._resolve_pack_id(pack_id, state)
         root = self.service._pack_cards_root(resolved)
         path = Path(str(card_path).strip())
@@ -517,17 +603,23 @@ class PackBuilderAgent:
             frontmatter=card_payload["frontmatter"],
             body=card_payload["body"],
         )
+        state["selected_pack_id"] = pack_id
         return f"save_card -> {pack_id}/{card_payload['card_type']}/{card_payload['card_id']}"
 
-    def _tool_batch_save_cards(self, pack_id: str, cards: List[Dict[str, Any]], state: Dict[str, Any]) -> str:
+    def _tool_batch_save_cards(
+        self, pack_id: str, cards: List[Dict[str, Any]], state: Dict[str, Any]
+    ) -> str:
         resolved = self._resolve_pack_id(pack_id, state)
         saved = 0
         for card in list(cards):
             self._tool_save_card({"pack_id": resolved, **dict(card)}, state)
             saved += 1
+        state["selected_pack_id"] = resolved
         return f"batch_save_cards -> {resolved}, count={saved}"
 
-    def _tool_delete_card(self, pack_id: str, card_path: str, state: Dict[str, Any]) -> str:
+    def _tool_delete_card(
+        self, pack_id: str, card_path: str, state: Dict[str, Any]
+    ) -> str:
         resolved = self._resolve_pack_id(pack_id, state)
         root = self.service._pack_cards_root(resolved)
         path = Path(str(card_path).strip())

@@ -21,7 +21,10 @@ MAX_ZIP_BYTES = 50 * 1024 * 1024
 
 class PackManager:
     """在磁盘上安装、移除并管理卡包。"""
-    def __init__(self, packs_root: Path = PACKS_DIR, registry_path: Path = PACK_REGISTRY_PATH):
+
+    def __init__(
+        self, packs_root: Path = PACKS_DIR, registry_path: Path = PACK_REGISTRY_PATH
+    ):
         self.packs_root = packs_root
         self.registry = PackRegistry(registry_path)
         self.packs_root.mkdir(parents=True, exist_ok=True)
@@ -33,45 +36,51 @@ class PackManager:
     def install_pack_from_url(self, url: str) -> PackRecord:
         """从 URL 下载并安装卡包 zip。"""
         with tempfile.TemporaryDirectory() as td:
-            tmp = Path(td) / 'pack.zip'
+            tmp = Path(td) / "pack.zip"
             self._download(url, tmp)
             return self.install_pack_from_zip(tmp, source=url)
 
-    def install_pack_from_zip(self, zip_path: Path, source: str | None = None) -> PackRecord:
+    def install_pack_from_zip(
+        self, zip_path: Path, source: str | None = None
+    ) -> PackRecord:
         """从 zip 文件安装卡包。"""
         if zip_path.stat().st_size > MAX_ZIP_BYTES:
-            raise ValueError('zip too large')
+            raise ValueError("zip too large")
         manifest = self._read_manifest_from_zip(zip_path)
+        manifest = {
+            **manifest,
+            "cards_root": str(manifest.get("cards_root") or "cards"),
+        }
         validate_manifest(manifest)
         self._validate_requires(manifest)
-        pack_id = str(manifest['pack_id'])
-        version = str(manifest['version'])
+        pack_id = str(manifest["pack_id"])
+        version = str(manifest["version"])
         if not PACK_ID_RE.match(pack_id) or not SEMVER_RE.match(version):
-            raise ValueError('invalid pack_id or version')
-        if 'sha256' in manifest:
+            raise ValueError("invalid pack_id or version")
+        if "sha256" in manifest:
             digest = self._sha256(zip_path)
-            if digest != str(manifest['sha256']):
-                raise ValueError('sha256 mismatch')
+            if digest != str(manifest["sha256"]):
+                raise ValueError("sha256 mismatch")
 
         dest_root = self.packs_root / pack_id / version
         if dest_root.exists():
-            raise ValueError('pack version already installed')
+            raise ValueError("pack version already installed")
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)
             safe_extract(zip_path, td_path)
-            cards_root = Path(str(manifest['cards_root']))
+            cards_root = Path(str(manifest["cards_root"]))
             if not (td_path / cards_root).exists():
-                raise ValueError('cards_root missing in zip')
+                raise ValueError("cards_root missing in zip")
             dest_root.mkdir(parents=True, exist_ok=True)
             shutil.copytree(td_path, dest_root, dirs_exist_ok=True)
 
         record = PackRecord(
             pack_id=pack_id,
-            name=str(manifest['name']),
+            name=str(manifest["name"]),
             version=version,
-            author=str(manifest['author']),
-            description=str(manifest['description']),
-            cards_root=str(manifest['cards_root']),
+            author=str(manifest["author"]),
+            description=str(manifest["description"]),
+            cards_root=str(manifest["cards_root"]),
             enabled=False,
             source=source or str(zip_path),
         )
@@ -96,12 +105,12 @@ class PackManager:
         """将卡包目录打包为 zip 文件。"""
         record = self.registry.get(pack_id)
         if not record:
-            raise ValueError('pack not found')
+            raise ValueError("pack not found")
         pack_dir = self.packs_root / pack_id / record.version
         if not pack_dir.exists():
-            raise ValueError('pack files missing')
-        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for path in pack_dir.rglob('*'):
+            raise ValueError("pack files missing")
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for path in pack_dir.rglob("*"):
                 if path.is_file():
                     zf.write(path, path.relative_to(pack_dir))
 
@@ -122,13 +131,13 @@ class PackManager:
         with requests.get(url, stream=True, timeout=30) as resp:
             resp.raise_for_status()
             total = 0
-            with dest.open('wb') as f:
+            with dest.open("wb") as f:
                 for chunk in resp.iter_content(chunk_size=1024 * 1024):
                     if not chunk:
                         continue
                     total += len(chunk)
                     if total > MAX_ZIP_BYTES:
-                        raise ValueError('zip too large')
+                        raise ValueError("zip too large")
                     f.write(chunk)
 
     def _read_manifest_from_zip(self, zip_path: Path) -> Dict[str, Any]:
@@ -136,32 +145,36 @@ class PackManager:
         with zipfile.ZipFile(zip_path) as zf:
             manifest_name = None
             for name in zf.namelist():
-                if name.lower().endswith('pack.json') or name.lower().endswith('pack.yaml') or name.lower().endswith('pack.yml'):
+                if (
+                    name.lower().endswith("pack.json")
+                    or name.lower().endswith("pack.yaml")
+                    or name.lower().endswith("pack.yml")
+                ):
                     manifest_name = name
                     break
             if not manifest_name:
-                raise ValueError('manifest not found in zip')
-            raw = zf.read(manifest_name).decode('utf-8')
-            if manifest_name.lower().endswith(('.yaml', '.yml')):
+                raise ValueError("manifest not found in zip")
+            raw = zf.read(manifest_name).decode("utf-8")
+            if manifest_name.lower().endswith((".yaml", ".yml")):
                 data = yaml.safe_load(raw)
             else:
                 data = json.loads(raw)
             if not isinstance(data, dict):
-                raise ValueError('manifest invalid')
+                raise ValueError("manifest invalid")
             return data
 
     def _sha256(self, path: Path) -> str:
         """计算文件的 sha256。"""
         h = hashlib.sha256()
-        with path.open('rb') as f:
-            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
         return h.hexdigest()
 
     def _validate_requires(self, manifest: Dict[str, Any]) -> None:
         """校验卡包对引擎版本的要求。"""
-        requires = manifest.get('requires')
+        requires = manifest.get("requires")
         if not requires:
             return
         if isinstance(requires, str) and requires > ENGINE_VERSION:
-            raise ValueError('engine version too low for this pack')
+            raise ValueError("engine version too low for this pack")

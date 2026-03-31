@@ -1399,6 +1399,87 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.designer-pending-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.designer-pending-plan-head {
+  color: #22324a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.designer-pending-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.designer-pending-item {
+  border: 1px solid #d5dfea;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.designer-pending-summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  color: #22324a;
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.designer-pending-summary::-webkit-details-marker {
+  display: none;
+}
+
+.designer-pending-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 10px 10px;
+  color: #60748f;
+  font-size: 12px;
+}
+
+.designer-pending-text {
+  color: #22324a;
+  white-space: pre-wrap;
+}
+
+.designer-agent-target {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #d5dfea;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.designer-agent-target-label {
+  color: #60748f;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.designer-agent-target-value {
+  color: #22324a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.designer-agent-target-name {
+  color: #60748f;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 .designer-tool-log {
   display: flex;
   flex-direction: column;

@@ -36,7 +36,9 @@ def get_game_service_registry() -> GameServiceRegistry:
 def get_auth_repository() -> SqliteAuthRepository | PostgresAuthRepository:
     if SETTINGS.storage_backend == "postgres":
         if not SETTINGS.postgres_dsn:
-            raise ValueError("TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres")
+            raise ValueError(
+                "TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres"
+            )
         return PostgresAuthRepository(SETTINGS.postgres_dsn)
     return SqliteAuthRepository()
 
@@ -47,7 +49,9 @@ def get_auth_service() -> AuthService:
 
 def get_session_service() -> SessionService:
     repository = get_auth_repository()
-    return SessionService(get_game_service_registry(), repository, repository, repository, repository)
+    return SessionService(
+        get_game_service_registry(), repository, repository, repository, repository
+    )
 
 
 def get_pack_service() -> PackService:
@@ -59,7 +63,8 @@ def get_settings_service() -> SettingsService:
 
 
 def get_card_designer_service() -> CardDesignerService:
-    return CardDesignerService(get_game_service(), get_auth_repository())
+    repository = get_auth_repository()
+    return CardDesignerService(get_game_service(), repository, repository)
 
 
 def get_current_token(

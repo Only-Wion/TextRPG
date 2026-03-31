@@ -81,6 +81,7 @@ Notes:
 - `state` is intentionally agent-runtime-shaped because the current implementation reuses the old Pack Builder Agent state machine.
 - The current local store persists this as JSON.
 - The target PostgreSQL model should preserve the same logical payload, likely in JSONB.
+- After write tools are executed (`save_card` / `batch_save_cards`), `state.selected_pack_id` is synchronized to the resolved write target pack.
 
 ## Designer Agent Message Response
 
@@ -100,6 +101,11 @@ Shape:
   "state": {}
 }
 ```
+
+Behavior notes:
+- Agent write tools are confirmation-gated: assistant first returns a pending write plan and only executes after explicit user confirmation.
+- The `selected_pack_id` in the response is expected to reflect the effective write target pack after execution.
+- Agent invocation should bind authenticated user runtime LLM settings before plan generation/execution.
 
 ## Storage split
 

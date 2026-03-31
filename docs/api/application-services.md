@@ -232,6 +232,10 @@ Notes:
 ### `export_pack_manifest(data) -> None`
 
 Notes:
+- For Card Designer create-pack workflows, callers no longer need to provide `cards_root`.
+- The backend normalizes `cards_root` to `cards` when omitted.
+
+Notes:
 - `remove_pack(pack_id)` rejects builtin packs.
 - `export_pack_to_runtime_exports(pack_id)` writes a ZIP to the local runtime exports directory
   and returns:
@@ -277,6 +281,8 @@ Behavior notes:
 - Pack and card files remain filesystem-backed.
 - Card Designer AI/draft session state is persisted through the designer-session repository.
 - The current implementation reuses the existing Pack Builder Agent state shape and tool loop.
+- `send_agent_message` binds the authenticated user's runtime LLM settings for each call before invoking the Pack Builder Agent.
+- Agent write actions (`save_card` / `batch_save_cards`) synchronize `state.selected_pack_id` to the resolved write target pack so UI refreshes query the correct pack.
 
 ## SettingsService
 

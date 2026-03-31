@@ -184,7 +184,6 @@ export type CreateDesignerPackRequest = {
   version: string;
   author: string;
   description: string;
-  cards_root: string;
 };
 
 export type SaveDesignerCardRequest = {
