@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional
 import gc
 import json
@@ -63,7 +64,12 @@ from ..packs.card_editor import (
     validate_card,
 )
 from ..packs.validator import validate_manifest
-from .ui_agents import UICardPlannerAgent, UIPanelStateAgent, UIPanelUpdateAgent
+from .ui_agents import (
+    UICardPlannerAgent,
+    UIPanelStateAgent,
+    UIPanelUpdateAgent,
+    UIVariableUpdateAgent,
+)
 
 
 @dataclass
@@ -79,6 +85,8 @@ class GameSession:
 
 
 class GameService:
+    _UI_VAR_PATTERN = re.compile(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}")
+
     def __init__(
         self,
         packs_root: Path | None = None,
@@ -105,6 +113,7 @@ class GameService:
         self.ui_planner = UICardPlannerAgent()
         self.ui_state_agent = UIPanelStateAgent()
         self.ui_update_agent = UIPanelUpdateAgent()
+        self.ui_variable_agent = UIVariableUpdateAgent()
         self._runtime_llm_settings = load_runtime_llm_settings()
         self._ui_lock = threading.Lock()
         self._ui_gen_thread: threading.Thread | None = None
@@ -259,6 +268,9 @@ class GameService:
             "validated_ops": state.get("validated_ops", []),
             "errors": state.get("errors", []),
             "custom_ui_panels": state.get("custom_ui_panels", []),
+            "ui_template_id": state.get("ui_template_id", ""),
+            "ui_variable_values": state.get("ui_variable_values", {}),
+            "ui_panel_visibility": state.get("ui_panel_visibility", {}),
             "save_slot": state.get("save_slot"),
             "ui_generation_status": state.get("ui_generation_status", "idle"),
             "ui_update_status": state.get("ui_update_status", "idle"),
@@ -583,6 +595,10 @@ class GameService:
             "language": language or str(metadata.get("language", "")).strip() or "zh",
             "custom_ui_panel_defs": ui_panel_defs,
             "custom_ui_panels": [],
+            "ui_template_id": "",
+            "ui_variable_template": {"variables": []},
+            "ui_variable_values": {},
+            "ui_panel_visibility": {},
             "quest_catalog": quest_catalog,
             "ui_generation_status": "ready" if ui_panel_defs else "pending",
             "ui_update_status": "idle",
@@ -618,9 +634,40 @@ class GameService:
         world_facts = session.state.get("world_facts", {})
         history = session.state.get("chat_history", [])
         quest_catalog = session.state.get("quest_catalog", [])
-        session.state["custom_ui_panels"] = self.ui_state_agent.update(
+        rendered_panels = self.ui_state_agent.update(
             panel_defs, world_facts, history, quest_catalog
         )
+        current_values = session.state.get("ui_variable_values", {})
+        if not isinstance(current_values, dict):
+            current_values = {}
+
+        variable_template = session.state.get("ui_variable_template", {})
+        if not isinstance(variable_template, dict) or not variable_template:
+            variable_template = {
+                "variables": sorted(self._collect_ui_variable_names(panel_defs))
+            }
+            session.state["ui_variable_template"] = variable_template
+
+        merged_values = self.ui_variable_agent.update(
+            variable_template,
+            current_values,
+            world_facts=world_facts if isinstance(world_facts, dict) else {},
+            chat_history=history if isinstance(history, list) else [],
+            rendered_panels=rendered_panels,
+            state=session.state,
+        )
+        session.state["ui_variable_values"] = merged_values
+
+        visibility = session.state.get("ui_panel_visibility", {})
+        if not isinstance(visibility, dict):
+            visibility = {}
+            session.state["ui_panel_visibility"] = visibility
+
+        session.state["custom_ui_panels"] = [
+            self._render_panel_with_runtime_state(panel, merged_values, visibility)
+            for panel in rendered_panels
+            if isinstance(panel, dict)
+        ]
 
     def set_ui_update_mode(self, mode: str) -> None:
         if not self._session:
@@ -634,6 +681,60 @@ class GameService:
         if turns <= 0:
             turns = 1
         self._session.state["ui_auto_update_every"] = turns
+
+    def set_ui_panel_visibility(self, panel_id: str, visible: bool) -> None:
+        if not self._session:
+            return
+        visibility = self._session.state.get("ui_panel_visibility", {})
+        if not isinstance(visibility, dict):
+            visibility = {}
+        visibility[str(panel_id)] = bool(visible)
+        self._session.state["ui_panel_visibility"] = visibility
+        self._refresh_custom_ui_panels(self._session)
+
+    def apply_ui_template(
+        self,
+        template_id: str,
+        template_payload: dict[str, Any],
+        variable_template: dict[str, Any] | None = None,
+        variable_values: dict[str, Any] | None = None,
+        visibility: dict[str, bool] | None = None,
+    ) -> None:
+        if not self._session:
+            return
+        payload = template_payload if isinstance(template_payload, dict) else {}
+        panels = payload.get("panels", [])
+        if not isinstance(panels, list):
+            panels = []
+        self._session.state["ui_template_id"] = str(template_id or "")
+        self._session.state["custom_ui_panel_defs"] = [
+            panel for panel in panels if isinstance(panel, dict)
+        ]
+        variable_template_payload = (
+            variable_template if isinstance(variable_template, dict) else {"variables": []}
+        )
+        self._session.state["ui_variable_template"] = variable_template_payload
+        vars_payload = variable_values if isinstance(variable_values, dict) else {}
+        self._session.state["ui_variable_values"] = vars_payload
+        visibility_payload = visibility if isinstance(visibility, dict) else {}
+        self._session.state["ui_panel_visibility"] = {
+            str(k): bool(v) for k, v in visibility_payload.items()
+        }
+        self._refresh_custom_ui_panels(self._session)
+
+    def get_ui_template_snapshot(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not self._session:
+            return {"panels": []}, {"variables": []}
+        panel_defs = self._session.state.get("custom_ui_panel_defs", [])
+        if not isinstance(panel_defs, list):
+            panel_defs = []
+        variable_template = self._session.state.get("ui_variable_template", {})
+        if not isinstance(variable_template, dict):
+            variable_template = {}
+        variable_names = variable_template.get("variables", [])
+        if not isinstance(variable_names, list) or not variable_names:
+            variable_names = sorted(self._collect_ui_variable_names(panel_defs))
+        return {"panels": panel_defs}, {"variables": variable_names}
 
     def trigger_ui_generation(self, force: bool = False) -> None:
         if not self._session:
@@ -671,13 +772,24 @@ class GameService:
         with self._ui_lock:
             session = self._session
         try:
+            if str(session.state.get("ui_template_id") or "").strip():
+                with self._ui_lock:
+                    if session is self._session:
+                        session.state["ui_generation_status"] = "ready"
+                if session is self._session:
+                    self._refresh_custom_ui_panels(session)
+                return
+
             paths = get_slot_paths(session.save_slot)
             cached = self.ui_panel_store.load(paths["ui_panels_path"])
             if cached and not force:
                 with self._ui_lock:
                     if session is self._session:
-                        session.state["custom_ui_panel_defs"] = cached
-                        session.state["ui_generation_status"] = "ready"
+                        if str(session.state.get("ui_template_id") or "").strip():
+                            session.state["ui_generation_status"] = "ready"
+                        else:
+                            session.state["custom_ui_panel_defs"] = cached
+                            session.state["ui_generation_status"] = "ready"
                 if session is self._session:
                     self._refresh_custom_ui_panels(session)
                 return
@@ -696,10 +808,14 @@ class GameService:
                 )
             with self._ui_lock:
                 if session is self._session:
-                    session.state["custom_ui_panel_defs"] = panels
-                    session.state["ui_generation_status"] = "ready"
+                    if str(session.state.get("ui_template_id") or "").strip():
+                        session.state["ui_generation_status"] = "ready"
+                    else:
+                        session.state["custom_ui_panel_defs"] = panels
+                        session.state["ui_generation_status"] = "ready"
             if session is self._session:
-                self.ui_panel_store.save(paths["ui_panels_path"], panels)
+                if not str(session.state.get("ui_template_id") or "").strip():
+                    self.ui_panel_store.save(paths["ui_panels_path"], panels)
                 self._refresh_custom_ui_panels(session)
         except Exception:
             with self._ui_lock:
@@ -713,6 +829,13 @@ class GameService:
             session = self._session
             session.state["ui_update_status"] = "running"
         try:
+            if str(session.state.get("ui_template_id") or "").strip():
+                with self._ui_lock:
+                    if session is self._session:
+                        self._refresh_custom_ui_panels(session)
+                        session.state["ui_update_status"] = "ready"
+                return
+
             rag_lookup = self._build_ui_rag_lookup(session)
             with self._llm_settings_scope():
                 updated = self.ui_update_agent.update(
@@ -748,6 +871,110 @@ class GameService:
             query = f"{card.id} {card.type} {recent_text}".strip()
             lookup[card.id] = session.rag.search(query, k=4)
         return lookup
+
+    def _render_panel_with_runtime_state(
+        self,
+        panel: dict[str, Any],
+        variables: dict[str, Any],
+        visibility: dict[str, bool],
+    ) -> dict[str, Any]:
+        panel_id = str(panel.get("panel_id", ""))
+        panel_visible = visibility.get(panel_id, bool(panel.get("visible_by_default", True)))
+        rendered = dict(panel)
+        rendered["visible"] = bool(panel_visible)
+
+        html = rendered.get("html")
+        if isinstance(html, str) and html:
+            rendered["html"] = self._inject_variables(html, variables)
+
+        sections = rendered.get("sections", [])
+        if isinstance(sections, list):
+            normalized_sections: list[dict[str, Any]] = []
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                normalized = dict(section)
+                entries = normalized.get("entries")
+                if isinstance(entries, list):
+                    normalized_entries: list[dict[str, Any]] = []
+                    for entry in entries:
+                        if not isinstance(entry, dict):
+                            continue
+                        next_entry = dict(entry)
+                        value = next_entry.get("value")
+                        if isinstance(value, str):
+                            next_entry["value"] = self._inject_variables(value, variables)
+                        normalized_entries.append(next_entry)
+                    normalized["entries"] = normalized_entries
+                normalized_sections.append(normalized)
+            rendered["sections"] = normalized_sections
+        return rendered
+
+    def _inject_variables(self, text: str, variables: dict[str, Any]) -> str:
+        def replace(match: re.Match[str]) -> str:
+            key = str(match.group(1) or "").strip()
+            if not key:
+                return ""
+            return str(variables.get(key, ""))
+
+        return self._UI_VAR_PATTERN.sub(replace, text)
+
+    def _collect_ui_variable_names(self, panel_defs: list[dict[str, Any]]) -> set[str]:
+        names: set[str] = set()
+        for panel in panel_defs:
+            html = panel.get("html")
+            if isinstance(html, str):
+                for match in self._UI_VAR_PATTERN.findall(html):
+                    if match:
+                        names.add(str(match))
+            sections = panel.get("sections", [])
+            if not isinstance(sections, list):
+                continue
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                entries = section.get("entries", [])
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    value = entry.get("value")
+                    if isinstance(value, str):
+                        for match in self._UI_VAR_PATTERN.findall(value):
+                            if match:
+                                names.add(str(match))
+        return names
+
+    def _build_ui_variable_values(
+        self, session: GameSession, rendered_panels: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        state = session.state
+        world_facts = (
+            state.get("world_facts", {})
+            if isinstance(state.get("world_facts"), dict)
+            else {}
+        )
+        attrs = world_facts.get("attrs", {}) if isinstance(world_facts.get("attrs"), dict) else {}
+        flattened: dict[str, Any] = {
+            "turn_id": state.get("turn_id", 0),
+            "save_slot": state.get("save_slot", ""),
+            "location_label": self._infer_location_label(state),
+        }
+
+        for entity_id, values in attrs.items():
+            if not isinstance(values, dict):
+                continue
+            for key, value in values.items():
+                flattened[f"{entity_id}.{key}"] = value
+
+        for panel in rendered_panels:
+            if not isinstance(panel, dict):
+                continue
+            panel_id = str(panel.get("panel_id", ""))
+            if panel_id:
+                flattened[f"panel.{panel_id}.title"] = panel.get("title", "")
+        return flattened
 
     def _collect_quest_catalog(self, repo: CardRepository) -> List[Dict[str, Any]]:
         quests: List[Dict[str, Any]] = []

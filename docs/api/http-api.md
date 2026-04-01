@@ -42,9 +42,14 @@ Request body:
 {
   "save_slot": "slot_001",
   "pack_ids": ["starter_kingdom"],
-  "language": "zh"
+  "language": "zh",
+  "ui_template_id": "tpl_hero_dashboard"
 }
 ```
+
+Field notes:
+- `ui_template_id` is optional.
+- If provided, backend attempts to bind and apply that UI template for the newly started session.
 
 Response:
 ```json
@@ -230,6 +235,36 @@ Response:
 }
 ```
 
+### `PATCH /game/ui/visibility`
+
+Purpose:
+- Toggle visibility for one generated UI panel in the active session.
+
+Request body:
+```json
+{
+  "panel_id": "player_status_1",
+  "visible": false
+}
+```
+
+### `POST /game/ui/template/bind`
+
+Purpose:
+- Bind one existing pack UI template to a target session.
+
+Request body:
+```json
+{
+  "save_slot": "slot_001",
+  "pack_id": "starter_kingdom",
+  "template_id": "tpl_hero_dashboard"
+}
+```
+
+Response shape:
+- Returns persisted session UI binding payload.
+
 ### `GET /packs`
 
 Purpose:
@@ -294,6 +329,41 @@ Notes:
 - This is currently a local-development convenience endpoint.
 - It does not stream a download yet; it returns the generated file path.
 - Authenticated access is required.
+
+### `GET /packs/{pack_id}/ui-templates`
+
+Purpose:
+- List UI templates scoped to authenticated user and selected pack.
+
+Response item additions:
+- `sessions_in_use: number` indicates how many active session bindings currently reference this template.
+
+### `POST /packs/{pack_id}/ui-templates`
+
+Purpose:
+- Create or update a user-scoped UI template for selected pack.
+
+Request body:
+```json
+{
+  "name": "Hero Dashboard",
+  "template": {
+    "panels": []
+  },
+  "variable_template": {
+    "variables": []
+  }
+}
+```
+
+### `DELETE /packs/{pack_id}/ui-templates/{template_id}`
+
+Purpose:
+- Delete one UI template.
+
+Notes:
+- Deletion is rejected when any active session binding currently references the template.
+- Validation detail includes active binding count, for example: `template is currently used by 2 active session(s)`.
 
 ### `GET /settings/llm`
 ### `PUT /settings/llm`

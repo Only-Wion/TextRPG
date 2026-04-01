@@ -171,3 +171,51 @@ class CardDesignerSessionRepositoryProtocol(Protocol):
 
     def delete_designer_session(self, user_id: str, session_id: str) -> None:
         ...
+
+
+class UserUiTemplateRepositoryProtocol(Protocol):
+    """Contract for user-scoped pack UI templates and session UI bindings."""
+
+    def list_pack_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+        ...
+
+    def get_pack_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> dict[str, Any] | None:
+        ...
+
+    def save_pack_ui_template(
+        self,
+        user_id: str,
+        pack_id: str,
+        template_id: str,
+        name: str,
+        template_payload: dict[str, Any],
+        variable_template: dict[str, Any],
+    ) -> dict[str, Any]:
+        ...
+
+    def delete_pack_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+        ...
+
+    def count_sessions_using_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> int:
+        ...
+
+    def get_session_ui_binding(self, user_id: str, save_slot: str) -> dict[str, Any] | None:
+        ...
+
+    def save_session_ui_binding(
+        self,
+        user_id: str,
+        save_slot: str,
+        pack_id: str,
+        template_id: str,
+        variables: dict[str, Any],
+        visibility: dict[str, bool],
+    ) -> dict[str, Any]:
+        ...
+
+    def delete_session_ui_binding(self, user_id: str, save_slot: str) -> None:
+        ...

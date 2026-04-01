@@ -9,6 +9,7 @@ class StartGameRequest(BaseModel):
     save_slot: str
     pack_ids: list[str] | None = None
     language: str | None = None
+    ui_template_id: str | None = None
 
 
 class LoadGameRequest(BaseModel):
@@ -34,6 +35,17 @@ class UiAutoUpdateRequest(BaseModel):
 
 class TriggerUiGenerationRequest(BaseModel):
     force: bool = False
+
+
+class UiPanelVisibilityRequest(BaseModel):
+    panel_id: str
+    visible: bool
+
+
+class BindSessionUiTemplateRequest(BaseModel):
+    save_slot: str
+    pack_id: str
+    template_id: str
 
 
 class GameActionResponse(BaseModel):

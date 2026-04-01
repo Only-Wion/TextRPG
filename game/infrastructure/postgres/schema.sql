@@ -74,6 +74,29 @@ create table if not exists user_card_designer_sessions (
     updated_at timestamptz not null default now()
 );
 
+create table if not exists user_pack_ui_templates (
+    template_id text not null,
+    user_id text not null references users(id) on delete cascade,
+    pack_id text not null,
+    name text not null,
+    template_json jsonb not null default '{}'::jsonb,
+    variable_template_json jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    primary key (user_id, pack_id, template_id)
+);
+
+create table if not exists user_session_ui_bindings (
+    user_id text not null references users(id) on delete cascade,
+    save_slot text not null,
+    pack_id text not null,
+    template_id text not null,
+    variables_json jsonb not null default '{}'::jsonb,
+    visibility_json jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now(),
+    primary key (user_id, save_slot)
+);
+
 create table if not exists game_sessions (
     session_key text primary key,
     save_slot text not null unique,

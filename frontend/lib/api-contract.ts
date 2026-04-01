@@ -26,6 +26,9 @@ export type StateView = {
   validated_ops: Array<Record<string, unknown>>;
   errors: string[];
   custom_ui_panels: Array<Record<string, unknown>>;
+  ui_template_id: string;
+  ui_variable_values: Record<string, unknown>;
+  ui_panel_visibility: Record<string, boolean>;
   save_slot: string | null;
   ui_generation_status: string;
   ui_update_status: string;
@@ -126,6 +129,7 @@ export type StartGameRequest = {
   save_slot: string;
   pack_ids?: string[];
   language?: string;
+  ui_template_id?: string;
 };
 
 export type LoadGameRequest = {
@@ -213,4 +217,21 @@ export type DesignerAgentMessageResponse = {
   tool_logs: string[];
   selected_pack_id: string;
   state: Record<string, unknown>;
+};
+
+export type UiTemplateRecord = {
+  template_id: string;
+  pack_id: string;
+  name: string;
+  template: Record<string, unknown>;
+  variable_template: Record<string, unknown>;
+  sessions_in_use: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type CreateUiTemplateRequest = {
+  name: string;
+  template?: Record<string, unknown>;
+  variable_template?: Record<string, unknown>;
 };

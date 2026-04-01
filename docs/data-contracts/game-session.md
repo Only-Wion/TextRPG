@@ -9,7 +9,8 @@ application and API boundaries.
 {
   "save_slot": "slot_001",
   "pack_ids": ["starter_kingdom"],
-  "language": "zh"
+  "language": "zh",
+  "ui_template_id": "tpl_hero_dashboard"
 }
 ```
 
@@ -17,6 +18,7 @@ Fields:
 - `save_slot: string`
 - `pack_ids: string[] | null`
 - `language: string | null`
+- `ui_template_id: string | null`
 
 ## LoadGameRequest
 
@@ -105,6 +107,13 @@ This is the canonical frontend-safe session projection.
   "validated_ops": [],
   "errors": [],
   "custom_ui_panels": [],
+  "ui_template_id": "tpl_hero_dashboard",
+  "ui_variable_values": {
+    "player.hp": "10"
+  },
+  "ui_panel_visibility": {
+    "player_status_1": true
+  },
   "save_slot": "slot_001",
   "ui_generation_status": "idle",
   "ui_update_status": "idle",
@@ -121,9 +130,15 @@ Field notes:
 - `validated_ops` is the validated and possibly rule-adjusted ops list.
 - `errors` contains non-fatal validation and processing messages for the turn.
 - `custom_ui_panels` is frontend-facing panel data, not raw planner prompts.
+- `ui_template_id` is the currently applied template id for active session UI runtime.
+- `ui_variable_values` stores current variable values used by UI templates and is maintained by a dedicated UI variable update agent.
+- `ui_panel_visibility` stores per-panel visibility flags keyed by `panel_id`.
 - `enabled_packs` is the active pack list for the loaded runtime session.
 - `location_label` is a display-friendly location derived from world facts.
 - `storage_backend_label` reflects the current runtime storage backend.
+
+Runtime behavior note:
+- In template mode, panel layout/structure is reused from the selected template; updates primarily refresh `ui_variable_values` and re-render panel content.
 
 ## SessionSummary
 
@@ -198,4 +213,24 @@ Allowed values:
 {
   "force": true
 }
+```
+
+## UiPanelVisibilityRequest
+
+```json
+{
+  "panel_id": "player_status_1",
+  "visible": false
+}
+```
+
+## BindSessionUiTemplateRequest
+
+```json
+{
+  "save_slot": "slot_001",
+  "pack_id": "starter_kingdom",
+  "template_id": "tpl_hero_dashboard"
+}
+```
 ```

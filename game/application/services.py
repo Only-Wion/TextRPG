@@ -5,6 +5,7 @@ from typing import Any
 
 from game.infrastructure.contracts import (
     CardDesignerSessionRepositoryProtocol,
+    UserUiTemplateRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
     UserRepositoryProtocol,
@@ -84,12 +85,14 @@ class SessionService:
         pack_state_repository: UserPackStateRepositoryProtocol,
         session_metadata_repository: UserSessionMetadataRepositoryProtocol,
         chat_history_repository: UserChatHistoryRepositoryProtocol,
+        ui_template_repository: UserUiTemplateRepositoryProtocol,
     ):
         self._registry = registry
         self._session_index = session_index
         self._pack_state_repository = pack_state_repository
         self._session_metadata_repository = session_metadata_repository
         self._chat_history_repository = chat_history_repository
+        self._ui_template_repository = ui_template_repository
 
     def start_new_game(
         self,
@@ -97,9 +100,11 @@ class SessionService:
         save_slot: str,
         pack_ids: list[str] | None = None,
         language: str | None = None,
+        ui_template_id: str | None = None,
     ) -> None:
         service = self._registry.for_user(user_id)
         service.start_new_game(save_slot, pack_ids, language=language)
+        self._apply_ui_binding(user_id, save_slot, service, ui_template_id=ui_template_id)
         self._session_index.bind_session(user_id, save_slot)
         self._sync_current_chat_history(user_id)
         self._sync_current_session_metadata(user_id)
@@ -112,6 +117,7 @@ class SessionService:
         self._ensure_user_owns_slot(user_id, save_slot)
         service = self._registry.for_user(user_id)
         service.load_game(save_slot, language=language)
+        self._apply_ui_binding(user_id, save_slot, service)
         self._hydrate_or_backfill_chat_history(user_id, save_slot)
         self._sync_current_session_metadata(user_id)
         state = service.get_current_state_view()
@@ -123,6 +129,7 @@ class SessionService:
         result = self._registry.for_user(user_id).step(input_text)
         self._sync_current_chat_history(user_id)
         self._sync_current_session_metadata(user_id)
+        self._sync_current_ui_binding(user_id)
         return result
 
     def step_stream(self, user_id: str, input_text: str):
@@ -130,6 +137,7 @@ class SessionService:
             if event.get("type") == "done":
                 self._sync_current_chat_history(user_id)
                 self._sync_current_session_metadata(user_id)
+                self._sync_current_ui_binding(user_id)
             yield event
 
     def get_current_state_view(self, user_id: str) -> dict[str, Any]:
@@ -235,6 +243,83 @@ class SessionService:
     def trigger_ui_update(self, user_id: str) -> None:
         self._registry.for_user(user_id).trigger_ui_update()
 
+    def set_ui_panel_visibility(self, user_id: str, panel_id: str, visible: bool) -> None:
+        service = self._registry.for_user(user_id)
+        service.set_ui_panel_visibility(panel_id, visible)
+        self._sync_current_ui_binding(user_id)
+
+    def list_pack_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+        return self._ui_template_repository.list_pack_ui_templates(user_id, pack_id)
+
+    def create_pack_ui_template(
+        self,
+        user_id: str,
+        pack_id: str,
+        name: str,
+        template_payload: dict[str, Any] | None = None,
+        variable_template: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        service = self._registry.for_user(user_id)
+        payload = template_payload if isinstance(template_payload, dict) else None
+        vars_template = variable_template if isinstance(variable_template, dict) else None
+        if payload is None or vars_template is None:
+            snapshot, vars_snapshot = service.get_ui_template_snapshot()
+            if payload is None:
+                payload = snapshot
+            if vars_template is None:
+                vars_template = vars_snapshot
+        return self._ui_template_repository.save_pack_ui_template(
+            user_id,
+            pack_id,
+            "",
+            name,
+            payload,
+            vars_template,
+        )
+
+    def delete_pack_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+        in_use = self._ui_template_repository.count_sessions_using_ui_template(
+            user_id, pack_id, template_id
+        )
+        if in_use > 0:
+            raise ValueError(
+                f"template is currently used by {in_use} active session(s)"
+            )
+        self._ui_template_repository.delete_pack_ui_template(user_id, pack_id, template_id)
+
+    def bind_session_ui_template(
+        self,
+        user_id: str,
+        save_slot: str,
+        pack_id: str,
+        template_id: str,
+    ) -> dict[str, Any]:
+        self._ensure_user_owns_slot(user_id, save_slot)
+        service = self._registry.for_user(user_id)
+        state = service.get_current_state_view()
+        if state.get("save_slot") != save_slot:
+            service.load_game(save_slot)
+        template = self._ui_template_repository.get_pack_ui_template(
+            user_id, pack_id, template_id
+        )
+        if not template:
+            raise ValueError("ui template not found")
+        service.apply_ui_template(
+            template_id,
+            template.get("template", {}),
+            template.get("variable_template", {}),
+            {},
+            {},
+        )
+        return self._ui_template_repository.save_session_ui_binding(
+            user_id,
+            save_slot,
+            pack_id,
+            template_id,
+            service.get_current_state_view().get("ui_variable_values", {}),
+            service.get_current_state_view().get("ui_panel_visibility", {}),
+        )
+
     def _ensure_user_owns_slot(self, user_id: str, save_slot: str) -> None:
         if not self._session_index.user_owns_session(user_id, save_slot):
             raise ValueError("session not found")
@@ -255,6 +340,78 @@ class SessionService:
             return
         self._chat_history_repository.save_chat_history(
             user_id, save_slot, service.get_current_chat_history()
+        )
+
+    def _sync_current_ui_binding(self, user_id: str) -> None:
+        service = self._registry.for_user(user_id)
+        state = service.get_current_state_view()
+        save_slot = str(state.get("save_slot") or "").strip()
+        if not save_slot:
+            return
+        binding = self._ui_template_repository.get_session_ui_binding(user_id, save_slot)
+        if not binding:
+            return
+        self._ui_template_repository.save_session_ui_binding(
+            user_id,
+            save_slot,
+            str(binding.get("pack_id") or ""),
+            str(binding.get("template_id") or ""),
+            state.get("ui_variable_values", {}),
+            state.get("ui_panel_visibility", {}),
+        )
+
+    def _apply_ui_binding(
+        self,
+        user_id: str,
+        save_slot: str,
+        service: GameService,
+        ui_template_id: str | None = None,
+    ) -> None:
+        binding = self._ui_template_repository.get_session_ui_binding(user_id, save_slot)
+        if ui_template_id:
+            state = service.get_current_state_view()
+            pack_id = ""
+            enabled = state.get("enabled_packs", [])
+            if isinstance(enabled, list) and enabled:
+                pack_id = str(enabled[0])
+            if not pack_id:
+                return
+            template = self._ui_template_repository.get_pack_ui_template(
+                user_id, pack_id, ui_template_id
+            )
+            if not template:
+                raise ValueError("ui template not found")
+            service.apply_ui_template(
+                ui_template_id,
+                template.get("template", {}),
+                template.get("variable_template", {}),
+                {},
+                {},
+            )
+            self._ui_template_repository.save_session_ui_binding(
+                user_id,
+                save_slot,
+                pack_id,
+                ui_template_id,
+                service.get_current_state_view().get("ui_variable_values", {}),
+                service.get_current_state_view().get("ui_panel_visibility", {}),
+            )
+            return
+        if not binding:
+            return
+        template = self._ui_template_repository.get_pack_ui_template(
+            user_id,
+            str(binding.get("pack_id") or ""),
+            str(binding.get("template_id") or ""),
+        )
+        if not template:
+            return
+        service.apply_ui_template(
+            str(binding.get("template_id") or ""),
+            template.get("template", {}),
+            template.get("variable_template", {}),
+            binding.get("variables", {}),
+            binding.get("visibility", {}),
         )
 
     def _hydrate_or_backfill_chat_history(self, user_id: str, save_slot: str) -> None:
@@ -287,9 +444,11 @@ class PackService:
         self,
         game_service: GameService,
         pack_state_repository: UserPackStateRepositoryProtocol,
+        ui_template_repository: UserUiTemplateRepositoryProtocol,
     ):
         self._game_service = game_service
         self._pack_state_repository = pack_state_repository
+        self._ui_template_repository = ui_template_repository
 
     def list_packs(self, user_id: str) -> list[dict[str, Any]]:
         enabled_pack_ids = set(
@@ -372,6 +531,38 @@ class PackService:
 
     def get_card_template(self, card_type: str) -> dict[str, Any]:
         return self._game_service.get_card_template(card_type)
+
+    def list_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+        return self._ui_template_repository.list_pack_ui_templates(user_id, pack_id)
+
+    def create_ui_template(
+        self,
+        user_id: str,
+        pack_id: str,
+        name: str,
+        template_payload: dict[str, Any],
+        variable_template: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self._ui_template_repository.save_pack_ui_template(
+            user_id,
+            pack_id,
+            "",
+            name,
+            template_payload,
+            variable_template,
+        )
+
+    def delete_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+        in_use = self._ui_template_repository.count_sessions_using_ui_template(
+            user_id,
+            pack_id,
+            template_id,
+        )
+        if in_use > 0:
+            raise ValueError(
+                f"template is currently used by {in_use} active session(s)"
+            )
+        self._ui_template_repository.delete_pack_ui_template(user_id, pack_id, template_id)
 
 
 class SettingsService:

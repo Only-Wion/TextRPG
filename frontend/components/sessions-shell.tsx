@@ -1,16 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   archiveGameSession,
   duplicateGameSession,
   getSessionManagerView,
+  listPackUiTemplates,
   loadGameSession,
   startGameSession,
 } from "../lib/api";
-import type { AuthUser, PackRecord, SessionManagerView, SessionSummary } from "../lib/api-contract";
+import type {
+  AuthUser,
+  PackRecord,
+  SessionManagerView,
+  SessionSummary,
+  UiTemplateRecord,
+} from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
 type SessionsShellProps = {
@@ -38,7 +45,10 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uiTemplates, setUiTemplates] = useState<UiTemplateRecord[]>([]);
+  const [selectedUiTemplateId, setSelectedUiTemplateId] = useState("");
   const selectedSummary =
     runtimeView.sessions.find((session) => session.slot_id === selectedSlot) ?? runtimeView.sessions[0];
 
@@ -66,6 +76,45 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
     setErrorMessage(null);
     setPanelMode("list");
   }
+
+  const primaryPackId = createDraft.packIds[0] ?? "";
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTemplates() {
+      if (!panelMode || panelMode !== "create" || !primaryPackId) {
+        setUiTemplates([]);
+        setSelectedUiTemplateId("");
+        return;
+      }
+      setIsLoadingTemplates(true);
+      try {
+        const records = await listPackUiTemplates(primaryPackId);
+        if (!cancelled) {
+          setUiTemplates(records);
+          setSelectedUiTemplateId((current) => {
+            if (current && records.some((item) => item.template_id === current)) {
+              return current;
+            }
+            return "";
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setUiTemplates([]);
+          setSelectedUiTemplateId("");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTemplates(false);
+        }
+      }
+    }
+    void loadTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, [panelMode, primaryPackId]);
 
   async function refreshSessionView(preferredSlot?: string) {
     const nextView = await getSessionManagerView();
@@ -156,6 +205,7 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
         save_slot: trimmedSlot,
         language: createDraft.language,
         pack_ids: createDraft.packIds,
+        ui_template_id: selectedUiTemplateId || undefined,
       });
       await refreshSessionView(trimmedSlot);
       setPanelMode("list");
@@ -268,6 +318,35 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
                     </div>
                     <div className="light-inline-note">
                       Need a different world module set? Open Pack Manager after returning to the list.
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label" htmlFor="create-ui-template">
+                      UI Template ({primaryPackId || "no pack"})
+                    </label>
+                    <select
+                      className="light-input"
+                      disabled={!primaryPackId || isLoadingTemplates}
+                      id="create-ui-template"
+                      onChange={(event) => setSelectedUiTemplateId(event.target.value)}
+                      value={selectedUiTemplateId}
+                    >
+                      <option value="">Do not use template</option>
+                      {uiTemplates.map((template) => (
+                        <option key={template.template_id} value={template.template_id}>
+                          {template.name} ({template.template_id})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="light-inline-note">
+                      {isLoadingTemplates
+                        ? "Loading templates..."
+                        : primaryPackId
+                          ? uiTemplates.length > 0
+                            ? `Found ${uiTemplates.length} template(s). Choose one to reuse, or keep \"Do not use template\" for a fresh runtime UI.`
+                            : "No existing template for this pack yet. You can start without template and create one later in Pack Manager."
+                          : "Select at least one pack to load template options."}
                     </div>
                   </div>
 

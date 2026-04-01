@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +23,7 @@ type AppSidebarProps = {
   sections?: SidebarStatusSection[];
   inspectorSections?: SidebarInspectorSection[];
   currentUser?: AuthUser | null;
+  extraContent?: ReactNode;
 };
 
 const navItems = [
@@ -38,6 +40,7 @@ export function AppSidebar({
   sections = [],
   inspectorSections = [],
   currentUser = null,
+  extraContent,
 }: AppSidebarProps) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -151,6 +154,8 @@ export function AppSidebar({
                 })}
               </div>
             ) : null}
+
+            {extraContent ? <div className="sidebar-section-stack">{extraContent}</div> : null}
           </>
         )}
       </div>

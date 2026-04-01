@@ -37,6 +37,7 @@ Inputs:
 - `save_slot: str`
 - `pack_ids: list[str] | None`
 - `language: str | None`
+- `ui_template_id: str | None` (optional)
 
 Raises:
 - `ValueError` for invalid user input.
@@ -96,6 +97,9 @@ Returns canonical fields:
 - `validated_ops`
 - `errors`
 - `custom_ui_panels`
+- `ui_template_id`
+- `ui_variable_values`
+- `ui_panel_visibility`
 - `save_slot`
 - `ui_generation_status`
 - `ui_update_status`
@@ -168,6 +172,20 @@ Behavior:
 
 Behavior:
 - Triggers asynchronous UI panel update.
+
+### `set_ui_panel_visibility(user_id, panel_id, visible) -> None`
+
+Behavior:
+- Updates one panel visibility flag for the active session and persists binding state.
+
+### `bind_session_ui_template(user_id, save_slot, pack_id, template_id) -> dict`
+
+Behavior:
+- Applies selected pack UI template to target session and persists session binding.
+
+### `list_pack_ui_templates(user_id, pack_id) -> list[dict]`
+### `create_pack_ui_template(user_id, pack_id, name, template_payload=None, variable_template=None) -> dict`
+### `delete_pack_ui_template(user_id, pack_id, template_id) -> None`
 
 ## AuthService
 
@@ -254,6 +272,11 @@ Card editing methods currently exposed through the same facade:
 - `validate_card(frontmatter, body) -> None`
 - `delete_card(pack_id, path) -> None`
 - `get_card_template(card_type) -> dict`
+
+UI template methods:
+- `list_ui_templates(user_id, pack_id) -> list[dict]`
+- `create_ui_template(user_id, pack_id, name, template_payload, variable_template) -> dict`
+- `delete_ui_template(user_id, pack_id, template_id) -> None`
 
 ## CardDesignerService
 
