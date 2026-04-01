@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from ...deps import get_current_user, get_session_service
 from ...schemas.common import OkResponse
 from ...schemas.game import (
+    BindSessionUiTemplateRequest,
     DuplicateSessionRequest,
     GameActionResponse,
     LoadGameRequest,
@@ -17,6 +18,7 @@ from ...schemas.game import (
     TriggerUiGenerationRequest,
     UiAutoUpdateRequest,
     UiModeRequest,
+    UiPanelVisibilityRequest,
 )
 from game.application.services import SessionService
 
@@ -33,7 +35,13 @@ def start_game(
     service: SessionService = Depends(get_session_service),
     current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.start_new_game(current_user["id"], payload.save_slot, payload.pack_ids, language=payload.language)
+    service.start_new_game(
+        current_user["id"],
+        payload.save_slot,
+        payload.pack_ids,
+        language=payload.language,
+        ui_template_id=payload.ui_template_id,
+    )
     return OkResponse(ok=True)
 
 
@@ -162,3 +170,27 @@ def trigger_ui_update(
 ) -> OkResponse:
     service.trigger_ui_update(current_user["id"])
     return OkResponse(ok=True)
+
+
+@router.patch("/ui/visibility", response_model=OkResponse)
+def set_ui_panel_visibility(
+    payload: UiPanelVisibilityRequest,
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> OkResponse:
+    service.set_ui_panel_visibility(current_user["id"], payload.panel_id, payload.visible)
+    return OkResponse(ok=True)
+
+
+@router.post("/ui/template/bind", response_model=dict)
+def bind_session_ui_template(
+    payload: BindSessionUiTemplateRequest,
+    service: SessionService = Depends(get_session_service),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return service.bind_session_ui_template(
+        current_user["id"],
+        payload.save_slot,
+        payload.pack_id,
+        payload.template_id,
+    )

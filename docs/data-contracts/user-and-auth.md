@@ -107,6 +107,25 @@ Current local auth repository persists three logical tables:
 - `state_json`
 - `updated_at`
 
+### `user_pack_ui_templates`
+- `template_id`
+- `user_id`
+- `pack_id`
+- `name`
+- `template_json`
+- `variable_template_json`
+- `created_at`
+- `updated_at`
+
+### `user_session_ui_bindings`
+- `user_id`
+- `save_slot`
+- `pack_id`
+- `template_id`
+- `variables_json`
+- `visibility_json`
+- `updated_at`
+
 ## Planned PostgreSQL Mapping
 
 Cloud migration target:
@@ -118,6 +137,8 @@ Cloud migration target:
 - `user_session_metadata`
 - `user_chat_history`
 - `user_card_designer_sessions`
+- `user_pack_ui_templates`
+- `user_session_ui_bindings`
 
 Reference files:
 - `game/infrastructure/postgres/schema.sql`

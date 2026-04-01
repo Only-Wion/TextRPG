@@ -280,6 +280,88 @@ class UIPanelStateAgent:
         return rendered
 
 
+class UIVariableUpdateAgent:
+    """维护 UI 变量表（模板定义 -> 会话变量值）。"""
+
+    def update(
+        self,
+        variable_template: Dict[str, Any],
+        current_values: Dict[str, Any],
+        *,
+        world_facts: Dict[str, Any],
+        chat_history: List[Dict[str, str]],
+        rendered_panels: List[Dict[str, Any]],
+        state: Dict[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        state = state or {}
+        current = current_values if isinstance(current_values, dict) else {}
+        names = self._extract_variable_names(variable_template)
+        if not names:
+            # 兼容无模板场景：保持已有值并补上基础运行态变量。
+            names = set(current.keys())
+
+        flattened = self._flatten_runtime_values(world_facts, chat_history, rendered_panels, state)
+        next_values: Dict[str, Any] = dict(current)
+        for name in names:
+            if not name:
+                continue
+            if name in flattened:
+                next_values[name] = flattened[name]
+                continue
+            alias = name.replace("_", ".")
+            if alias in flattened:
+                next_values[name] = flattened[alias]
+                continue
+            if name not in next_values:
+                next_values[name] = ""
+        return next_values
+
+    def _extract_variable_names(self, variable_template: Dict[str, Any]) -> set[str]:
+        if not isinstance(variable_template, dict):
+            return set()
+        variables = variable_template.get("variables", [])
+        names: set[str] = set()
+        if isinstance(variables, list):
+            for item in variables:
+                if isinstance(item, str) and item.strip():
+                    names.add(item.strip())
+                    continue
+                if isinstance(item, dict):
+                    key = str(item.get("name") or item.get("key") or "").strip()
+                    if key:
+                        names.add(key)
+        return names
+
+    def _flatten_runtime_values(
+        self,
+        world_facts: Dict[str, Any],
+        chat_history: List[Dict[str, str]],
+        rendered_panels: List[Dict[str, Any]],
+        state: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        flattened: Dict[str, Any] = {
+            "turn_id": state.get("turn_id", 0),
+            "save_slot": state.get("save_slot", ""),
+            "recent_messages_count": len(chat_history),
+        }
+
+        attrs = world_facts.get("attrs", {}) if isinstance(world_facts, dict) else {}
+        if isinstance(attrs, dict):
+            for entity_id, values in attrs.items():
+                if not isinstance(values, dict):
+                    continue
+                for key, value in values.items():
+                    flattened[f"{entity_id}.{key}"] = value
+
+        for panel in rendered_panels:
+            if not isinstance(panel, dict):
+                continue
+            panel_id = str(panel.get("panel_id", "")).strip()
+            if panel_id:
+                flattened[f"panel.{panel_id}.title"] = panel.get("title", "")
+        return flattened
+
+
 def _extract_quest_status(attrs: Dict[str, Any]) -> Dict[str, str]:
     # 汇总任务状态，兼容两种键前缀
     status: Dict[str, str] = {}

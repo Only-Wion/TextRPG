@@ -50,12 +50,18 @@ def get_auth_service() -> AuthService:
 def get_session_service() -> SessionService:
     repository = get_auth_repository()
     return SessionService(
-        get_game_service_registry(), repository, repository, repository, repository
+        get_game_service_registry(),
+        repository,
+        repository,
+        repository,
+        repository,
+        repository,
     )
 
 
 def get_pack_service() -> PackService:
-    return PackService(get_game_service(), get_auth_repository())
+    repository = get_auth_repository()
+    return PackService(get_game_service(), repository, repository)
 
 
 def get_settings_service() -> SettingsService:

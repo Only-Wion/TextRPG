@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends
 
 from ...deps import get_current_user, get_pack_service
 from ...schemas.common import OkResponse
-from ...schemas.packs import PackEnabledRequest, PackExportResponse
+from ...schemas.packs import (
+    CreateUiTemplateRequest,
+    PackEnabledRequest,
+    PackExportResponse,
+    UiTemplateResponse,
+)
 from game.application.services import PackService
 
 router = APIRouter(prefix="/packs", tags=["packs"])
@@ -48,3 +53,41 @@ def export_pack(
     _: dict[str, Any] = Depends(get_current_user),
 ) -> PackExportResponse:
     return PackExportResponse(**service.export_pack_to_runtime_exports(pack_id))
+
+
+@router.get("/{pack_id}/ui-templates", response_model=list[UiTemplateResponse])
+def list_ui_templates(
+    pack_id: str,
+    service: PackService = Depends(get_pack_service),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> list[UiTemplateResponse]:
+    records = service.list_ui_templates(current_user["id"], pack_id)
+    return [UiTemplateResponse(**record) for record in records]
+
+
+@router.post("/{pack_id}/ui-templates", response_model=UiTemplateResponse)
+def create_ui_template(
+    pack_id: str,
+    payload: CreateUiTemplateRequest,
+    service: PackService = Depends(get_pack_service),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> UiTemplateResponse:
+    record = service.create_ui_template(
+        current_user["id"],
+        pack_id,
+        payload.name,
+        payload.template,
+        payload.variable_template,
+    )
+    return UiTemplateResponse(**record)
+
+
+@router.delete("/{pack_id}/ui-templates/{template_id}", response_model=OkResponse)
+def delete_ui_template(
+    pack_id: str,
+    template_id: str,
+    service: PackService = Depends(get_pack_service),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> OkResponse:
+    service.delete_ui_template(current_user["id"], pack_id, template_id)
+    return OkResponse(ok=True)

@@ -5,7 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { AuthUser, StateView } from "../lib/api-contract";
-import { normalizeStateViewFromAction, stepGameSessionStream } from "../lib/api";
+import {
+  getGameStateView,
+  normalizeStateViewFromAction,
+  setUiAutoUpdate,
+  setUiPanelVisibility,
+  setUiUpdateMode,
+  stepGameSessionStream,
+  triggerUiGeneration,
+  triggerUiUpdate,
+} from "../lib/api";
 import { AppSidebar } from "./app-sidebar";
 
 type GameShellProps = {
@@ -22,6 +31,8 @@ export function GameShell({ state, currentUser }: GameShellProps) {
   const [controlsExpanded, setControlsExpanded] = useState(true);
   const [streamingAssistantText, setStreamingAssistantText] = useState("");
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
+  const [uiEveryInput, setUiEveryInput] = useState(String(state.ui_auto_update_every || 1));
+  const [uiBusy, setUiBusy] = useState(false);
   const feedRef = useRef<HTMLDivElement | null>(null);
 
   const baseChatFeed =
@@ -42,6 +53,12 @@ export function GameShell({ state, currentUser }: GameShellProps) {
 
     feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [chatFeed]);
+
+  async function refreshState() {
+    const nextState = await getGameStateView();
+    setRuntimeState(nextState);
+    setUiEveryInput(String(nextState.ui_auto_update_every || 1));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +91,91 @@ export function GameShell({ state, currentUser }: GameShellProps) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to send the command.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleSetUiMode(mode: "manual" | "auto") {
+    if (uiBusy) {
+      return;
+    }
+    setUiBusy(true);
+    setErrorMessage(null);
+    try {
+      await setUiUpdateMode(mode);
+      await refreshState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to set UI mode.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
+  async function handleSetUiEvery() {
+    if (uiBusy) {
+      return;
+    }
+    const parsed = Number.parseInt(uiEveryInput, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setErrorMessage("UI auto update turns must be a positive integer.");
+      return;
+    }
+    setUiBusy(true);
+    setErrorMessage(null);
+    try {
+      await setUiAutoUpdate(parsed);
+      await refreshState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to set auto update interval.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
+  async function handleTriggerUiUpdate() {
+    if (uiBusy) {
+      return;
+    }
+    setUiBusy(true);
+    setErrorMessage(null);
+    try {
+      await triggerUiUpdate();
+      await refreshState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to update UI panels.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
+  async function handleTriggerUiGenerate() {
+    if (uiBusy) {
+      return;
+    }
+    setUiBusy(true);
+    setErrorMessage(null);
+    try {
+      await triggerUiGeneration(true);
+      await refreshState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to regenerate UI panels.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
+  async function handleTogglePanel(panelId: string, visible: boolean) {
+    if (uiBusy) {
+      return;
+    }
+    setUiBusy(true);
+    setErrorMessage(null);
+    try {
+      await setUiPanelVisibility(panelId, visible);
+      await refreshState();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to update panel visibility.");
+    } finally {
+      setUiBusy(false);
     }
   }
 
@@ -122,6 +224,69 @@ export function GameShell({ state, currentUser }: GameShellProps) {
               ],
             },
           ]}
+          extraContent={
+            <>
+              <div className="light-section-title">UI Agent Controls</div>
+              <div className="inline-form">
+                <button
+                  className="light-action-button load"
+                  disabled={uiBusy || runtimeState.ui_update_mode === "manual"}
+                  onClick={() => void handleSetUiMode("manual")}
+                  type="button"
+                >
+                  Manual
+                </button>
+                <button
+                  className="light-action-button new"
+                  disabled={uiBusy || runtimeState.ui_update_mode === "auto"}
+                  onClick={() => void handleSetUiMode("auto")}
+                  type="button"
+                >
+                  Auto
+                </button>
+              </div>
+              <div className="inline-form">
+                <input
+                  className="light-input"
+                  onChange={(event) => setUiEveryInput(event.target.value)}
+                  value={uiEveryInput}
+                />
+                <button className="light-action-button new" disabled={uiBusy} onClick={() => void handleSetUiEvery()} type="button">
+                  Set N turns
+                </button>
+              </div>
+              <div className="inline-form">
+                <button className="light-action-button load" disabled={uiBusy} onClick={() => void handleTriggerUiUpdate()} type="button">
+                  Update UI
+                </button>
+                <button className="light-action-button duplicate" disabled={uiBusy} onClick={() => void handleTriggerUiGenerate()} type="button">
+                  Rebuild UI
+                </button>
+              </div>
+              <div className="light-inline-note">Template: {runtimeState.ui_template_id || "(runtime default)"}</div>
+              <div className="light-section-title">UI Panels</div>
+              {runtimeState.custom_ui_panels.length === 0 ? (
+                <div className="light-inline-note">No UI panel generated yet.</div>
+              ) : (
+                runtimeState.custom_ui_panels.map((panel, index) => {
+                  const panelId = String(panel.panel_id ?? `panel-${index}`);
+                  const title = String(panel.title ?? panelId);
+                  const visible = Boolean(panel.visible ?? true);
+                  return (
+                    <label className="toggle-row" key={panelId}>
+                      <input
+                        checked={visible}
+                        disabled={uiBusy}
+                        onChange={(event) => void handleTogglePanel(panelId, event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span>{title}</span>
+                    </label>
+                  );
+                })
+              )}
+            </>
+          }
         />
 
         <section className="light-main play-main compact-play-main">
@@ -173,6 +338,43 @@ export function GameShell({ state, currentUser }: GameShellProps) {
                 ))}
               </div>
             </section>
+          </div>
+
+          <div className="play-panel-overlay">
+            {runtimeState.custom_ui_panels
+              .filter((panel) => Boolean(panel.visible ?? true))
+              .map((panel, index) => {
+                const panelId = String(panel.panel_id ?? `panel-${index}`);
+                const title = String(panel.title ?? panelId);
+                const html = typeof panel.html === "string" ? panel.html : "";
+                const sections = Array.isArray(panel.sections) ? panel.sections : [];
+                return (
+                  <article className="play-floating-panel" key={panelId}>
+                    <div className="play-floating-title">{title}</div>
+                    {html ? (
+                      <div className="play-floating-html" dangerouslySetInnerHTML={{ __html: html }} />
+                    ) : (
+                      sections.map((section, sIndex) => {
+                        const sectionTitle = String((section as Record<string, unknown>).title ?? `Section ${sIndex + 1}`);
+                        const entries = Array.isArray((section as Record<string, unknown>).entries)
+                          ? ((section as Record<string, unknown>).entries as Array<Record<string, unknown>>)
+                          : [];
+                        return (
+                          <div className="play-floating-section" key={`${panelId}-${sIndex}`}>
+                            <div className="play-floating-section-title">{sectionTitle}</div>
+                            {entries.map((entry, eIndex) => (
+                              <div className="play-floating-entry" key={`${panelId}-${sIndex}-${eIndex}`}>
+                                <span>{String(entry.key ?? "-")}</span>
+                                <span>{String(entry.value ?? "")}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })
+                    )}
+                  </article>
+                );
+              })}
           </div>
 
           <div className="play-footer compact-play-footer">

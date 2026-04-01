@@ -14,6 +14,7 @@ from typing import Any
 from game.config import APP_DB_PATH, load_runtime_llm_settings, normalize_llm_settings
 from .contracts import (
     CardDesignerSessionRepositoryProtocol,
+    UserUiTemplateRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
     UserRepositoryProtocol,
@@ -58,6 +59,7 @@ class SqliteAuthRepository(
     UserSessionMetadataRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     CardDesignerSessionRepositoryProtocol,
+    UserUiTemplateRepositoryProtocol,
 ):
     """Local-development auth/session-index repository backed by sqlite."""
 
@@ -139,6 +141,29 @@ class SqliteAuthRepository(
                     mode text not null default 'edit',
                     state_json text not null,
                     updated_at text not null default current_timestamp
+                );
+
+                create table if not exists user_pack_ui_templates (
+                    template_id text not null,
+                    user_id text not null references users(id) on delete cascade,
+                    pack_id text not null,
+                    name text not null,
+                    template_json text not null,
+                    variable_template_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    primary key (user_id, pack_id, template_id)
+                );
+
+                create table if not exists user_session_ui_bindings (
+                    user_id text not null references users(id) on delete cascade,
+                    save_slot text not null,
+                    pack_id text not null,
+                    template_id text not null,
+                    variables_json text not null,
+                    visibility_json text not null,
+                    updated_at text not null default current_timestamp,
+                    primary key (user_id, save_slot)
                 );
                 """
             )
@@ -576,4 +601,212 @@ class SqliteAuthRepository(
             conn.execute(
                 "delete from user_card_designer_sessions where user_id = ? and session_id = ?",
                 (user_id, session_id),
+            )
+
+    def list_pack_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+        with _connect(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                select
+                    t.template_id,
+                    t.name,
+                    t.template_json,
+                    t.variable_template_json,
+                    t.created_at,
+                    t.updated_at,
+                    (
+                        select count(*)
+                        from user_session_ui_bindings b
+                        where b.user_id = t.user_id and b.pack_id = t.pack_id and b.template_id = t.template_id
+                    ) as sessions_in_use
+                from user_pack_ui_templates t
+                where t.user_id = ? and t.pack_id = ?
+                order by updated_at desc, template_id asc
+                """,
+                (user_id, pack_id),
+            ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                template_payload = json.loads(str(row["template_json"]))
+            except Exception:
+                template_payload = {}
+            if not isinstance(template_payload, dict):
+                template_payload = {}
+
+            try:
+                variable_template = json.loads(str(row["variable_template_json"]))
+            except Exception:
+                variable_template = {}
+            if not isinstance(variable_template, dict):
+                variable_template = {}
+
+            result.append(
+                {
+                    "template_id": row["template_id"],
+                    "pack_id": pack_id,
+                    "name": row["name"],
+                    "template": template_payload,
+                    "variable_template": variable_template,
+                    "sessions_in_use": int(row["sessions_in_use"] or 0),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                }
+            )
+        return result
+
+    def get_pack_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> dict[str, Any] | None:
+        records = self.list_pack_ui_templates(user_id, pack_id)
+        for record in records:
+            if record["template_id"] == template_id:
+                return record
+        return None
+
+    def save_pack_ui_template(
+        self,
+        user_id: str,
+        pack_id: str,
+        template_id: str,
+        name: str,
+        template_payload: dict[str, Any],
+        variable_template: dict[str, Any],
+    ) -> dict[str, Any]:
+        normalized_template_id = str(template_id).strip() or str(uuid.uuid4())
+        normalized_name = str(name).strip() or f"Template {normalized_template_id[:8]}"
+        payload = template_payload if isinstance(template_payload, dict) else {}
+        variables = variable_template if isinstance(variable_template, dict) else {}
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                """
+                insert into user_pack_ui_templates (
+                    template_id, user_id, pack_id, name, template_json, variable_template_json
+                ) values (?, ?, ?, ?, ?, ?)
+                on conflict(user_id, pack_id, template_id) do update set
+                    name = excluded.name,
+                    template_json = excluded.template_json,
+                    variable_template_json = excluded.variable_template_json,
+                    updated_at = current_timestamp
+                """,
+                (
+                    normalized_template_id,
+                    user_id,
+                    pack_id,
+                    normalized_name,
+                    json.dumps(payload, ensure_ascii=False),
+                    json.dumps(variables, ensure_ascii=False),
+                ),
+            )
+        return self.get_pack_ui_template(user_id, pack_id, normalized_template_id) or {
+            "template_id": normalized_template_id,
+            "pack_id": pack_id,
+            "name": normalized_name,
+            "template": payload,
+            "variable_template": variables,
+        }
+
+    def delete_pack_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                """
+                delete from user_pack_ui_templates
+                where user_id = ? and pack_id = ? and template_id = ?
+                """,
+                (user_id, pack_id, template_id),
+            )
+
+    def count_sessions_using_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> int:
+        with _connect(self.db_path) as conn:
+            row = conn.execute(
+                """
+                select count(*) as c
+                from user_session_ui_bindings
+                where user_id = ? and pack_id = ? and template_id = ?
+                """,
+                (user_id, pack_id, template_id),
+            ).fetchone()
+        return int((row["c"] if row else 0) or 0)
+
+    def get_session_ui_binding(self, user_id: str, save_slot: str) -> dict[str, Any] | None:
+        with _connect(self.db_path) as conn:
+            row = conn.execute(
+                """
+                select pack_id, template_id, variables_json, visibility_json, updated_at
+                from user_session_ui_bindings
+                where user_id = ? and save_slot = ?
+                """,
+                (user_id, save_slot),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            variables = json.loads(str(row["variables_json"]))
+        except Exception:
+            variables = {}
+        if not isinstance(variables, dict):
+            variables = {}
+        try:
+            visibility = json.loads(str(row["visibility_json"]))
+        except Exception:
+            visibility = {}
+        if not isinstance(visibility, dict):
+            visibility = {}
+        return {
+            "save_slot": save_slot,
+            "pack_id": row["pack_id"],
+            "template_id": row["template_id"],
+            "variables": variables,
+            "visibility": {str(k): bool(v) for k, v in visibility.items()},
+            "updated_at": row["updated_at"],
+        }
+
+    def save_session_ui_binding(
+        self,
+        user_id: str,
+        save_slot: str,
+        pack_id: str,
+        template_id: str,
+        variables: dict[str, Any],
+        visibility: dict[str, bool],
+    ) -> dict[str, Any]:
+        normalized_variables = variables if isinstance(variables, dict) else {}
+        normalized_visibility = visibility if isinstance(visibility, dict) else {}
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                """
+                insert into user_session_ui_bindings (
+                    user_id, save_slot, pack_id, template_id, variables_json, visibility_json
+                ) values (?, ?, ?, ?, ?, ?)
+                on conflict(user_id, save_slot) do update set
+                    pack_id = excluded.pack_id,
+                    template_id = excluded.template_id,
+                    variables_json = excluded.variables_json,
+                    visibility_json = excluded.visibility_json,
+                    updated_at = current_timestamp
+                """,
+                (
+                    user_id,
+                    save_slot,
+                    pack_id,
+                    template_id,
+                    json.dumps(normalized_variables, ensure_ascii=False),
+                    json.dumps(normalized_visibility, ensure_ascii=False),
+                ),
+            )
+        return self.get_session_ui_binding(user_id, save_slot) or {
+            "save_slot": save_slot,
+            "pack_id": pack_id,
+            "template_id": template_id,
+            "variables": normalized_variables,
+            "visibility": normalized_visibility,
+        }
+
+    def delete_session_ui_binding(self, user_id: str, save_slot: str) -> None:
+        with _connect(self.db_path) as conn:
+            conn.execute(
+                "delete from user_session_ui_bindings where user_id = ? and save_slot = ?",
+                (user_id, save_slot),
             )

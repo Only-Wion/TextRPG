@@ -2,8 +2,15 @@
 
 import { useMemo, useState } from "react";
 
-import { exportPack, removePack, setPackEnabled } from "../lib/api";
-import type { AuthUser, PackRecord } from "../lib/api-contract";
+import {
+  createPackUiTemplate,
+  deletePackUiTemplate,
+  exportPack,
+  listPackUiTemplates,
+  removePack,
+  setPackEnabled,
+} from "../lib/api";
+import type { AuthUser, PackRecord, UiTemplateRecord } from "../lib/api-contract";
 import { AppSidebar } from "./app-sidebar";
 
 type PacksShellProps = {
@@ -16,6 +23,10 @@ export function PacksShell({ packs, currentUser }: PacksShellProps) {
   const [busyPackId, setBusyPackId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [templatePackId, setTemplatePackId] = useState<string>(packs[0]?.pack_id ?? "");
+  const [templates, setTemplates] = useState<UiTemplateRecord[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [isTemplateBusy, setIsTemplateBusy] = useState(false);
 
   const exportCandidate = useMemo(
     () => runtimePacks.find((pack) => pack.enabled) ?? runtimePacks[0] ?? null,
@@ -67,6 +78,67 @@ export function PacksShell({ packs, currentUser }: PacksShellProps) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to export the pack.");
     } finally {
       setBusyPackId(null);
+    }
+  }
+
+  async function handleLoadTemplates(packId: string) {
+    setIsTemplateBusy(true);
+    setErrorMessage(null);
+    try {
+      const records = await listPackUiTemplates(packId);
+      setTemplates(records);
+      setTemplatePackId(packId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load UI templates.");
+    } finally {
+      setIsTemplateBusy(false);
+    }
+  }
+
+  async function handleCreateTemplate() {
+    if (!templatePackId || !templateName.trim()) {
+      setErrorMessage("Choose a pack and input template name.");
+      return;
+    }
+    setIsTemplateBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await createPackUiTemplate(templatePackId, {
+        name: templateName.trim(),
+        template: { panels: [] },
+        variable_template: { variables: [] },
+      });
+      setTemplateName("");
+      await handleLoadTemplates(templatePackId);
+      setSuccessMessage("UI template created.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to create UI template.");
+    } finally {
+      setIsTemplateBusy(false);
+    }
+  }
+
+  async function handleDeleteTemplate(templateId: string) {
+    if (!templatePackId) {
+      return;
+    }
+    const record = templates.find((item) => item.template_id === templateId);
+    if (record && (record.sessions_in_use ?? 0) > 0) {
+      setErrorMessage(`Template is used by ${record.sessions_in_use} active session(s) and cannot be deleted.`);
+      return;
+    }
+    setIsTemplateBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await deletePackUiTemplate(templatePackId, templateId);
+      await handleLoadTemplates(templatePackId);
+      setSuccessMessage("UI template removed.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to delete UI template.");
+    } finally {
+      setIsTemplateBusy(false);
     }
   }
 
@@ -161,6 +233,63 @@ export function PacksShell({ packs, currentUser }: PacksShellProps) {
               </div>
               <div className="light-inline-note">
                 Export writes a ZIP into the local runtime exports directory and returns the path.
+              </div>
+            </section>
+
+            <section className="light-card light-form-card">
+              <h2 className="light-card-title">UI Templates</h2>
+              <div className="inline-form">
+                <select
+                  className="light-input"
+                  onChange={(event) => setTemplatePackId(event.target.value)}
+                  value={templatePackId}
+                >
+                  {runtimePacks.map((pack) => (
+                    <option key={pack.pack_id} value={pack.pack_id}>
+                      {pack.name} ({pack.pack_id})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="light-action-button load"
+                  disabled={!templatePackId || isTemplateBusy}
+                  onClick={() => void handleLoadTemplates(templatePackId)}
+                  type="button"
+                >
+                  {isTemplateBusy ? "Loading..." : "Load"}
+                </button>
+              </div>
+              <div className="inline-form">
+                <input
+                  className="light-input"
+                  onChange={(event) => setTemplateName(event.target.value)}
+                  placeholder="Template name"
+                  value={templateName}
+                />
+                <button className="light-action-button new" disabled={isTemplateBusy} onClick={() => void handleCreateTemplate()} type="button">
+                  Create Blank
+                </button>
+              </div>
+              <div className="slot-list">
+                {templates.map((template) => (
+                  <div className="slot-row" key={template.template_id}>
+                    <div className="slot-row-title">{template.name}</div>
+                    <div className="slot-row-subtle">
+                      {template.template_id} · in use: {template.sessions_in_use ?? 0}
+                    </div>
+                    <button
+                      className="table-action-button"
+                      disabled={isTemplateBusy || (template.sessions_in_use ?? 0) > 0}
+                      onClick={() => void handleDeleteTemplate(template.template_id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="light-inline-note">
+                Delete is blocked if the template is bound to active sessions.
               </div>
             </section>
           </div>

@@ -39,6 +39,8 @@ Responsibilities:
 - Switch the left workspace into an in-page create-session draft state
 - Render current-session summary
 - Start and save a new session from the in-page draft workflow
+- Load pack-scoped UI template options during create-session flow
+- Optionally bind selected `ui_template_id` when creating session
 - Trigger `load session`
 - Trigger `duplicate session`
 - Trigger `archive session`
@@ -51,6 +53,7 @@ Primary backend dependencies:
 - `POST /game/load`
 - `POST /game/sessions/{slot_id}/duplicate`
 - `POST /game/sessions/{slot_id}/archive`
+- `GET /packs/{pack_id}/ui-templates`
 
 ### `/`
 
@@ -63,6 +66,8 @@ Responsibilities:
 - Render narration feed
 - Render command composer
 - Render left-sidebar inspector groups
+- Provide UI Agent controls in sidebar (manual/auto mode, N-turn auto interval, update/rebuild)
+- Render generated UI floating panels and per-panel visibility toggles
 - Render the authenticated account block in the shared sidebar
 - Trigger sign-out from the shared sidebar
 
@@ -71,6 +76,11 @@ Primary backend dependencies:
 - `GET /game/state`
 - `POST /game/step`
 - `POST /game/load`
+- `PATCH /game/ui-mode`
+- `PATCH /game/ui-auto-update`
+- `POST /game/ui/update`
+- `POST /game/ui/generate`
+- `PATCH /game/ui/visibility`
 
 ### `/packs`
 
@@ -82,6 +92,8 @@ Responsibilities:
 - Toggle pack enable state
 - Remove local packs
 - Export a pack to the local runtime exports directory
+- Manage pack-scoped UI templates (list/create/delete)
+- Show template usage count (`sessions_in_use`) and block delete when template is still bound by active sessions
 - Reserve install-from-URL and ZIP upload regions for later file-based endpoints
 - Reflect the authenticated user's default enabled-pack set
 
@@ -91,6 +103,9 @@ Primary backend dependencies:
 - `PATCH /packs/{pack_id}/enabled`
 - `DELETE /packs/{pack_id}`
 - `POST /packs/{pack_id}/export`
+- `GET /packs/{pack_id}/ui-templates`
+- `POST /packs/{pack_id}/ui-templates`
+- `DELETE /packs/{pack_id}/ui-templates/{template_id}`
 
 ### `/settings`
 
@@ -185,6 +200,14 @@ Note:
 - `StateView.storage_backend_label`
 
 are now part of the FastAPI `GET /game/state` response contract.
+
+Additional state fields now used by Play:
+- `StateView.ui_template_id`
+- `StateView.ui_variable_values`
+- `StateView.ui_panel_visibility`
+
+Template contract note:
+- `UiTemplateRecord.sessions_in_use` is used by Pack Manager delete controls to prevent occupied-template deletion.
 The frontend still normalizes fallback values when the backend is unavailable.
 
 ## Runtime Behavior

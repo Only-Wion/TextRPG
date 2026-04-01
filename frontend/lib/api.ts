@@ -1,6 +1,7 @@
 import type {
   AuthUser,
   AuthTokenResponse,
+  CreateUiTemplateRequest,
   GameActionResponse,
   CreateDesignerPackRequest,
   DesignerAgentMessageResponse,
@@ -23,6 +24,7 @@ import type {
   StartGameRequest,
   StateView,
   StepRequest,
+  UiTemplateRecord,
   ValidateDesignerCardRequest,
 } from "./api-contract";
 import { getClientAccessToken } from "./auth";
@@ -265,6 +267,45 @@ export async function archiveGameSession(slotId: string): Promise<SessionManager
   );
 }
 
+export async function setUiUpdateMode(mode: "manual" | "auto"): Promise<OkResponse> {
+  return jsonRequest<OkResponse, { mode: "manual" | "auto" }>("/game/ui-mode", "PATCH", { mode });
+}
+
+export async function setUiAutoUpdate(turns: number): Promise<OkResponse> {
+  return jsonRequest<OkResponse, { turns: number }>("/game/ui-auto-update", "PATCH", { turns });
+}
+
+export async function triggerUiUpdate(): Promise<OkResponse> {
+  return jsonRequest<OkResponse, Record<string, never>>("/game/ui/update", "POST", {});
+}
+
+export async function triggerUiGeneration(force = false): Promise<OkResponse> {
+  return jsonRequest<OkResponse, { force: boolean }>("/game/ui/generate", "POST", { force });
+}
+
+export async function setUiPanelVisibility(panelId: string, visible: boolean): Promise<OkResponse> {
+  return jsonRequest<OkResponse, { panel_id: string; visible: boolean }>("/game/ui/visibility", "PATCH", {
+    panel_id: panelId,
+    visible,
+  });
+}
+
+export async function bindSessionUiTemplate(
+  saveSlot: string,
+  packId: string,
+  templateId: string,
+): Promise<Record<string, unknown>> {
+  return jsonRequest<Record<string, unknown>, { save_slot: string; pack_id: string; template_id: string }>(
+    "/game/ui/template/bind",
+    "POST",
+    {
+      save_slot: saveSlot,
+      pack_id: packId,
+      template_id: templateId,
+    },
+  );
+}
+
 export async function stepGameSession(payload: StepRequest): Promise<GameActionResponse> {
   return jsonRequest<GameActionResponse, StepRequest>("/game/step", "POST", payload);
 }
@@ -380,6 +421,21 @@ export async function removePack(packId: string): Promise<OkResponse> {
 
 export async function exportPack(packId: string): Promise<PackExportResponse> {
   return jsonRequest<PackExportResponse, Record<string, never>>(`/packs/${packId}/export`, "POST", {});
+}
+
+export async function listPackUiTemplates(packId: string): Promise<UiTemplateRecord[]> {
+  return requiredJsonFetch<UiTemplateRecord[]>(`/packs/${packId}/ui-templates`);
+}
+
+export async function createPackUiTemplate(
+  packId: string,
+  payload: CreateUiTemplateRequest,
+): Promise<UiTemplateRecord> {
+  return jsonRequest<UiTemplateRecord, CreateUiTemplateRequest>(`/packs/${packId}/ui-templates`, "POST", payload);
+}
+
+export async function deletePackUiTemplate(packId: string, templateId: string): Promise<OkResponse> {
+  return jsonRequest<OkResponse, Record<string, never>>(`/packs/${packId}/ui-templates/${templateId}`, "DELETE", {});
 }
 
 export async function updateLLMSettings(payload: LLMSettingsUpdateRequest): Promise<LLMSettingsPublic> {
