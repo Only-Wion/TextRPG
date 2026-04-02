@@ -88,6 +88,58 @@ Fields:
 - `enabled`
 - `updated_at`
 
+### `user_pack_catalog`
+
+Purpose:
+- Persist user-owned pack identity and metadata.
+
+Fields:
+- `internal_pack_id`
+- `user_id`
+- `private_pack_id`
+- `public_pack_id`
+- `name`
+- `author`
+- `description`
+- `cards_root`
+- `source`
+- `visibility`
+- `created_at`
+- `updated_at`
+
+Identity rules:
+- `(user_id, private_pack_id)` is unique.
+- `public_pack_id` is globally unique when present.
+
+### `user_pack_versions`
+
+Purpose:
+- Persist per-version storage metadata for user-owned packs.
+
+Fields:
+- `internal_pack_id`
+- `version`
+- `storage_backend`
+- `storage_path`
+- `cards_root`
+- `manifest_json`
+- `created_at`
+- `updated_at`
+
+### `public_pack_index`
+
+Purpose:
+- Reserve publication mapping for future marketplace support.
+
+Fields:
+- `public_pack_id`
+- `internal_pack_id`
+- `owner_user_id`
+- `version`
+- `status`
+- `created_at`
+- `updated_at`
+
 ### `user_session_metadata`
 
 Purpose:

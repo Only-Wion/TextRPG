@@ -239,19 +239,23 @@ Returns pack records with:
 
 Notes:
 - `enabled` is resolved from the authenticated user's default pack-state repository.
+- Pack content and registry are user-scoped runtime namespaces rooted at `data/user_packs/<user_id>/`.
+- Pack metadata is synchronized into repository-backed user pack entities (`user_pack_catalog` and `user_pack_versions`).
 
-### `install_pack_from_url(url) -> dict`
-### `install_pack_from_zip(path) -> dict`
-### `remove_pack(pack_id) -> None`
+### `install_pack_from_url(user_id, url) -> dict`
+### `install_pack_from_zip(user_id, path) -> dict`
+### `remove_pack(user_id, pack_id) -> None`
 ### `enable_pack(user_id, pack_id, enabled) -> None`
-### `export_pack(pack_id, output_path) -> None`
-### `export_pack_to_runtime_exports(pack_id) -> dict`
-### `create_pack(manifest) -> None`
+### `export_pack(user_id, pack_id, output_path) -> None`
+### `export_pack_to_runtime_exports(user_id, pack_id) -> dict`
+### `create_pack(user_id, manifest) -> None`
 ### `export_pack_manifest(data) -> None`
 
 Notes:
 - For Card Designer create-pack workflows, callers no longer need to provide `cards_root`.
 - The backend normalizes `cards_root` to `cards` when omitted.
+- `pack_id` is currently private within one user namespace.
+- Future marketplace support should assign a separate global `public_pack_id` for published packs.
 
 Notes:
 - `remove_pack(pack_id)` rejects builtin packs.
@@ -263,20 +267,26 @@ Notes:
 - `enable_pack(user_id, pack_id, enabled)` updates the authenticated user's default pack set.
 
 Card editing methods currently exposed through the same facade:
-- `list_pack_card_types(pack_id) -> list[str]`
-- `list_pack_cards(pack_id) -> list[path]`
-- `load_card(path) -> dict`
-- `create_card(pack_id, card_type, card_id, frontmatter, body) -> path`
-- `save_card(pack_id, card_type, card_id, frontmatter, body, original_path=None) -> path`
-- `update_card(path, frontmatter, body) -> None`
-- `validate_card(frontmatter, body) -> None`
-- `delete_card(pack_id, path) -> None`
-- `get_card_template(card_type) -> dict`
+- `list_pack_card_types(user_id, pack_id) -> list[str]`
+- `list_pack_cards(user_id, pack_id) -> list[path]`
+- `load_card(user_id, path) -> dict`
+- `create_card(user_id, pack_id, card_type, card_id, frontmatter, body) -> path`
+- `save_card(user_id, pack_id, card_type, card_id, frontmatter, body, original_path=None) -> path`
+- `update_card(user_id, path, frontmatter, body) -> None`
+- `validate_card(user_id, frontmatter, body) -> None`
+- `delete_card(user_id, pack_id, path) -> None`
+- `get_card_template(user_id, card_type) -> dict`
 
 UI template methods:
 - `list_ui_templates(user_id, pack_id) -> list[dict]`
 - `create_ui_template(user_id, pack_id, name, template_payload, variable_template) -> dict`
 - `delete_ui_template(user_id, pack_id, template_id) -> None`
+
+Marketplace placeholder methods (reserved, not implemented):
+- `list_public_market_packs() -> list[dict]`
+- `get_public_market_pack(public_pack_id) -> dict`
+- `publish_pack_to_market(user_id, pack_id) -> None`
+- `download_public_market_pack(user_id, public_pack_id) -> None`
 
 ## CardDesignerService
 

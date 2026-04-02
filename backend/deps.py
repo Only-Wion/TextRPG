@@ -61,7 +61,7 @@ def get_session_service() -> SessionService:
 
 def get_pack_service() -> PackService:
     repository = get_auth_repository()
-    return PackService(get_game_service(), repository, repository)
+    return PackService(get_game_service_registry(), repository, repository, repository)
 
 
 def get_settings_service() -> SettingsService:
@@ -70,7 +70,7 @@ def get_settings_service() -> SettingsService:
 
 def get_card_designer_service() -> CardDesignerService:
     repository = get_auth_repository()
-    return CardDesignerService(get_game_service(), repository, repository)
+    return CardDesignerService(get_game_service_registry(), repository, repository)
 
 
 def get_current_token(

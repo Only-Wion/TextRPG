@@ -12,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CARDS_DIR = PROJECT_ROOT / "game" / "cards"
 PACKS_DIR = PROJECT_ROOT / "game" / "cards_packs"
 PACK_REGISTRY_PATH = PACKS_DIR / "pack_registry.json"
+USER_PACKS_DIR = PROJECT_ROOT / "data" / "user_packs"
 ENGINE_VERSION = "0.1.0"
 
 DATA_DIR = PROJECT_ROOT / "data" / "saves" / "slot_001"
@@ -49,6 +50,13 @@ class Settings:
     base_url: str = os.getenv("OPENAI_BASE_URL", "")
     storage_backend: str = os.getenv("TEXTRPG_STORAGE_BACKEND", "local")
     postgres_dsn: str = os.getenv("TEXTRPG_POSTGRES_DSN", "")
+    pack_storage_backend: str = os.getenv("TEXTRPG_PACK_STORAGE_BACKEND", "local")
+    oss_endpoint: str = os.getenv("TEXTRPG_OSS_ENDPOINT", "")
+    oss_bucket: str = os.getenv("TEXTRPG_OSS_BUCKET", "")
+    oss_access_key_id: str = os.getenv("TEXTRPG_OSS_ACCESS_KEY_ID", "")
+    oss_access_key_secret: str = os.getenv("TEXTRPG_OSS_ACCESS_KEY_SECRET", "")
+    oss_prefix: str = os.getenv("TEXTRPG_OSS_PREFIX", "textrpg")
+    oss_region: str = os.getenv("TEXTRPG_OSS_REGION", "")
     top_k_cards: int = 6
     top_k_memories: int = 4
     max_recent_messages: int = 6

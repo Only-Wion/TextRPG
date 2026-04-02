@@ -35,6 +35,42 @@ The following steps should be done in a real environment, not just in local code
 6. Run the FastAPI app under a production process manager.
 7. Configure reverse proxy, domain, HTTPS, and firewall rules if needed.
 
+## OSS Pack Storage Cutover
+
+If you want pack content (markdown cards and pack files) to be cloud-backed, configure
+object storage first and then switch pack storage backend.
+
+Required environment variables:
+
+- `TEXTRPG_PACK_STORAGE_BACKEND=oss`
+- `TEXTRPG_OSS_ENDPOINT`
+- `TEXTRPG_OSS_BUCKET`
+- `TEXTRPG_OSS_ACCESS_KEY_ID`
+- `TEXTRPG_OSS_ACCESS_KEY_SECRET`
+- `TEXTRPG_OSS_PREFIX` (optional, default `textrpg`)
+- `TEXTRPG_OSS_REGION` (optional)
+
+Important runtime behavior:
+
+- OSS backend keeps a local cache mirror under the existing pack filesystem root.
+- Server still needs writable local disk for the cache mirror.
+
+### One-time Sync for Existing Packs
+
+After setting `TEXTRPG_OSS_*` env vars, run:
+
+```bash
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id>
+```
+
+Optional: sync selected packs only:
+
+```bash
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id> --pack-id starter_kingdom --pack-id 12138
+```
+
+This script uploads already-installed pack directories to OSS and keeps registry metadata unchanged.
+
 ## Recommended Server-Side Order
 
 1. Prepare Python environment and install dependencies.

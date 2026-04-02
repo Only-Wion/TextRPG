@@ -47,12 +47,29 @@ uvicorn backend.main:app --reload
 
 - `TEXTRPG_STORAGE_BACKEND=local|postgres`
 - `TEXTRPG_POSTGRES_DSN=...`
+- `TEXTRPG_PACK_STORAGE_BACKEND=local|oss`
+- `TEXTRPG_OSS_ENDPOINT=...`
+- `TEXTRPG_OSS_BUCKET=...`
+- `TEXTRPG_OSS_ACCESS_KEY_ID=...`
+- `TEXTRPG_OSS_ACCESS_KEY_SECRET=...`
+- `TEXTRPG_OSS_PREFIX=textrpg`（可选）
+- `TEXTRPG_OSS_REGION=...`（可选）
 
 说明：
 - 当前默认使用 `local`
 - `postgres` 路径目前只完成了代码骨架，还没有真正实现数据库读写
 - PostgreSQL 目标数据模型见 `docs/data-contracts/postgres-storage-model.md`
 - 切换到云服务器前后的交接说明见 `docs/migration/cloud-handoff.md`
+
+如需把已安装卡包一次性同步到 OSS：
+```
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id>
+```
+
+仅同步指定包：
+```
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id> --pack-id starter_kingdom
+```
 
 ## 卡牌与规则
 

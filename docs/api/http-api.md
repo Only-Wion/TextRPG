@@ -275,6 +275,7 @@ Authentication:
 
 Notes:
 - Returned `enabled` flags are scoped to the authenticated user's default pack set.
+- Pack metadata and content are resolved from user-scoped namespace `data/user_packs/<user_id>/`.
 
 ### `PATCH /packs/{pack_id}/enabled`
 
@@ -364,6 +365,17 @@ Purpose:
 Notes:
 - Deletion is rejected when any active session binding currently references the template.
 - Validation detail includes active binding count, for example: `template is currently used by 2 active session(s)`.
+
+### `GET /packs/market/public`
+### `GET /packs/market/public/{public_pack_id}`
+### `POST /packs/{pack_id}/market/publish`
+### `POST /packs/market/public/{public_pack_id}/download`
+
+Purpose:
+- Reserved marketplace interfaces for future pack publication and distribution.
+
+Current behavior:
+- All endpoints return `501 Not Implemented` until marketplace implementation is introduced.
 
 ### `GET /settings/llm`
 ### `PUT /settings/llm`

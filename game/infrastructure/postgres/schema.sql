@@ -46,6 +46,44 @@ create table if not exists user_pack_states (
     primary key (user_id, pack_id)
 );
 
+create table if not exists user_pack_catalog (
+    internal_pack_id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    private_pack_id text not null,
+    public_pack_id text unique,
+    name text not null,
+    author text not null,
+    description text not null,
+    cards_root text not null,
+    source text not null,
+    visibility text not null default 'private',
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    unique(user_id, private_pack_id)
+);
+
+create table if not exists user_pack_versions (
+    internal_pack_id text not null references user_pack_catalog(internal_pack_id) on delete cascade,
+    version text not null,
+    storage_backend text not null,
+    storage_path text not null,
+    cards_root text not null,
+    manifest_json jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    primary key (internal_pack_id, version)
+);
+
+create table if not exists public_pack_index (
+    public_pack_id text primary key,
+    internal_pack_id text not null references user_pack_catalog(internal_pack_id) on delete cascade,
+    owner_user_id text not null references users(id) on delete cascade,
+    version text not null,
+    status text not null default 'draft',
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
 create table if not exists user_session_metadata (
     user_id text not null references users(id) on delete cascade,
     save_slot text not null,
