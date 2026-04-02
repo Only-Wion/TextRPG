@@ -11,4 +11,5 @@ streamlit>=1.32.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 psycopg[binary]>=3.2.0
+oss2>=2.19.0
 pytest>=8.0.0

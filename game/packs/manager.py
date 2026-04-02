@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -11,10 +10,10 @@ import zipfile
 import requests
 import yaml
 
-from ..config import ENGINE_VERSION, PACKS_DIR, PACK_REGISTRY_PATH
+from ..config import ENGINE_VERSION, PACKS_DIR, PACK_REGISTRY_PATH, SETTINGS
 from .registry import PackRecord, PackRegistry
+from .storage import LocalPackStorage, OssPackStorage, PackStorageProtocol
 from .validator import PACK_ID_RE, SEMVER_RE, validate_manifest
-from .zip_utils import safe_extract
 
 MAX_ZIP_BYTES = 50 * 1024 * 1024
 
@@ -23,11 +22,19 @@ class PackManager:
     """在磁盘上安装、移除并管理卡包。"""
 
     def __init__(
-        self, packs_root: Path = PACKS_DIR, registry_path: Path = PACK_REGISTRY_PATH
+        self,
+        packs_root: Path = PACKS_DIR,
+        registry_path: Path = PACK_REGISTRY_PATH,
+        storage: PackStorageProtocol | None = None,
     ):
-        self.packs_root = packs_root
+        if storage is not None:
+            self.storage = storage
+        elif SETTINGS.pack_storage_backend == "oss":
+            self.storage = OssPackStorage(packs_root)
+        else:
+            self.storage = LocalPackStorage(packs_root)
+        self.packs_root = self.storage.packs_root
         self.registry = PackRegistry(registry_path)
-        self.packs_root.mkdir(parents=True, exist_ok=True)
 
     def list_packs(self) -> List[PackRecord]:
         """从注册表返回卡包记录。"""
@@ -62,17 +69,15 @@ class PackManager:
             if digest != str(manifest["sha256"]):
                 raise ValueError("sha256 mismatch")
 
-        dest_root = self.packs_root / pack_id / version
+        dest_root = self.storage.get_pack_dir(pack_id, version)
         if dest_root.exists():
             raise ValueError("pack version already installed")
-        with tempfile.TemporaryDirectory() as td:
-            td_path = Path(td)
-            safe_extract(zip_path, td_path)
-            cards_root = Path(str(manifest["cards_root"]))
-            if not (td_path / cards_root).exists():
-                raise ValueError("cards_root missing in zip")
-            dest_root.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(td_path, dest_root, dirs_exist_ok=True)
+        self.storage.install_pack_from_zip(
+            zip_path,
+            pack_id,
+            version,
+            str(manifest["cards_root"]),
+        )
 
         record = PackRecord(
             pack_id=pack_id,
@@ -92,9 +97,7 @@ class PackManager:
         record = self.registry.get(pack_id)
         if not record:
             return
-        pack_dir = self.packs_root / pack_id / record.version
-        if pack_dir.exists():
-            shutil.rmtree(pack_dir)
+        self.storage.remove_pack(pack_id, record.version)
         self.registry.remove(pack_id)
 
     def enable_pack(self, pack_id: str, enabled: bool = True) -> None:
@@ -106,13 +109,7 @@ class PackManager:
         record = self.registry.get(pack_id)
         if not record:
             raise ValueError("pack not found")
-        pack_dir = self.packs_root / pack_id / record.version
-        if not pack_dir.exists():
-            raise ValueError("pack files missing")
-        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for path in pack_dir.rglob("*"):
-                if path.is_file():
-                    zf.write(path, path.relative_to(pack_dir))
+        self.storage.export_pack(pack_id, record.version, output_path)
 
     def get_enabled_cards_roots(self) -> List[Path]:
         """返回所有已启用卡包的 cards 根目录。"""
@@ -120,11 +117,78 @@ class PackManager:
         for record in self.registry.list():
             if not record.enabled:
                 continue
-            pack_dir = self.packs_root / record.pack_id / record.version
-            root = pack_dir / record.cards_root
+            root = self.storage.get_pack_cards_root(
+                record.pack_id, record.version, record.cards_root
+            )
             if root.exists():
                 roots.append(root)
         return roots
+
+    def get_pack_dir(self, pack_id: str, version: str | None = None) -> Path:
+        """返回指定卡包的版本目录。"""
+        record = self.registry.get(pack_id)
+        resolved_version = version or (record.version if record else "")
+        if not resolved_version:
+            raise ValueError("pack not found")
+        return self.storage.get_pack_dir(pack_id, resolved_version)
+
+    def get_pack_cards_root(self, pack_id: str) -> Path:
+        """返回指定卡包当前版本的 cards 根目录。"""
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        return self.storage.get_pack_cards_root(
+            pack_id, record.version, record.cards_root
+        )
+
+    def create_card(
+        self,
+        pack_id: str,
+        card_type: str,
+        card_id: str,
+        frontmatter: Dict[str, Any],
+        body: str,
+    ) -> Path:
+        return self.save_card(pack_id, card_type, card_id, frontmatter, body)
+
+    def save_card(
+        self,
+        pack_id: str,
+        card_type: str,
+        card_id: str,
+        frontmatter: Dict[str, Any],
+        body: str,
+        original_path: Path | None = None,
+    ) -> Path:
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        return self.storage.save_card(
+            pack_id,
+            record.version,
+            record.cards_root,
+            card_type,
+            card_id,
+            frontmatter,
+            body,
+            original_path=original_path,
+        )
+
+    def update_card(self, path: Path, frontmatter: Dict[str, Any], body: str) -> None:
+        self.storage.update_card(path, frontmatter, body)
+
+    def delete_card(self, pack_id: str, path: Path) -> None:
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        self.storage.delete_card(pack_id, record.version, record.cards_root, path)
+
+    def sync_pack_content(self, pack_id: str) -> None:
+        """同步指定卡包内容到当前存储后端。"""
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        self.storage.sync_pack(pack_id, record.version)
 
     def _download(self, url: str, dest: Path) -> None:
         """流式下载 zip，并限制大小。"""

@@ -15,6 +15,9 @@ from ..config import (
     CARDS_DIR,
     EXPORTS_DIR,
     SAVES_DIR,
+    PACKS_DIR,
+    PACK_REGISTRY_PATH,
+    USER_PACKS_DIR,
     SETTINGS,
     activate_runtime_llm_settings,
     get_slot_paths,
@@ -89,11 +92,18 @@ class GameService:
 
     def __init__(
         self,
+        user_id: str = "default",
         packs_root: Path | None = None,
         store_factory: SessionStoreFactory | None = None,
     ):
-        self.pack_manager = (
-            PackManager(packs_root=packs_root) if packs_root else PackManager()
+        self.user_id = str(user_id)
+        self._user_pack_root = USER_PACKS_DIR / self.user_id
+        self._user_pack_registry_path = self._user_pack_root / "pack_registry.json"
+        self._bootstrap_user_pack_namespace()
+        user_packs_root = packs_root or self._user_pack_root
+        self.pack_manager = PackManager(
+            packs_root=user_packs_root,
+            registry_path=self._user_pack_registry_path,
         )
         if SETTINGS.storage_backend == "postgres":
             if not SETTINGS.postgres_dsn:
@@ -118,6 +128,40 @@ class GameService:
         self._ui_lock = threading.Lock()
         self._ui_gen_thread: threading.Thread | None = None
         self._ui_update_thread: threading.Thread | None = None
+
+    def _bootstrap_user_pack_namespace(self) -> None:
+        self._user_pack_root.mkdir(parents=True, exist_ok=True)
+        if self._user_pack_registry_path.exists():
+            return
+        self._user_pack_registry_path.write_text(
+            json.dumps({"packs": {}}, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        if not PACK_REGISTRY_PATH.exists():
+            return
+        try:
+            shared_registry = json.loads(PACK_REGISTRY_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        if not isinstance(shared_registry, dict):
+            return
+        packs = shared_registry.get("packs", {})
+        if not isinstance(packs, dict):
+            return
+        normalized_packs = {"packs": dict(packs)}
+        self._user_pack_registry_path.write_text(
+            json.dumps(normalized_packs, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        for pack_id, payload in packs.items():
+            if not isinstance(payload, dict):
+                continue
+            version = str(payload.get("version", "")).strip()
+            if not version:
+                continue
+            source_dir = PACKS_DIR / pack_id / version
+            target_dir = self._user_pack_root / pack_id / version
+            if source_dir.exists() and not target_dir.exists():
+                target_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
 
     def start_new_game(
         self,
@@ -437,7 +481,9 @@ class GameService:
         frontmatter: Dict[str, Any],
         body: str,
     ) -> Path:
-        return self.save_card(pack_id, card_type, card_id, frontmatter, body)
+        return self.pack_manager.create_card(
+            pack_id, card_type, card_id, frontmatter, body
+        )
 
     def save_card(
         self,
@@ -448,29 +494,17 @@ class GameService:
         body: str,
         original_path: Path | None = None,
     ) -> Path:
-        frontmatter = dict(frontmatter)
-        frontmatter["id"] = card_id
-        frontmatter["type"] = card_type
-        validate_card(frontmatter, body)
-        pack_root = self._pack_cards_root(pack_id)
-        card_dir = pack_root / self._resolve_card_type_dir(pack_root, card_type)
-        card_dir.mkdir(parents=True, exist_ok=True)
-        path = card_dir / f"{card_id}.md"
-        path.write_text(render_card(frontmatter, body), encoding="utf-8")
-
-        if original_path:
-            old_path = Path(original_path)
-            if (
-                old_path != path
-                and old_path.exists()
-                and self._is_within(old_path, pack_root)
-            ):
-                old_path.unlink()
-        return path
+        return self.pack_manager.save_card(
+            pack_id,
+            card_type,
+            card_id,
+            frontmatter,
+            body,
+            original_path=original_path,
+        )
 
     def update_card(self, path: Path, frontmatter: Dict[str, Any], body: str) -> None:
-        validate_card(frontmatter, body)
-        path.write_text(render_card(frontmatter, body), encoding="utf-8")
+        self.pack_manager.update_card(path, frontmatter, body)
 
     def validate_card(self, frontmatter: Dict[str, Any], body: str) -> None:
         validate_card(frontmatter, body)
@@ -542,13 +576,7 @@ class GameService:
         return {"frontmatter": fm, "body": body}
 
     def delete_card(self, pack_id: str, path: Path) -> None:
-        pack_root = self._pack_cards_root(pack_id)
-        target = Path(path)
-        if not target.exists():
-            return
-        if not self._is_within(target, pack_root):
-            raise ValueError("card path is outside pack root")
-        target.unlink()
+        self.pack_manager.delete_card(pack_id, path)
 
     def _build_session(
         self, save_slot: str, language: Optional[str] = None
@@ -711,7 +739,9 @@ class GameService:
             panel for panel in panels if isinstance(panel, dict)
         ]
         variable_template_payload = (
-            variable_template if isinstance(variable_template, dict) else {"variables": []}
+            variable_template
+            if isinstance(variable_template, dict)
+            else {"variables": []}
         )
         self._session.state["ui_variable_template"] = variable_template_payload
         vars_payload = variable_values if isinstance(variable_values, dict) else {}
@@ -879,7 +909,9 @@ class GameService:
         visibility: dict[str, bool],
     ) -> dict[str, Any]:
         panel_id = str(panel.get("panel_id", ""))
-        panel_visible = visibility.get(panel_id, bool(panel.get("visible_by_default", True)))
+        panel_visible = visibility.get(
+            panel_id, bool(panel.get("visible_by_default", True))
+        )
         rendered = dict(panel)
         rendered["visible"] = bool(panel_visible)
 
@@ -903,7 +935,9 @@ class GameService:
                         next_entry = dict(entry)
                         value = next_entry.get("value")
                         if isinstance(value, str):
-                            next_entry["value"] = self._inject_variables(value, variables)
+                            next_entry["value"] = self._inject_variables(
+                                value, variables
+                            )
                         normalized_entries.append(next_entry)
                     normalized["entries"] = normalized_entries
                 normalized_sections.append(normalized)
@@ -955,7 +989,11 @@ class GameService:
             if isinstance(state.get("world_facts"), dict)
             else {}
         )
-        attrs = world_facts.get("attrs", {}) if isinstance(world_facts.get("attrs"), dict) else {}
+        attrs = (
+            world_facts.get("attrs", {})
+            if isinstance(world_facts.get("attrs"), dict)
+            else {}
+        )
         flattened: dict[str, Any] = {
             "turn_id": state.get("turn_id", 0),
             "save_slot": state.get("save_slot", ""),
@@ -993,15 +1031,7 @@ class GameService:
         return quests
 
     def _pack_cards_root(self, pack_id: str) -> Path:
-        record = self.pack_manager.registry.get(pack_id)
-        if not record:
-            raise ValueError("pack not found")
-        return (
-            self.pack_manager.packs_root
-            / record.pack_id
-            / record.version
-            / record.cards_root
-        )
+        return self.pack_manager.get_pack_cards_root(pack_id)
 
     def _resolve_card_type_dir(self, pack_root: Path, card_type: str) -> str:
         normalized = str(card_type).strip()

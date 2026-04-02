@@ -6,6 +6,7 @@ Status:
 - Current implementation: local-development backend contract
 - Current storage backing: local sqlite + file storage
 - Target production backing: PostgreSQL + file storage
+- Pack content storage is behind a backend abstraction; the default path remains filesystem-backed local cache, and an OSS backend can be enabled through `TEXTRPG_PACK_STORAGE_BACKEND=oss` plus the `TEXTRPG_OSS_*` environment variables.
 
 Authentication:
 - Every route below requires `Authorization: Bearer <token>`
@@ -21,6 +22,8 @@ Response:
 Notes:
 - This route is editing-oriented and is intended for the Card Designer page.
 - Pack files remain filesystem-backed.
+- When OSS pack storage is enabled, the filesystem paths are a local cache mirror of the object store.
+- Pack content namespace is user-scoped: `data/user_packs/<user_id>/<pack_id>/<version>/<cards_root>`.
 
 ## `POST /card-designer/packs`
 
@@ -77,8 +80,9 @@ Response shape:
 ```
 
 Notes:
-- This endpoint reads card files from pack filesystem paths (`game/cards_packs/<pack_id>/<version>/<cards_root>`), not from a PostgreSQL card table.
+- This endpoint reads card files from user-scoped pack paths (`data/user_packs/<user_id>/<pack_id>/<version>/<cards_root>`), not from a PostgreSQL card table.
 - In `postgres` backend mode, PostgreSQL persists user/session metadata; pack/card content remains file-backed.
+- In OSS mode, those filesystem paths are the local cache mirror; the object store is the source of truth.
 
 ## `GET /card-designer/packs/{pack_id}/cards/{card_path}`
 

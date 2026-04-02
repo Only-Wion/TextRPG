@@ -62,7 +62,9 @@ def step_game(
     current_user: dict = Depends(get_current_user),
 ) -> GameActionResponse:
     result = service.step(current_user["id"], payload.input_text)
-    return GameActionResponse(result=result, state_view=service.get_current_state_view(current_user["id"]))
+    return GameActionResponse(
+        result=result, state_view=service.get_current_state_view(current_user["id"])
+    )
 
 
 @router.post("/step/stream")
@@ -75,7 +77,9 @@ def step_game_stream(
         try:
             for event in service.step_stream(current_user["id"], payload.input_text):
                 if event.get("type") == "narration_delta":
-                    yield _sse("narration_delta", {"delta": str(event.get("delta", ""))})
+                    yield _sse(
+                        "narration_delta", {"delta": str(event.get("delta", ""))}
+                    )
                 elif event.get("type") == "done":
                     yield _sse(
                         "done",
@@ -121,7 +125,9 @@ def duplicate_session(
     service: SessionService = Depends(get_session_service),
     current_user: dict = Depends(get_current_user),
 ) -> SessionManagerResponse:
-    return SessionManagerResponse(**service.duplicate_session(current_user["id"], slot_id, payload.target_slot))
+    return SessionManagerResponse(
+        **service.duplicate_session(current_user["id"], slot_id, payload.target_slot)
+    )
 
 
 @router.post("/sessions/{slot_id}/archive", response_model=SessionManagerResponse)
@@ -130,7 +136,9 @@ def archive_session(
     service: SessionService = Depends(get_session_service),
     current_user: dict = Depends(get_current_user),
 ) -> SessionManagerResponse:
-    return SessionManagerResponse(**service.archive_session(current_user["id"], slot_id))
+    return SessionManagerResponse(
+        **service.archive_session(current_user["id"], slot_id)
+    )
 
 
 @router.patch("/ui-mode", response_model=OkResponse)
@@ -178,7 +186,9 @@ def set_ui_panel_visibility(
     service: SessionService = Depends(get_session_service),
     current_user: dict = Depends(get_current_user),
 ) -> OkResponse:
-    service.set_ui_panel_visibility(current_user["id"], payload.panel_id, payload.visible)
+    service.set_ui_panel_visibility(
+        current_user["id"], payload.panel_id, payload.visible
+    )
     return OkResponse(ok=True)
 
 

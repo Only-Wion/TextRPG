@@ -5,6 +5,7 @@ from typing import Any
 
 from game.infrastructure.contracts import (
     CardDesignerSessionRepositoryProtocol,
+    UserPackCatalogRepositoryProtocol,
     UserUiTemplateRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
@@ -19,6 +20,7 @@ from game.config import (
     load_runtime_llm_settings,
     normalize_llm_settings,
 )
+from game.packs.validator import validate_manifest
 from game.service.api import GameService
 from game.service.pack_builder_agent import PackBuilderAgent
 
@@ -33,7 +35,7 @@ class GameServiceRegistry:
     def for_user(self, user_id: str) -> GameService:
         service = self._services.get(user_id)
         if service is None:
-            service = GameService()
+            service = GameService(user_id)
             self._services[user_id] = service
         service.set_runtime_llm_settings(
             self._settings_repository.get_llm_settings(user_id)
@@ -104,7 +106,9 @@ class SessionService:
     ) -> None:
         service = self._registry.for_user(user_id)
         service.start_new_game(save_slot, pack_ids, language=language)
-        self._apply_ui_binding(user_id, save_slot, service, ui_template_id=ui_template_id)
+        self._apply_ui_binding(
+            user_id, save_slot, service, ui_template_id=ui_template_id
+        )
         self._session_index.bind_session(user_id, save_slot)
         self._sync_current_chat_history(user_id)
         self._sync_current_session_metadata(user_id)
@@ -243,12 +247,16 @@ class SessionService:
     def trigger_ui_update(self, user_id: str) -> None:
         self._registry.for_user(user_id).trigger_ui_update()
 
-    def set_ui_panel_visibility(self, user_id: str, panel_id: str, visible: bool) -> None:
+    def set_ui_panel_visibility(
+        self, user_id: str, panel_id: str, visible: bool
+    ) -> None:
         service = self._registry.for_user(user_id)
         service.set_ui_panel_visibility(panel_id, visible)
         self._sync_current_ui_binding(user_id)
 
-    def list_pack_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+    def list_pack_ui_templates(
+        self, user_id: str, pack_id: str
+    ) -> list[dict[str, Any]]:
         return self._ui_template_repository.list_pack_ui_templates(user_id, pack_id)
 
     def create_pack_ui_template(
@@ -261,7 +269,9 @@ class SessionService:
     ) -> dict[str, Any]:
         service = self._registry.for_user(user_id)
         payload = template_payload if isinstance(template_payload, dict) else None
-        vars_template = variable_template if isinstance(variable_template, dict) else None
+        vars_template = (
+            variable_template if isinstance(variable_template, dict) else None
+        )
         if payload is None or vars_template is None:
             snapshot, vars_snapshot = service.get_ui_template_snapshot()
             if payload is None:
@@ -277,7 +287,9 @@ class SessionService:
             vars_template,
         )
 
-    def delete_pack_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+    def delete_pack_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> None:
         in_use = self._ui_template_repository.count_sessions_using_ui_template(
             user_id, pack_id, template_id
         )
@@ -285,7 +297,9 @@ class SessionService:
             raise ValueError(
                 f"template is currently used by {in_use} active session(s)"
             )
-        self._ui_template_repository.delete_pack_ui_template(user_id, pack_id, template_id)
+        self._ui_template_repository.delete_pack_ui_template(
+            user_id, pack_id, template_id
+        )
 
     def bind_session_ui_template(
         self,
@@ -348,7 +362,9 @@ class SessionService:
         save_slot = str(state.get("save_slot") or "").strip()
         if not save_slot:
             return
-        binding = self._ui_template_repository.get_session_ui_binding(user_id, save_slot)
+        binding = self._ui_template_repository.get_session_ui_binding(
+            user_id, save_slot
+        )
         if not binding:
             return
         self._ui_template_repository.save_session_ui_binding(
@@ -367,7 +383,9 @@ class SessionService:
         service: GameService,
         ui_template_id: str | None = None,
     ) -> None:
-        binding = self._ui_template_repository.get_session_ui_binding(user_id, save_slot)
+        binding = self._ui_template_repository.get_session_ui_binding(
+            user_id, save_slot
+        )
         if ui_template_id:
             state = service.get_current_state_view()
             pack_id = ""
@@ -442,73 +460,157 @@ class PackService:
 
     def __init__(
         self,
-        game_service: GameService,
+        registry: GameServiceRegistry,
         pack_state_repository: UserPackStateRepositoryProtocol,
+        pack_catalog_repository: UserPackCatalogRepositoryProtocol,
         ui_template_repository: UserUiTemplateRepositoryProtocol,
     ):
-        self._game_service = game_service
+        self._registry = registry
         self._pack_state_repository = pack_state_repository
+        self._pack_catalog_repository = pack_catalog_repository
         self._ui_template_repository = ui_template_repository
 
+    def _persist_pack_record(self, user_id: str, record: dict[str, Any]) -> None:
+        private_pack_id = str(record.get("pack_id") or "").strip()
+        if not private_pack_id:
+            return
+        cards_root = str(record.get("cards_root") or "cards")
+        version = str(record.get("version") or "").strip()
+        self._pack_catalog_repository.upsert_user_pack(
+            user_id,
+            {
+                "private_pack_id": private_pack_id,
+                "name": str(record.get("name") or private_pack_id),
+                "author": str(record.get("author") or "unknown"),
+                "description": str(record.get("description") or ""),
+                "cards_root": cards_root,
+                "source": str(record.get("source") or "local"),
+                "visibility": "private",
+            },
+        )
+        if not version:
+            return
+        storage_path = f"{user_id}/{private_pack_id}/{version}/{cards_root}"
+        self._pack_catalog_repository.upsert_user_pack_version(
+            user_id,
+            private_pack_id,
+            {
+                "version": version,
+                "storage_backend": SETTINGS.pack_storage_backend,
+                "storage_path": storage_path,
+                "cards_root": cards_root,
+                "manifest": {
+                    "pack_id": private_pack_id,
+                    "name": str(record.get("name") or private_pack_id),
+                    "version": version,
+                    "author": str(record.get("author") or "unknown"),
+                    "description": str(record.get("description") or ""),
+                },
+            },
+        )
+
+    def _sync_catalog_from_runtime(
+        self, user_id: str, runtime_records: list[dict[str, Any]]
+    ) -> None:
+        for record in runtime_records:
+            self._persist_pack_record(user_id, record)
+
     def list_packs(self, user_id: str) -> list[dict[str, Any]]:
+        game_service = self._registry.for_user(user_id)
         enabled_pack_ids = set(
             self._pack_state_repository.list_enabled_pack_ids(user_id)
         )
-        records = self._game_service.list_packs()
+        runtime_records = game_service.list_packs()
+        self._sync_catalog_from_runtime(user_id, runtime_records)
+        catalog_records = self._pack_catalog_repository.list_user_packs(user_id)
+        records = [
+            {
+                "pack_id": str(item.get("private_pack_id") or ""),
+                "name": str(item.get("name") or ""),
+                "version": str(item.get("version") or "0.1.0"),
+                "author": str(item.get("author") or ""),
+                "description": str(item.get("description") or ""),
+                "cards_root": str(item.get("cards_root") or "cards"),
+                "enabled": False,
+                "source": str(item.get("source") or "local"),
+            }
+            for item in catalog_records
+        ]
+        if not records:
+            records = runtime_records
         for record in records:
             record["enabled"] = record["pack_id"] in enabled_pack_ids
         return records
 
-    def install_pack_from_url(self, url: str) -> dict[str, Any]:
-        return self._game_service.install_pack_from_url(url)
+    def install_pack_from_url(self, user_id: str, url: str) -> dict[str, Any]:
+        record = self._registry.for_user(user_id).install_pack_from_url(url)
+        self._persist_pack_record(user_id, record)
+        return record
 
-    def install_pack_from_zip(self, path: Path) -> dict[str, Any]:
-        return self._game_service.install_pack_from_zip(path)
+    def install_pack_from_zip(self, user_id: str, path: Path) -> dict[str, Any]:
+        record = self._registry.for_user(user_id).install_pack_from_zip(path)
+        self._persist_pack_record(user_id, record)
+        return record
 
-    def remove_pack(self, pack_id: str) -> None:
-        self._game_service.remove_pack(pack_id)
+    def remove_pack(self, user_id: str, pack_id: str) -> None:
+        self._registry.for_user(user_id).remove_pack(pack_id)
+        self._pack_catalog_repository.remove_user_pack(user_id, pack_id)
 
     def enable_pack(self, user_id: str, pack_id: str, enabled: bool) -> None:
-        records = {record["pack_id"] for record in self._game_service.list_packs()}
+        records = {record["pack_id"] for record in self._registry.for_user(user_id).list_packs()}
         if pack_id not in records:
             raise ValueError("pack not found")
         self._pack_state_repository.set_pack_enabled(user_id, pack_id, enabled)
 
-    def export_pack(self, pack_id: str, output_path: Path) -> None:
-        self._game_service.export_pack(pack_id, output_path)
+    def export_pack(self, user_id: str, pack_id: str, output_path: Path) -> None:
+        self._registry.for_user(user_id).export_pack(pack_id, output_path)
 
-    def export_pack_to_runtime_exports(self, pack_id: str) -> dict[str, Any]:
-        return self._game_service.export_pack_to_runtime_exports(pack_id)
+    def export_pack_to_runtime_exports(self, user_id: str, pack_id: str) -> dict[str, Any]:
+        return self._registry.for_user(user_id).export_pack_to_runtime_exports(pack_id)
 
-    def create_pack(self, manifest: dict[str, Any]) -> None:
-        self._game_service.create_pack(manifest)
+    def create_pack(self, user_id: str, manifest: dict[str, Any]) -> None:
+        self._registry.for_user(user_id).create_pack(manifest)
+        self._persist_pack_record(
+            user_id,
+            {
+                "pack_id": str(manifest.get("pack_id") or ""),
+                "name": str(manifest.get("name") or ""),
+                "version": str(manifest.get("version") or "0.1.0"),
+                "author": str(manifest.get("author") or "unknown"),
+                "description": str(manifest.get("description") or ""),
+                "cards_root": str(manifest.get("cards_root") or "cards"),
+                "source": "local",
+            },
+        )
 
     def export_pack_manifest(self, data: dict[str, Any]) -> None:
-        self._game_service.export_pack_manifest(data)
+        validate_manifest(data)
 
-    def list_pack_card_types(self, pack_id: str) -> list[str]:
-        return self._game_service.list_pack_card_types(pack_id)
+    def list_pack_card_types(self, user_id: str, pack_id: str) -> list[str]:
+        return self._registry.for_user(user_id).list_pack_card_types(pack_id)
 
-    def list_pack_cards(self, pack_id: str) -> list[Path]:
-        return self._game_service.list_pack_cards(pack_id)
+    def list_pack_cards(self, user_id: str, pack_id: str) -> list[Path]:
+        return self._registry.for_user(user_id).list_pack_cards(pack_id)
 
-    def load_card(self, path: Path) -> dict[str, Any]:
-        return self._game_service.load_card(path)
+    def load_card(self, user_id: str, path: Path) -> dict[str, Any]:
+        return self._registry.for_user(user_id).load_card(path)
 
     def create_card(
         self,
+        user_id: str,
         pack_id: str,
         card_type: str,
         card_id: str,
         frontmatter: dict[str, Any],
         body: str,
     ) -> Path:
-        return self._game_service.create_card(
+        return self._registry.for_user(user_id).create_card(
             pack_id, card_type, card_id, frontmatter, body
         )
 
     def save_card(
         self,
+        user_id: str,
         pack_id: str,
         card_type: str,
         card_id: str,
@@ -516,21 +618,28 @@ class PackService:
         body: str,
         original_path: Path | None = None,
     ) -> Path:
-        return self._game_service.save_card(
-            pack_id, card_type, card_id, frontmatter, body, original_path=original_path
+        return self._registry.for_user(user_id).save_card(
+            pack_id,
+            card_type,
+            card_id,
+            frontmatter,
+            body,
+            original_path=original_path,
         )
 
-    def update_card(self, path: Path, frontmatter: dict[str, Any], body: str) -> None:
-        self._game_service.update_card(path, frontmatter, body)
+    def update_card(
+        self, user_id: str, path: Path, frontmatter: dict[str, Any], body: str
+    ) -> None:
+        self._registry.for_user(user_id).update_card(path, frontmatter, body)
 
-    def validate_card(self, frontmatter: dict[str, Any], body: str) -> None:
-        self._game_service.validate_card(frontmatter, body)
+    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+        self._registry.for_user(user_id).validate_card(frontmatter, body)
 
-    def delete_card(self, pack_id: str, path: Path) -> None:
-        self._game_service.delete_card(pack_id, path)
+    def delete_card(self, user_id: str, pack_id: str, path: Path) -> None:
+        self._registry.for_user(user_id).delete_card(pack_id, path)
 
-    def get_card_template(self, card_type: str) -> dict[str, Any]:
-        return self._game_service.get_card_template(card_type)
+    def get_card_template(self, user_id: str, card_type: str) -> dict[str, Any]:
+        return self._registry.for_user(user_id).get_card_template(card_type)
 
     def list_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
         return self._ui_template_repository.list_pack_ui_templates(user_id, pack_id)
@@ -554,14 +663,10 @@ class PackService:
 
     def delete_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
         in_use = self._ui_template_repository.count_sessions_using_ui_template(
-            user_id,
-            pack_id,
-            template_id,
+            user_id, pack_id, template_id
         )
         if in_use > 0:
-            raise ValueError(
-                f"template is currently used by {in_use} active session(s)"
-            )
+            raise ValueError(f"template is currently used by {in_use} active session(s)")
         self._ui_template_repository.delete_pack_ui_template(user_id, pack_id, template_id)
 
 
@@ -610,27 +715,34 @@ class CardDesignerService:
 
     def __init__(
         self,
-        game_service: GameService,
+        registry: GameServiceRegistry,
         designer_repository: CardDesignerSessionRepositoryProtocol,
         settings_repository: UserSettingsRepositoryProtocol,
     ):
-        self._game_service = game_service
+        self._registry = registry
         self._designer_repository = designer_repository
         self._settings_repository = settings_repository
-        self._agent = PackBuilderAgent(game_service)
+        self._agent_by_user: dict[str, PackBuilderAgent] = {}
+
+    def _service(self, user_id: str) -> GameService:
+        return self._registry.for_user(user_id)
+
+    def _agent_for_user(self, user_id: str) -> PackBuilderAgent:
+        agent = self._agent_by_user.get(user_id)
+        if agent is None:
+            agent = PackBuilderAgent(self._service(user_id))
+            self._agent_by_user[user_id] = agent
+        return agent
 
     def list_packs(self, user_id: str) -> list[dict[str, Any]]:
-        del user_id
-        return self._game_service.list_packs()
+        return self._service(user_id).list_packs()
 
     def create_pack(self, user_id: str, manifest: dict[str, Any]) -> dict[str, Any]:
-        del user_id
-        self._game_service.create_pack(manifest)
+        self._service(user_id).create_pack(manifest)
         return manifest
 
     def list_card_types(self, user_id: str, pack_id: str) -> list[str]:
-        del user_id
-        return self._game_service.list_pack_card_types(pack_id)
+        return self._service(user_id).list_pack_card_types(pack_id)
 
     def list_cards(
         self,
@@ -639,12 +751,12 @@ class CardDesignerService:
         category: str | None = None,
         keyword: str | None = None,
     ) -> list[dict[str, Any]]:
-        del user_id
-        root = self._game_service._pack_cards_root(pack_id)
+        service = self._service(user_id)
+        root = service._pack_cards_root(pack_id)
         normalized_category = (category or "").strip()
         normalized_keyword = (keyword or "").strip().lower()
         records: list[dict[str, Any]] = []
-        for path in self._game_service.list_pack_cards(pack_id):
+        for path in service.list_pack_cards(pack_id):
             rel_path = str(path.relative_to(root)).replace("\\", "/")
             category_name = path.parent.name
             if (
@@ -655,7 +767,7 @@ class CardDesignerService:
                 continue
             if normalized_keyword and normalized_keyword not in rel_path.lower():
                 continue
-            card = self._game_service.load_card(path)
+            card = service.load_card(path)
             frontmatter = card.get("frontmatter", {})
             card_id = str(frontmatter.get("id", path.stem))
             card_type = str(frontmatter.get("type", category_name or "card"))
@@ -672,14 +784,12 @@ class CardDesignerService:
         return sorted(records, key=lambda item: (item["category"], item["card_id"]))
 
     def load_card(self, user_id: str, pack_id: str, card_path: str) -> dict[str, Any]:
-        del user_id
-        target = self._resolve_card_path(pack_id, card_path)
-        card = self._game_service.load_card(target)
+        service = self._service(user_id)
+        target = self._resolve_card_path(service, pack_id, card_path)
+        card = service.load_card(target)
         frontmatter = card.get("frontmatter", {})
         return {
-            "path": str(
-                target.relative_to(self._game_service._pack_cards_root(pack_id))
-            ).replace("\\", "/"),
+            "path": str(target.relative_to(service._pack_cards_root(pack_id))).replace("\\", "/"),
             "pack_id": pack_id,
             "card_type": str(frontmatter.get("type", target.parent.name or "card")),
             "card_id": str(frontmatter.get("id", target.stem)),
@@ -688,8 +798,7 @@ class CardDesignerService:
         }
 
     def get_card_template(self, user_id: str, card_type: str) -> dict[str, Any]:
-        del user_id
-        return self._game_service.get_card_template(card_type)
+        return self._service(user_id).get_card_template(card_type)
 
     def save_card(
         self,
@@ -701,32 +810,23 @@ class CardDesignerService:
         body: str,
         original_path: str | None = None,
     ) -> dict[str, Any]:
-        del user_id
-        original = (
-            self._resolve_card_path(pack_id, original_path) if original_path else None
-        )
-        saved = self._game_service.save_card(
+        service = self._service(user_id)
+        original = self._resolve_card_path(service, pack_id, original_path) if original_path else None
+        saved = service.save_card(
             pack_id, card_type, card_id, frontmatter, body, original_path=original
         )
         return self.load_card(
-            "",
+            user_id,
             pack_id,
-            str(
-                saved.relative_to(self._game_service._pack_cards_root(pack_id))
-            ).replace("\\", "/"),
+            str(saved.relative_to(service._pack_cards_root(pack_id))).replace("\\", "/"),
         )
 
-    def validate_card(
-        self, user_id: str, frontmatter: dict[str, Any], body: str
-    ) -> None:
-        del user_id
-        self._game_service.validate_card(frontmatter, body)
+    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+        self._service(user_id).validate_card(frontmatter, body)
 
     def delete_card(self, user_id: str, pack_id: str, card_path: str) -> None:
-        del user_id
-        self._game_service.delete_card(
-            pack_id, self._resolve_card_path(pack_id, card_path)
-        )
+        service = self._service(user_id)
+        service.delete_card(pack_id, self._resolve_card_path(service, pack_id, card_path))
 
     def create_agent_session(
         self, user_id: str, pack_id: str | None = None
@@ -749,12 +849,9 @@ class CardDesignerService:
         )
         state = dict(session.get("state", {}) or {})
         with activate_runtime_llm_settings(runtime_settings):
-            result = self._agent.process(message, state)
+            result = self._agent_for_user(user_id).process(message, state)
         updated_state = result.get("state", state)
-        selected_pack_id = str(
-            updated_state.get("selected_pack_id", "")
-            or session.get("selected_pack_id", "")
-        )
+        selected_pack_id = str(updated_state.get("selected_pack_id", "") or session.get("selected_pack_id", ""))
         persisted = self._designer_repository.save_designer_session(
             user_id,
             session_id,
@@ -772,14 +869,16 @@ class CardDesignerService:
             "state": persisted.get("state", {}),
         }
 
-    def _resolve_card_path(self, pack_id: str, card_path: str | None) -> Path:
+    def _resolve_card_path(
+        self, service: GameService, pack_id: str, card_path: str | None
+    ) -> Path:
         if not card_path:
             raise ValueError("card path is required")
-        root = self._game_service._pack_cards_root(pack_id)
+        root = service._pack_cards_root(pack_id)
         raw = Path(str(card_path).strip())
         target = raw if raw.is_absolute() else (root / raw)
         if not target.exists():
             raise ValueError("card not found")
-        if not self._game_service._is_within(target, root):
+        if not service._is_within(target, root):
             raise ValueError("card path is outside pack root")
         return target

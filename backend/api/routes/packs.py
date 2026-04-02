@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from ...deps import get_current_user, get_pack_service
 from ...schemas.common import OkResponse
@@ -40,9 +40,9 @@ def set_pack_enabled(
 def remove_pack(
     pack_id: str,
     service: PackService = Depends(get_pack_service),
-    _: dict[str, Any] = Depends(get_current_user),
+    current_user: dict[str, Any] = Depends(get_current_user),
 ) -> OkResponse:
-    service.remove_pack(pack_id)
+    service.remove_pack(current_user["id"], pack_id)
     return OkResponse(ok=True)
 
 
@@ -50,9 +50,11 @@ def remove_pack(
 def export_pack(
     pack_id: str,
     service: PackService = Depends(get_pack_service),
-    _: dict[str, Any] = Depends(get_current_user),
+    current_user: dict[str, Any] = Depends(get_current_user),
 ) -> PackExportResponse:
-    return PackExportResponse(**service.export_pack_to_runtime_exports(pack_id))
+    return PackExportResponse(
+        **service.export_pack_to_runtime_exports(current_user["id"], pack_id)
+    )
 
 
 @router.get("/{pack_id}/ui-templates", response_model=list[UiTemplateResponse])
@@ -91,3 +93,37 @@ def delete_ui_template(
 ) -> OkResponse:
     service.delete_ui_template(current_user["id"], pack_id, template_id)
     return OkResponse(ok=True)
+
+
+@router.get("/market/public", response_model=list[dict[str, Any]])
+def list_public_market_packs(
+    _: dict[str, Any] = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    raise HTTPException(status_code=501, detail="pack marketplace is not implemented")
+
+
+@router.get("/market/public/{public_pack_id}", response_model=dict[str, Any])
+def get_public_market_pack(
+    public_pack_id: str,
+    _: dict[str, Any] = Depends(get_current_user),
+) -> dict[str, Any]:
+    del public_pack_id
+    raise HTTPException(status_code=501, detail="pack marketplace is not implemented")
+
+
+@router.post("/{pack_id}/market/publish", response_model=OkResponse)
+def publish_pack_to_market(
+    pack_id: str,
+    _: dict[str, Any] = Depends(get_current_user),
+) -> OkResponse:
+    del pack_id
+    raise HTTPException(status_code=501, detail="pack marketplace is not implemented")
+
+
+@router.post("/market/public/{public_pack_id}/download", response_model=OkResponse)
+def download_public_market_pack(
+    public_pack_id: str,
+    _: dict[str, Any] = Depends(get_current_user),
+) -> OkResponse:
+    del public_pack_id
+    raise HTTPException(status_code=501, detail="pack marketplace is not implemented")

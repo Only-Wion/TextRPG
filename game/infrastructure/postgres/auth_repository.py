@@ -10,6 +10,7 @@ from typing import Any
 from game.config import load_runtime_llm_settings, normalize_llm_settings
 from game.infrastructure.contracts import (
     CardDesignerSessionRepositoryProtocol,
+    UserPackCatalogRepositoryProtocol,
     UserUiTemplateRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     UserPackStateRepositoryProtocol,
@@ -47,6 +48,7 @@ class PostgresAuthRepository(
     UserSessionIndexProtocol,
     UserSettingsRepositoryProtocol,
     UserPackStateRepositoryProtocol,
+    UserPackCatalogRepositoryProtocol,
     UserSessionMetadataRepositoryProtocol,
     UserChatHistoryRepositoryProtocol,
     CardDesignerSessionRepositoryProtocol,
@@ -75,7 +77,13 @@ class PostgresAuthRepository(
                         insert into users (id, email, username, password_salt, password_hash)
                         values (%s, %s, %s, %s, %s)
                         """,
-                        (user_id, normalized_email, normalized_username, salt_b64, password_hash),
+                        (
+                            user_id,
+                            normalized_email,
+                            normalized_username,
+                            salt_b64,
+                            password_hash,
+                        ),
                     )
                 conn.commit()
         except Exception as exc:
@@ -97,7 +105,9 @@ class PostgresAuthRepository(
                     (normalized_login, normalized_login),
                 )
                 row = cursor.fetchone()
-        if not row or not _verify_password(password, row["password_salt"], row["password_hash"]):
+        if not row or not _verify_password(
+            password, row["password_salt"], row["password_hash"]
+        ):
             raise ValueError("invalid credentials")
         return {
             "id": row["id"],
@@ -108,7 +118,9 @@ class PostgresAuthRepository(
     def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
-                cursor.execute("select id, email, username from users where id = %s", (user_id,))
+                cursor.execute(
+                    "select id, email, username from users where id = %s", (user_id,)
+                )
                 row = cursor.fetchone()
         if not row:
             return None
@@ -153,7 +165,10 @@ class PostgresAuthRepository(
     def revoke_token(self, token: str) -> None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
-                cursor.execute("delete from auth_tokens where token_hash = %s", (_hash_token(token),))
+                cursor.execute(
+                    "delete from auth_tokens where token_hash = %s",
+                    (_hash_token(token),),
+                )
             conn.commit()
 
     def bind_session(self, user_id: str, save_slot: str) -> None:
@@ -234,7 +249,9 @@ class PostgresAuthRepository(
             "force_fake_embeddings": bool(row["force_fake_embeddings"]),
         }
 
-    def update_llm_settings(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def update_llm_settings(
+        self, user_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         current = normalize_llm_settings(self.get_llm_settings(user_id))
         settings = normalize_llm_settings(payload, current)
         with connect(self.dsn) as conn:
@@ -306,10 +323,14 @@ class PostgresAuthRepository(
             conn.commit()
 
     def replace_enabled_pack_ids(self, user_id: str, pack_ids: list[str]) -> None:
-        normalized = sorted({str(pack_id).strip() for pack_id in pack_ids if str(pack_id).strip()})
+        normalized = sorted(
+            {str(pack_id).strip() for pack_id in pack_ids if str(pack_id).strip()}
+        )
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
-                cursor.execute("delete from user_pack_states where user_id = %s", (user_id,))
+                cursor.execute(
+                    "delete from user_pack_states where user_id = %s", (user_id,)
+                )
                 for pack_id in normalized:
                     cursor.execute(
                         """
@@ -320,7 +341,170 @@ class PostgresAuthRepository(
                     )
             conn.commit()
 
-    def save_session_metadata(self, user_id: str, save_slot: str, payload: dict[str, Any]) -> None:
+    def list_user_packs(self, user_id: str) -> list[dict[str, Any]]:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select internal_pack_id, user_id, private_pack_id, public_pack_id,
+                           name, author, description, cards_root, source, visibility,
+                           (
+                               select version
+                               from user_pack_versions v
+                               where v.internal_pack_id = user_pack_catalog.internal_pack_id
+                               order by updated_at desc, version desc
+                               limit 1
+                           ) as version,
+                           created_at, updated_at
+                    from user_pack_catalog
+                    where user_id = %s
+                    order by updated_at desc, private_pack_id asc
+                    """,
+                    (user_id,),
+                )
+                rows = cursor.fetchall() or []
+        return [dict(row) for row in rows]
+
+    def get_user_pack(self, user_id: str, private_pack_id: str) -> dict[str, Any] | None:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select internal_pack_id, user_id, private_pack_id, public_pack_id,
+                           name, author, description, cards_root, source, visibility,
+                           (
+                               select version
+                               from user_pack_versions v
+                               where v.internal_pack_id = user_pack_catalog.internal_pack_id
+                               order by updated_at desc, version desc
+                               limit 1
+                           ) as version,
+                           created_at, updated_at
+                    from user_pack_catalog
+                    where user_id = %s and private_pack_id = %s
+                    """,
+                    (user_id, private_pack_id),
+                )
+                row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def upsert_user_pack(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        private_pack_id = str(payload.get("private_pack_id") or payload.get("pack_id") or "").strip()
+        if not private_pack_id:
+            raise ValueError("private_pack_id is required")
+        internal_pack_id = str(payload.get("internal_pack_id") or uuid.uuid4())
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into user_pack_catalog (
+                        internal_pack_id, user_id, private_pack_id, public_pack_id,
+                        name, author, description, cards_root, source, visibility
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    on conflict(user_id, private_pack_id) do update set
+                        public_pack_id = excluded.public_pack_id,
+                        name = excluded.name,
+                        author = excluded.author,
+                        description = excluded.description,
+                        cards_root = excluded.cards_root,
+                        source = excluded.source,
+                        visibility = excluded.visibility,
+                        updated_at = now()
+                    """,
+                    (
+                        internal_pack_id,
+                        user_id,
+                        private_pack_id,
+                        str(payload.get("public_pack_id") or "").strip() or None,
+                        str(payload.get("name") or private_pack_id),
+                        str(payload.get("author") or "unknown"),
+                        str(payload.get("description") or ""),
+                        str(payload.get("cards_root") or "cards"),
+                        str(payload.get("source") or "local"),
+                        str(payload.get("visibility") or "private"),
+                    ),
+                )
+            conn.commit()
+        return self.get_user_pack(user_id, private_pack_id) or {}
+
+    def remove_user_pack(self, user_id: str, private_pack_id: str) -> None:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "delete from user_pack_catalog where user_id = %s and private_pack_id = %s",
+                    (user_id, private_pack_id),
+                )
+            conn.commit()
+
+    def upsert_user_pack_version(
+        self,
+        user_id: str,
+        private_pack_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        pack = self.get_user_pack(user_id, private_pack_id)
+        if not pack:
+            raise ValueError("pack not found")
+        version = str(payload.get("version") or "").strip()
+        if not version:
+            raise ValueError("version is required")
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into user_pack_versions (
+                        internal_pack_id, version, storage_backend, storage_path, cards_root, manifest_json
+                    ) values (%s, %s, %s, %s, %s, %s)
+                    on conflict(internal_pack_id, version) do update set
+                        storage_backend = excluded.storage_backend,
+                        storage_path = excluded.storage_path,
+                        cards_root = excluded.cards_root,
+                        manifest_json = excluded.manifest_json,
+                        updated_at = now()
+                    """,
+                    (
+                        str(pack["internal_pack_id"]),
+                        version,
+                        str(payload.get("storage_backend") or "filesystem"),
+                        str(payload.get("storage_path") or ""),
+                        str(payload.get("cards_root") or pack.get("cards_root") or "cards"),
+                        as_json(payload.get("manifest") or {}),
+                    ),
+                )
+            conn.commit()
+        rows = self.list_user_pack_versions(user_id, private_pack_id)
+        return next((item for item in rows if item.get("version") == version), {})
+
+    def list_user_pack_versions(
+        self, user_id: str, private_pack_id: str
+    ) -> list[dict[str, Any]]:
+        pack = self.get_user_pack(user_id, private_pack_id)
+        if not pack:
+            return []
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select version, storage_backend, storage_path, cards_root, manifest_json,
+                           created_at, updated_at
+                    from user_pack_versions
+                    where internal_pack_id = %s
+                    order by version desc
+                    """,
+                    (str(pack["internal_pack_id"]),),
+                )
+                rows = cursor.fetchall() or []
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["manifest"] = payload.get("manifest_json") or {}
+            payload.pop("manifest_json", None)
+            result.append(payload)
+        return result
+
+    def save_session_metadata(
+        self, user_id: str, save_slot: str, payload: dict[str, Any]
+    ) -> None:
         enabled_packs = payload.get("enabled_packs", [])
         if not isinstance(enabled_packs, list):
             enabled_packs = []
@@ -409,7 +593,9 @@ class PostgresAuthRepository(
             return []
         return [item for item in data if isinstance(item, dict)]
 
-    def save_chat_history(self, user_id: str, save_slot: str, history: list[dict[str, Any]]) -> None:
+    def save_chat_history(
+        self, user_id: str, save_slot: str, history: list[dict[str, Any]]
+    ) -> None:
         normalized = [item for item in history if isinstance(item, dict)]
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
@@ -434,7 +620,9 @@ class PostgresAuthRepository(
                 )
             conn.commit()
 
-    def create_designer_session(self, user_id: str, pack_id: str | None = None) -> dict[str, Any]:
+    def create_designer_session(
+        self, user_id: str, pack_id: str | None = None
+    ) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
         payload = {
             "session_id": session_id,
@@ -467,7 +655,9 @@ class PostgresAuthRepository(
             conn.commit()
         return payload
 
-    def get_designer_session(self, user_id: str, session_id: str) -> dict[str, Any] | None:
+    def get_designer_session(
+        self, user_id: str, session_id: str
+    ) -> dict[str, Any] | None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -493,7 +683,9 @@ class PostgresAuthRepository(
             "updated_at": str(row["updated_at"]),
         }
 
-    def save_designer_session(self, user_id: str, session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def save_designer_session(
+        self, user_id: str, session_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         selected_pack_id = str(payload.get("selected_pack_id", "") or "")
         mode = str(payload.get("mode", "edit") or "edit")
         state = payload.get("state", {}) or {}
@@ -532,7 +724,9 @@ class PostgresAuthRepository(
                 )
             conn.commit()
 
-    def list_pack_ui_templates(self, user_id: str, pack_id: str) -> list[dict[str, Any]]:
+    def list_pack_ui_templates(
+        self, user_id: str, pack_id: str
+    ) -> list[dict[str, Any]]:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -630,7 +824,9 @@ class PostgresAuthRepository(
             "variable_template": variables,
         }
 
-    def delete_pack_ui_template(self, user_id: str, pack_id: str, template_id: str) -> None:
+    def delete_pack_ui_template(
+        self, user_id: str, pack_id: str, template_id: str
+    ) -> None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -658,7 +854,9 @@ class PostgresAuthRepository(
                 row = cursor.fetchone()
         return int((row["c"] if row else 0) or 0)
 
-    def get_session_ui_binding(self, user_id: str, save_slot: str) -> dict[str, Any] | None:
+    def get_session_ui_binding(
+        self, user_id: str, save_slot: str
+    ) -> dict[str, Any] | None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
