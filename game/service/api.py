@@ -7,6 +7,7 @@ import re
 from typing import Any, Dict, List, Optional
 import gc
 import json
+import logging
 import shutil
 import threading
 
@@ -75,6 +76,9 @@ from .ui_agents import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class GameSession:
     save_slot: str
@@ -128,6 +132,8 @@ class GameService:
         self._ui_lock = threading.Lock()
         self._ui_gen_thread: threading.Thread | None = None
         self._ui_update_thread: threading.Thread | None = None
+        self._pending_ui_generation_requested = False
+        self._pending_ui_generation_force = False
 
     def _bootstrap_user_pack_namespace(self) -> None:
         self._user_pack_root.mkdir(parents=True, exist_ok=True)
@@ -179,6 +185,9 @@ class GameService:
     def load_game(self, save_slot: str, language: Optional[str] = None) -> None:
         self._release_active_session()
         metadata = self._load_session_metadata(save_slot)
+        ui_generation_status = str(metadata.get("ui_generation_status", "") or "")
+        if ui_generation_status and ui_generation_status != "ready":
+            raise ValueError("UI is still generating. Please wait until it is ready.")
         if metadata.get("enabled_packs"):
             self._set_enabled_packs(metadata.get("enabled_packs", []))
         self._session = self._build_session(save_slot, language=language)
@@ -609,6 +618,14 @@ class GameService:
                     )
         app = build_graph(repo, rag, world, kg, rules)
         ui_cards = list(repo.by_type("ui"))
+        logger.warning(
+            "ui-observe session build user=%s slot=%s enabled_packs=%s ui_cards=%d ui_card_ids=%s",
+            self.user_id,
+            save_slot,
+            [r.pack_id for r in self.pack_manager.list_packs() if r.enabled],
+            len(ui_cards),
+            [c.id for c in ui_cards],
+        )
         ui_panel_defs = self.ui_panel_store.load(paths["ui_panels_path"])
         quest_catalog = self._collect_quest_catalog(repo)
         state = {
@@ -780,6 +797,16 @@ class GameService:
         if not self._session:
             return
         if self._ui_gen_thread and self._ui_gen_thread.is_alive():
+            # 生成线程忙时，记录一次待执行请求，避免切换会话时请求丢失。
+            self._pending_ui_generation_requested = True
+            self._pending_ui_generation_force = (
+                self._pending_ui_generation_force or force
+            )
+            logger.warning(
+                "ui-observe generation queued user=%s force=%s",
+                self.user_id,
+                self._pending_ui_generation_force,
+            )
             return
         thread = threading.Thread(
             target=self._generate_ui_panels, args=(force,), daemon=True
@@ -829,13 +856,28 @@ class GameService:
                     session.state["ui_generation_status"] = "running"
 
             rag_lookup = self._build_ui_rag_lookup(session)
+            ui_cards = list(session.repo.by_type("ui"))
+            logger.warning(
+                "ui-observe generation start user=%s slot=%s force=%s ui_cards=%d ui_card_ids=%s",
+                self.user_id,
+                session.save_slot,
+                force,
+                len(ui_cards),
+                [c.id for c in ui_cards],
+            )
             with self._llm_settings_scope():
                 panels = self.ui_planner.plan(
-                    list(session.repo.by_type("ui")),
+                    ui_cards,
                     world_facts=session.state.get("world_facts", {}),
                     chat_history=session.state.get("chat_history", []),
                     rag_lookup=rag_lookup,
                 )
+            logger.warning(
+                "ui-observe generation done user=%s slot=%s panels=%d",
+                self.user_id,
+                session.save_slot,
+                len(panels),
+            )
             with self._ui_lock:
                 if session is self._session:
                     if str(session.state.get("ui_template_id") or "").strip():
@@ -845,12 +887,38 @@ class GameService:
                         session.state["ui_generation_status"] = "ready"
             if session is self._session:
                 if not str(session.state.get("ui_template_id") or "").strip():
+                    logger.warning(
+                        "ui-observe saving panels user=%s slot=%s panels=%d",
+                        self.user_id,
+                        session.save_slot,
+                        len(panels),
+                    )
                     self.ui_panel_store.save(paths["ui_panels_path"], panels)
+                    logger.warning(
+                        "ui-observe saved panels user=%s slot=%s path=%s",
+                        self.user_id,
+                        session.save_slot,
+                        paths["ui_panels_path"],
+                    )
                 self._refresh_custom_ui_panels(session)
+                self._persist_session_metadata(session)
         except Exception:
+            logger.exception(
+                "ui-observe generation error user=%s slot=%s",
+                self.user_id,
+                session.save_slot if session else "",
+            )
             with self._ui_lock:
                 if session is self._session:
                     session.state["ui_generation_status"] = "error"
+            if session is self._session:
+                self._persist_session_metadata(session)
+        finally:
+            with self._ui_lock:
+                if threading.current_thread() is self._ui_gen_thread:
+                    self._ui_gen_thread = None
+                self._pending_ui_generation_requested = False
+                self._pending_ui_generation_force = False
 
     def _update_ui_panels(self) -> None:
         if not self._session:
@@ -1111,6 +1179,11 @@ class GameService:
         enabled_packs = metadata.get("enabled_packs", [])
         if not isinstance(enabled_packs, list):
             enabled_packs = []
+        ui_generation_status = str(
+            metadata.get("ui_generation_status", "") or ""
+        ).strip()
+        if not ui_generation_status:
+            ui_generation_status = "ready"
         return {
             "slot_id": save_slot,
             "language": str(metadata.get("language", "")).strip() or "zh",
@@ -1119,6 +1192,7 @@ class GameService:
             or "Unknown",
             "turn_count": int(metadata.get("turn_count", 0) or 0),
             "updated_label": str(updated_at),
+            "ui_generation_status": ui_generation_status,
         }
 
     def _persist_session_metadata(self, session: GameSession | None) -> None:
@@ -1151,6 +1225,9 @@ class GameService:
             "location_label": self._infer_location_label(session.state),
             "turn_count": int(session.state.get("turn_id", 0) or 0),
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "ui_generation_status": str(
+                session.state.get("ui_generation_status", "pending") or "pending"
+            ),
         }
 
     def _infer_location_label(self, state: Dict[str, Any]) -> str:

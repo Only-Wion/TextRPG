@@ -92,6 +92,7 @@ create table if not exists user_session_metadata (
     location_label text not null,
     turn_count integer not null default 0,
     updated_label text not null,
+    ui_generation_status text not null default 'ready',
     primary key (user_id, save_slot)
 );
 

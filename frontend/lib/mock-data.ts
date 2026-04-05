@@ -124,6 +124,7 @@ export function createMockSessionManagerView(): SessionManagerView {
         location_label: "旅店大厅",
         turn_count: 3,
         updated_label: "2026-03-24 14:32",
+        ui_generation_status: "ready",
       },
       {
         slot_id: "slot_002",
@@ -132,6 +133,7 @@ export function createMockSessionManagerView(): SessionManagerView {
         location_label: "城门外小路",
         turn_count: 12,
         updated_label: "yesterday",
+        ui_generation_status: "ready",
       },
       {
         slot_id: "slot_003",
@@ -140,6 +142,7 @@ export function createMockSessionManagerView(): SessionManagerView {
         location_label: "角色创建中",
         turn_count: 0,
         updated_label: "4 days ago",
+        ui_generation_status: "pending",
       },
     ],
   };

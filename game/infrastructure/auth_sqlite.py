@@ -208,6 +208,14 @@ class SqliteAuthRepository(
                 );
                 """
             )
+            columns = {
+                row["name"]
+                for row in conn.execute("pragma table_info(user_session_metadata)")
+            }
+            if "ui_generation_status" not in columns:
+                conn.execute(
+                    "alter table user_session_metadata add column ui_generation_status text not null default 'ready'"
+                )
 
     def create_user(self, email: str, username: str, password: str) -> dict[str, Any]:
         normalized_email = email.strip().lower()
@@ -476,7 +484,9 @@ class SqliteAuthRepository(
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def get_user_pack(self, user_id: str, private_pack_id: str) -> dict[str, Any] | None:
+    def get_user_pack(
+        self, user_id: str, private_pack_id: str
+    ) -> dict[str, Any] | None:
         with _connect(self.db_path) as conn:
             row = conn.execute(
                 """
@@ -498,7 +508,9 @@ class SqliteAuthRepository(
         return dict(row) if row else None
 
     def upsert_user_pack(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        private_pack_id = str(payload.get("private_pack_id") or payload.get("pack_id") or "").strip()
+        private_pack_id = str(
+            payload.get("private_pack_id") or payload.get("pack_id") or ""
+        ).strip()
         if not private_pack_id:
             raise ValueError("private_pack_id is required")
         internal_pack_id = str(payload.get("internal_pack_id") or uuid.uuid4())
@@ -599,7 +611,9 @@ class SqliteAuthRepository(
         for row in rows:
             payload = dict(row)
             try:
-                payload["manifest"] = json.loads(str(payload.get("manifest_json") or "{}"))
+                payload["manifest"] = json.loads(
+                    str(payload.get("manifest_json") or "{}")
+                )
             except Exception:
                 payload["manifest"] = {}
             payload.pop("manifest_json", None)
@@ -616,14 +630,15 @@ class SqliteAuthRepository(
             conn.execute(
                 """
                 insert into user_session_metadata (
-                    user_id, save_slot, language, enabled_packs_json, location_label, turn_count, updated_label
-                ) values (?, ?, ?, ?, ?, ?, ?)
+                    user_id, save_slot, language, enabled_packs_json, location_label, turn_count, updated_label, ui_generation_status
+                ) values (?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict(user_id, save_slot) do update set
                     language = excluded.language,
                     enabled_packs_json = excluded.enabled_packs_json,
                     location_label = excluded.location_label,
                     turn_count = excluded.turn_count,
                     updated_label = excluded.updated_label
+                    , ui_generation_status = excluded.ui_generation_status
                 """,
                 (
                     user_id,
@@ -635,6 +650,7 @@ class SqliteAuthRepository(
                     str(payload.get("location_label", "Unknown") or "Unknown"),
                     int(payload.get("turn_count", 0) or 0),
                     str(payload.get("updated_at", "unknown") or "unknown"),
+                    str(payload.get("ui_generation_status", "ready") or "ready"),
                 ),
             )
 
@@ -642,7 +658,7 @@ class SqliteAuthRepository(
         with _connect(self.db_path) as conn:
             rows = conn.execute(
                 """
-                select save_slot, language, enabled_packs_json, location_label, turn_count, updated_label
+                select save_slot, language, enabled_packs_json, location_label, turn_count, updated_label, ui_generation_status
                 from user_session_metadata
                 where user_id = ?
                 order by updated_label desc, save_slot asc
@@ -665,6 +681,7 @@ class SqliteAuthRepository(
                     "location_label": row["location_label"],
                     "turn_count": int(row["turn_count"] or 0),
                     "updated_label": row["updated_label"],
+                    "ui_generation_status": str(row["ui_generation_status"] or "ready"),
                 }
             )
         return summaries

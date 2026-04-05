@@ -60,6 +60,7 @@ class SessionSummaryResponse(BaseModel):
     location_label: str
     turn_count: int
     updated_label: str
+    ui_generation_status: str = "ready"
 
 
 class SessionManagerResponse(BaseModel):

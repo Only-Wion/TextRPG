@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 import json
+import logging
 import yaml
 
 from ..core.card_repository import Card
 from ..llm import llm_generate_ui_panels, llm_update_ui_panel
+
+
+logger = logging.getLogger(__name__)
 
 
 class UICardPlannerAgent:
@@ -20,6 +24,11 @@ class UICardPlannerAgent:
         rag_lookup: Dict[str, List[Dict[str, Any]]] | None = None,
     ) -> List[Dict[str, Any]]:
         # 遍历卡牌并汇总可渲染的面板定义
+        logger.warning(
+            "ui-observe planner start cards=%d card_ids=%s",
+            len(cards),
+            [c.id for c in cards],
+        )
         panels: List[Dict[str, Any]] = []
         for card in cards:
             panels.extend(
@@ -30,6 +39,7 @@ class UICardPlannerAgent:
                     rag_snippets=rag_lookup.get(card.id, []) if rag_lookup else [],
                 )
             )
+        logger.warning("ui-observe planner done panels=%d", len(panels))
         return panels
 
     def _plan_card(
@@ -54,7 +64,12 @@ class UICardPlannerAgent:
                 frontmatter = {}
 
         schema = _extract_schema(frontmatter, body_text)
-        if isinstance(schema, dict) and schema:
+        if _is_structured_schema(schema):
+            logger.warning(
+                "ui-observe card=%s branch=schema panel_type=%s",
+                card.id,
+                str(schema.get("panel_type") or "facts_list"),
+            )
             layout_default = _build_panel_layouts(1)[0]
             layout = schema.get("layout", {})
             if not isinstance(layout, dict):
@@ -84,21 +99,32 @@ class UICardPlannerAgent:
             raw_text if not fm_text else f"{fm_text.strip()}\n\n{body_text.strip()}"
         )
 
-        # 通过 LLM 根据卡牌描述生成 UI 面板的 HTML 内容
-        payload = llm_generate_ui_panels(
-            {
-                "instruction_text": instruction_text,
-                "card_meta": {
-                    "id": card.id,
-                    "type": card.type,
-                    "tags": list(card.tags),
-                },
-                "world_facts": world_facts,
-                "recent_messages": chat_history[-8:],
-                "rag_snippets": rag_snippets,
-            }
-        )
+        # 通过 LLM 根据卡牌描述生成 UI 面板的 HTML 内容。
+        # 单卡失败时降级到占位面板，避免整批 UI 生成线程进入 error。
+        logger.warning("ui-observe card=%s branch=llm", card.id)
+        try:
+            payload = llm_generate_ui_panels(
+                {
+                    "instruction_text": instruction_text,
+                    "card_meta": {
+                        "id": card.id,
+                        "type": card.type,
+                        "tags": list(card.tags),
+                    },
+                    "world_facts": world_facts,
+                    "recent_messages": chat_history[-8:],
+                    "rag_snippets": rag_snippets,
+                }
+            )
+        except Exception:
+            logger.exception("ui-observe card=%s llm_generate_failed", card.id)
+            payload = {"panels": []}
         panels_data = payload.get("panels", []) if isinstance(payload, dict) else []
+        logger.warning(
+            "ui-observe card=%s llm_panels=%d",
+            card.id,
+            len(panels_data),
+        )
 
         # 兜底：若 LLM 未生成任何面板，生成一个占位面板
         if not panels_data:
@@ -409,9 +435,10 @@ def _extract_quest_status(attrs: Dict[str, Any]) -> Dict[str, str]:
 
 def _split_frontmatter_and_body(text: str) -> tuple[str, str]:
     # 解析以 --- 包裹的 frontmatter
-    if not text.startswith("---"):
+    normalized = text.lstrip("\ufeff \t\r\n")
+    if not normalized.startswith("---"):
         return "", text
-    parts = text.split("---", 2)
+    parts = normalized.split("---", 2)
     if len(parts) < 3:
         return "", text
     return parts[1], parts[2].lstrip("\n")
@@ -427,10 +454,7 @@ def _extract_schema(
 
     stripped = body_text.strip()
     if not stripped:
-        return {
-            "panel_type": "facts_list",
-            "sections": [],
-        }
+        return None
 
     try:
         as_json = json.loads(stripped)
@@ -446,10 +470,23 @@ def _extract_schema(
     except Exception:
         pass
 
-    return {
-        "panel_type": "facts_list",
-        "sections": [],
+    return None
+
+
+def _is_structured_schema(schema: Dict[str, Any] | None) -> bool:
+    if not isinstance(schema, dict) or not schema:
+        return False
+    # 仅当出现 UI schema 关键字段时才走结构化分支，避免把普通 Markdown/YAML 当成面板 schema。
+    schema_keys = {
+        "panel_id",
+        "title",
+        "panel_type",
+        "visible_by_default",
+        "layout",
+        "html",
+        "sections",
     }
+    return any(key in schema for key in schema_keys)
 
 
 def _build_panel_layouts(

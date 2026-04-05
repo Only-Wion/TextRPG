@@ -88,6 +88,7 @@ export type SessionSummary = {
   location_label: string;
   turn_count: number;
   updated_label: string;
+  ui_generation_status: string;
 };
 
 export type SessionManagerView = {
