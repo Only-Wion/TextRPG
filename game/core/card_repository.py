@@ -7,9 +7,11 @@ import yaml
 
 from ..config import CARDS_DIR
 
+
 @dataclass
 class Card:
     """从 Markdown 加载到内存的卡牌对象（正文按需加载）。"""
+
     id: str
     type: str
     tags: List[str]
@@ -21,7 +23,7 @@ class Card:
     def load_content(self) -> str:
         """按需读取卡牌正文并缓存。"""
         if self._content is None:
-            text = self.path.read_text(encoding='utf-8')
+            text = self.path.read_text(encoding="utf-8")
             _, body = parse_frontmatter(text)
             self._content = body.strip()
         return self._content
@@ -34,18 +36,22 @@ class Card:
 
 def parse_frontmatter(text: str) -> tuple[Dict[str, Any], str]:
     """解析 YAML frontmatter，返回 (frontmatter, body)。"""
-    if text.startswith('---'):
-        parts = text.split('---', 2)
+    normalized = text.lstrip("\ufeff \t\r\n")
+    if normalized.startswith("---"):
+        parts = normalized.split("---", 2)
         if len(parts) >= 3:
             fm = yaml.safe_load(parts[1]) or {}
-            body = parts[2].lstrip('\n')
+            body = parts[2].lstrip("\n")
             return fm, body
     return {}, text
 
 
 class CardRepository:
     """从内置与卡包目录加载、索引并检索卡牌。"""
-    def __init__(self, cards_dir: Path = CARDS_DIR, extra_roots: List[Path] | None = None):
+
+    def __init__(
+        self, cards_dir: Path = CARDS_DIR, extra_roots: List[Path] | None = None
+    ):
         self.cards_dir = cards_dir
         self.extra_roots = extra_roots or []
         self._cards: Dict[str, Card] = {}
@@ -55,18 +61,18 @@ class CardRepository:
         self._cards.clear()
         roots = [self.cards_dir] + list(self.extra_roots)
         for root in roots:
-            for path in root.rglob('*.md'):
-                if '_overlay' in path.parts:
+            for path in root.rglob("*.md"):
+                if "_overlay" in path.parts:
                     continue
-                text = path.read_text(encoding='utf-8')
+                text = path.read_text(encoding="utf-8")
                 fm, body = parse_frontmatter(text)
-                card_id = fm.get('id')
-                card_type = fm.get('type')
+                card_id = fm.get("id")
+                card_type = fm.get("type")
                 if not card_id or not card_type:
                     continue
-                tags = fm.get('tags', []) or []
-                initial_relations = fm.get('initial_relations', []) or []
-                hooks = fm.get('hooks', []) or []
+                tags = fm.get("tags", []) or []
+                initial_relations = fm.get("initial_relations", []) or []
+                hooks = fm.get("hooks", []) or []
                 self._cards[card_id] = Card(
                     id=card_id,
                     type=card_type,
@@ -111,18 +117,18 @@ class CardRepository:
         roots = [self.cards_dir] + list(self.extra_roots)
         overlays: List[tuple[int, List[Dict[str, Any]]]] = []
         for root in roots:
-            overlay_dir = root / '_overlay'
+            overlay_dir = root / "_overlay"
             if not overlay_dir.exists():
                 continue
-            for path in overlay_dir.rglob('*.md'):
-                text = path.read_text(encoding='utf-8')
+            for path in overlay_dir.rglob("*.md"):
+                text = path.read_text(encoding="utf-8")
                 fm, _ = parse_frontmatter(text)
-                if fm.get('kind') != 'overlay_ops':
+                if fm.get("kind") != "overlay_ops":
                     continue
-                priority = int(fm.get('priority', 0))
-                ops = fm.get('ops', []) or []
+                priority = int(fm.get("priority", 0))
+                ops = fm.get("ops", []) or []
                 for op in ops:
-                    op['source'] = 'overlay'
+                    op["source"] = "overlay"
                 overlays.append((priority, ops))
         overlays.sort(key=lambda x: x[0])
         merged: List[Dict[str, Any]] = []

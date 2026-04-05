@@ -323,16 +323,19 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     setIsBusy(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    const submittedFrontmatterText = frontmatterText;
+    const submittedBodyText = bodyText;
     try {
       const payload = await saveDesignerCard(selectedPackId, {
         card_type: currentCardType || "card",
         card_id: editingCardId.trim(),
-        frontmatter_text: frontmatterText,
-        body: bodyText,
+        frontmatter_text: submittedFrontmatterText,
+        body: submittedBodyText,
         original_path: editingCardPath || undefined,
       });
       setEditingCardPath(payload.path);
-      setFrontmatterText(stringifyFrontmatter(payload.frontmatter));
+      setEditingCardType(payload.card_type);
+      setEditingCardId(payload.card_id);
       await refreshCards(selectedPackId, selectedCategory, keyword);
       setSuccessMessage(`Saved ${payload.path}`);
     } catch (error) {

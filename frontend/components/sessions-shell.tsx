@@ -78,7 +78,10 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
   }
 
   const primaryPackId = createDraft.packIds[0] ?? "";
-
+/*
+useEffect
+自动加载模板
+*/
   useEffect(() => {
     let cancelled = false;
     async function loadTemplates() {
@@ -123,8 +126,29 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
     return nextView;
   }
 
+  async function waitForUiReady(targetSlot: string, timeoutMs = 120000) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      const nextView = await refreshSessionView(targetSlot);
+      const nextSummary = nextView.sessions.find((session) => session.slot_id === targetSlot);
+      if (!nextSummary || nextSummary.ui_generation_status === "ready") {
+        return nextSummary ?? null;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    }
+    throw new Error("UI generation is still running. Please try again in a moment.");
+  }
+/*  
+handleLoad
+加载存档
+*/
   async function handleLoad() {
     if (!selectedSummary || isLoading) {
+      return;
+    }
+
+    if (selectedSummary.ui_generation_status !== "ready") {
+      setErrorMessage("This session is still generating its UI. Please wait until it is ready.");
       return;
     }
 
@@ -141,7 +165,10 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
       setIsLoading(false);
     }
   }
-
+/*
+handleDuplicate
+复制存档
+*/ 
   async function handleDuplicate() {
     if (!selectedSummary || isDuplicating || panelMode === "create") {
       return;
@@ -160,7 +187,10 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
       setIsDuplicating(false);
     }
   }
-
+/*
+handleArchive
+删除存档
+*/
   async function handleArchive() {
     if (!selectedSummary || isArchiving || panelMode === "create") {
       return;
@@ -180,7 +210,10 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
       setIsArchiving(false);
     }
   }
-
+/*
+handleSaveCreate
+创建存档
+*/
   async function handleSaveCreate() {
     if (isSaving) {
       return;
@@ -207,9 +240,13 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
         pack_ids: createDraft.packIds,
         ui_template_id: selectedUiTemplateId || undefined,
       });
-      await refreshSessionView(trimmedSlot);
+      const readySummary = await waitForUiReady(trimmedSlot);
+      if (readySummary) {
+        await loadGameSession({ save_slot: trimmedSlot, language: readySummary.language });
+        router.push("/");
+        router.refresh();
+      }
       setPanelMode("list");
-      router.refresh();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save the new session.");
     } finally {
@@ -376,7 +413,7 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
                       >
                         <div className="slot-row-title">{session.slot_id}</div>
                         <div className="slot-row-meta">
-                          {session.location_label} | {session.turn_count} turns | packs:{" "}
+                          {session.location_label} | {session.turn_count} turns | {session.ui_generation_status} | packs: {" "}
                           {session.enabled_packs.join(", ")}
                         </div>
                         <div className="slot-row-subtle">{session.updated_label}</div>
@@ -408,7 +445,12 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
               <section className="light-card">
                 <h2 className="light-card-title">Quick Actions</h2>
                 <div className="action-grid">
-                  <button className="light-action-button load" onClick={handleLoad} type="button">
+                  <button
+                    className="light-action-button load"
+                    disabled={Boolean(selectedSummary && selectedSummary.ui_generation_status !== "ready")}
+                    onClick={handleLoad}
+                    type="button"
+                  >
                     {isLoading ? "Loading..." : "Load Session"}
                   </button>
                   <button
@@ -440,7 +482,9 @@ export function SessionsShell({ view, availablePacks, currentUser }: SessionsShe
                 <div className="light-inline-note">
                   {panelMode === "create"
                     ? "Save creates the session and returns you to the list. The back arrow closes the draft without saving."
-                    : "Duplicate creates a new copy slot. Archive removes the selected slot from the active session inventory."}
+                    : selectedSummary?.ui_generation_status !== "ready"
+                      ? "This session is still generating UI. Load is disabled until it becomes ready."
+                      : "Duplicate creates a new copy slot. Archive removes the selected slot from the active session inventory."}
                 </div>
               </section>
 
@@ -473,6 +517,7 @@ function SessionSummaryBlock({ session }: { session: SessionSummary }) {
       <div className="light-copy">Enabled packs: {session.enabled_packs.join(", ")}</div>
       <div className="light-copy">Last location: {session.location_label}</div>
       <div className="light-copy">Last played: {session.updated_label}</div>
+      <div className="light-copy">UI status: {session.ui_generation_status}</div>
     </div>
   );
 }

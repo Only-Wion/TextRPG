@@ -120,6 +120,34 @@ class SessionService:
     ) -> None:
         self._ensure_user_owns_slot(user_id, save_slot)
         service = self._registry.for_user(user_id)
+        active_state = service.get_current_state_view()
+        if (
+            active_state.get("save_slot") == save_slot
+            and str(active_state.get("ui_generation_status") or "") == "ready"
+        ):
+            metadata_ready = True
+        else:
+            metadata_ready = False
+        summary = next(
+            (
+                item
+                for item in self._session_metadata_repository.list_session_summaries(
+                    user_id
+                )
+                if item.get("slot_id") == save_slot
+            ),
+            None,
+        )
+        if (
+            not metadata_ready
+            and summary
+            and str(summary.get("ui_generation_status") or "")
+            not in {
+                "",
+                "ready",
+            }
+        ):
+            raise ValueError("UI is still generating. Please wait until it is ready.")
         service.load_game(save_slot, language=language)
         self._apply_ui_binding(user_id, save_slot, service)
         self._hydrate_or_backfill_chat_history(user_id, save_slot)
@@ -174,6 +202,7 @@ class SessionService:
 
         active_state = service.get_current_state_view()
         active_slot = active_state.get("save_slot")
+        active_ui_status = str(active_state.get("ui_generation_status") or "").strip()
         selected_slot = (
             active_slot
             if active_slot in {summary["slot_id"] for summary in persisted_summaries}
@@ -183,6 +212,10 @@ class SessionService:
             selected_slot = (
                 persisted_summaries[0]["slot_id"] if persisted_summaries else "slot_001"
             )
+        if active_slot:
+            for summary in persisted_summaries:
+                if summary["slot_id"] == active_slot and active_ui_status:
+                    summary["ui_generation_status"] = active_ui_status
         return {
             "selected_slot": selected_slot,
             "backend_status": "online",
@@ -557,7 +590,10 @@ class PackService:
         self._pack_catalog_repository.remove_user_pack(user_id, pack_id)
 
     def enable_pack(self, user_id: str, pack_id: str, enabled: bool) -> None:
-        records = {record["pack_id"] for record in self._registry.for_user(user_id).list_packs()}
+        records = {
+            record["pack_id"]
+            for record in self._registry.for_user(user_id).list_packs()
+        }
         if pack_id not in records:
             raise ValueError("pack not found")
         self._pack_state_repository.set_pack_enabled(user_id, pack_id, enabled)
@@ -565,7 +601,9 @@ class PackService:
     def export_pack(self, user_id: str, pack_id: str, output_path: Path) -> None:
         self._registry.for_user(user_id).export_pack(pack_id, output_path)
 
-    def export_pack_to_runtime_exports(self, user_id: str, pack_id: str) -> dict[str, Any]:
+    def export_pack_to_runtime_exports(
+        self, user_id: str, pack_id: str
+    ) -> dict[str, Any]:
         return self._registry.for_user(user_id).export_pack_to_runtime_exports(pack_id)
 
     def create_pack(self, user_id: str, manifest: dict[str, Any]) -> None:
@@ -632,7 +670,9 @@ class PackService:
     ) -> None:
         self._registry.for_user(user_id).update_card(path, frontmatter, body)
 
-    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+    def validate_card(
+        self, user_id: str, frontmatter: dict[str, Any], body: str
+    ) -> None:
         self._registry.for_user(user_id).validate_card(frontmatter, body)
 
     def delete_card(self, user_id: str, pack_id: str, path: Path) -> None:
@@ -666,8 +706,12 @@ class PackService:
             user_id, pack_id, template_id
         )
         if in_use > 0:
-            raise ValueError(f"template is currently used by {in_use} active session(s)")
-        self._ui_template_repository.delete_pack_ui_template(user_id, pack_id, template_id)
+            raise ValueError(
+                f"template is currently used by {in_use} active session(s)"
+            )
+        self._ui_template_repository.delete_pack_ui_template(
+            user_id, pack_id, template_id
+        )
 
 
 class SettingsService:
@@ -789,7 +833,9 @@ class CardDesignerService:
         card = service.load_card(target)
         frontmatter = card.get("frontmatter", {})
         return {
-            "path": str(target.relative_to(service._pack_cards_root(pack_id))).replace("\\", "/"),
+            "path": str(target.relative_to(service._pack_cards_root(pack_id))).replace(
+                "\\", "/"
+            ),
             "pack_id": pack_id,
             "card_type": str(frontmatter.get("type", target.parent.name or "card")),
             "card_id": str(frontmatter.get("id", target.stem)),
@@ -811,22 +857,32 @@ class CardDesignerService:
         original_path: str | None = None,
     ) -> dict[str, Any]:
         service = self._service(user_id)
-        original = self._resolve_card_path(service, pack_id, original_path) if original_path else None
+        original = (
+            self._resolve_card_path(service, pack_id, original_path)
+            if original_path
+            else None
+        )
         saved = service.save_card(
             pack_id, card_type, card_id, frontmatter, body, original_path=original
         )
         return self.load_card(
             user_id,
             pack_id,
-            str(saved.relative_to(service._pack_cards_root(pack_id))).replace("\\", "/"),
+            str(saved.relative_to(service._pack_cards_root(pack_id))).replace(
+                "\\", "/"
+            ),
         )
 
-    def validate_card(self, user_id: str, frontmatter: dict[str, Any], body: str) -> None:
+    def validate_card(
+        self, user_id: str, frontmatter: dict[str, Any], body: str
+    ) -> None:
         self._service(user_id).validate_card(frontmatter, body)
 
     def delete_card(self, user_id: str, pack_id: str, card_path: str) -> None:
         service = self._service(user_id)
-        service.delete_card(pack_id, self._resolve_card_path(service, pack_id, card_path))
+        service.delete_card(
+            pack_id, self._resolve_card_path(service, pack_id, card_path)
+        )
 
     def create_agent_session(
         self, user_id: str, pack_id: str | None = None
@@ -851,7 +907,10 @@ class CardDesignerService:
         with activate_runtime_llm_settings(runtime_settings):
             result = self._agent_for_user(user_id).process(message, state)
         updated_state = result.get("state", state)
-        selected_pack_id = str(updated_state.get("selected_pack_id", "") or session.get("selected_pack_id", ""))
+        selected_pack_id = str(
+            updated_state.get("selected_pack_id", "")
+            or session.get("selected_pack_id", "")
+        )
         persisted = self._designer_repository.save_designer_session(
             user_id,
             session_id,

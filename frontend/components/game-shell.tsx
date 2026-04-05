@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,42 @@ type GameShellProps = {
   currentUser: AuthUser;
 };
 
+type PanelRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+};
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getInitialPanelRect(panel: Record<string, unknown>, index: number, zIndex: number): PanelRect {
+  const layout = (panel.layout ?? {}) as Record<string, unknown>;
+  const width = toFiniteNumber(layout.width) ?? 320;
+  const height = toFiniteNumber(layout.height) ?? 520;
+  const x = toFiniteNumber(layout.x) ?? (40 + (index % 3) * 36);
+  const y = toFiniteNumber(layout.y) ?? (120 + index * 24);
+  return {
+    x,
+    y,
+    width,
+    height,
+    zIndex,
+  };
+}
+
 export function GameShell({ state, currentUser }: GameShellProps) {
   const router = useRouter();
   const [runtimeState, setRuntimeState] = useState(state);
@@ -33,7 +69,12 @@ export function GameShell({ state, currentUser }: GameShellProps) {
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [uiEveryInput, setUiEveryInput] = useState(String(state.ui_auto_update_every || 1));
   const [uiBusy, setUiBusy] = useState(false);
+  const [panelRects, setPanelRects] = useState<Record<string, PanelRect>>({});
   const feedRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const panelRefs = useRef<Record<string, HTMLElement | null>>({});
+  const dragRef = useRef<{ panelId: string; offsetX: number; offsetY: number } | null>(null);
+  const zRef = useRef(10);
 
   const baseChatFeed =
     runtimeState.recent_messages.length > 0 ? runtimeState.recent_messages : runtimeState.chat_history;
@@ -53,6 +94,140 @@ export function GameShell({ state, currentUser }: GameShellProps) {
 
     feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [chatFeed]);
+
+  useEffect(() => {
+    const nextIds = new Set<string>();
+    setPanelRects((current) => {
+      const next: Record<string, PanelRect> = {};
+      let changed = false;
+      runtimeState.custom_ui_panels.forEach((panel, index) => {
+        const panelId = String(panel.panel_id ?? `panel-${index}`);
+        nextIds.add(panelId);
+        const existing = current[panelId];
+        if (existing) {
+          next[panelId] = existing;
+          return;
+        }
+        zRef.current += 1;
+        next[panelId] = getInitialPanelRect(panel as Record<string, unknown>, index, zRef.current);
+        changed = true;
+      });
+      Object.keys(current).forEach((panelId) => {
+        if (nextIds.has(panelId)) {
+          return;
+        }
+        changed = true;
+      });
+      return changed ? next : current;
+    });
+  }, [runtimeState.custom_ui_panels]);
+
+  useEffect(() => {
+    function onMouseMove(event: globalThis.MouseEvent) {
+      if (!dragRef.current) {
+        return;
+      }
+      const overlayEl = overlayRef.current;
+      if (!overlayEl) {
+        return;
+      }
+      const overlayBounds = overlayEl.getBoundingClientRect();
+      const { panelId, offsetX, offsetY } = dragRef.current;
+      setPanelRects((current) => {
+        const rect = current[panelId];
+        if (!rect) {
+          return current;
+        }
+        const rawX = event.clientX - offsetX - overlayBounds.left;
+        const rawY = event.clientY - offsetY - overlayBounds.top;
+        const maxX = Math.max(0, overlayBounds.width - rect.width);
+        const maxY = Math.max(0, overlayBounds.height - rect.height);
+        const nextX = Math.max(0, Math.min(rawX, maxX));
+        const nextY = Math.max(0, Math.min(rawY, maxY));
+        return {
+          ...current,
+          [panelId]: {
+            ...rect,
+            x: nextX,
+            y: nextY,
+          },
+        };
+      });
+    }
+
+    function onMouseUp() {
+      dragRef.current = null;
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
+  function bringPanelToFront(panelId: string) {
+    zRef.current += 1;
+    setPanelRects((current) => {
+      const rect = current[panelId];
+      if (!rect || rect.zIndex === zRef.current) {
+        return current;
+      }
+      return {
+        ...current,
+        [panelId]: {
+          ...rect,
+          zIndex: zRef.current,
+        },
+      };
+    });
+  }
+
+  function handlePanelDragStart(event: ReactMouseEvent<HTMLDivElement>, panelId: string) {
+    const panelEl = panelRefs.current[panelId];
+    if (!panelEl) {
+      return;
+    }
+    const bounds = panelEl.getBoundingClientRect();
+    dragRef.current = {
+      panelId,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+    };
+    bringPanelToFront(panelId);
+    event.preventDefault();
+  }
+
+  function handlePanelPointerDown(panelId: string) {
+    bringPanelToFront(panelId);
+  }
+
+  function syncPanelSize(panelId: string) {
+    const panelEl = panelRefs.current[panelId];
+    if (!panelEl) {
+      return;
+    }
+    const nextWidth = panelEl.offsetWidth;
+    const nextHeight = panelEl.offsetHeight;
+    setPanelRects((current) => {
+      const rect = current[panelId];
+      if (!rect) {
+        return current;
+      }
+      if (rect.width === nextWidth && rect.height === nextHeight) {
+        return current;
+      }
+      return {
+        ...current,
+        [panelId]: {
+          ...rect,
+          width: nextWidth,
+          height: nextHeight,
+        },
+      };
+    });
+  }
 
   async function refreshState() {
     const nextState = await getGameStateView();
@@ -340,7 +515,7 @@ export function GameShell({ state, currentUser }: GameShellProps) {
             </section>
           </div>
 
-          <div className="play-panel-overlay">
+          <div className="play-panel-overlay" ref={overlayRef}>
             {runtimeState.custom_ui_panels
               .filter((panel) => Boolean(panel.visible ?? true))
               .map((panel, index) => {
@@ -348,9 +523,28 @@ export function GameShell({ state, currentUser }: GameShellProps) {
                 const title = String(panel.title ?? panelId);
                 const html = typeof panel.html === "string" ? panel.html : "";
                 const sections = Array.isArray(panel.sections) ? panel.sections : [];
+                const rect = panelRects[panelId] ?? getInitialPanelRect(panel as Record<string, unknown>, index, 1);
                 return (
-                  <article className="play-floating-panel" key={panelId}>
-                    <div className="play-floating-title">{title}</div>
+                  <article
+                    className="play-floating-panel"
+                    key={panelId}
+                    onMouseDown={() => handlePanelPointerDown(panelId)}
+                    onMouseUp={() => syncPanelSize(panelId)}
+                    ref={(element) => {
+                      panelRefs.current[panelId] = element;
+                    }}
+                    style={{
+                      left: `${rect.x}px`,
+                      top: `${rect.y}px`,
+                      width: `${rect.width}px`,
+                      height: `${rect.height}px`,
+                      zIndex: rect.zIndex,
+                    }}
+                  >
+                    <div className="play-floating-title" onMouseDown={(event) => handlePanelDragStart(event, panelId)}>
+                      <span>{title}</span>
+                      <span className="play-floating-hint">drag | resize</span>
+                    </div>
                     {html ? (
                       <div className="play-floating-html" dangerouslySetInnerHTML={{ __html: html }} />
                     ) : (

@@ -1216,6 +1216,7 @@ button:disabled {
 }
 
 .play-main {
+  position: relative;
   height: calc(100vh - 48px);
   max-height: calc(100vh - 48px);
   overflow: hidden;
@@ -1490,25 +1491,47 @@ button:disabled {
 }
 
 .play-panel-overlay {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
 }
 
 .play-floating-panel {
+  position: absolute;
+  pointer-events: auto;
   border: 1px solid #d5dfea;
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 8px 16px rgba(34, 50, 74, 0.08);
   padding: 10px;
+  min-width: 240px;
+  min-height: 180px;
+  max-width: min(680px, 90vw);
+  max-height: min(760px, 78vh);
+  overflow: auto;
+  resize: both;
 }
 
 .play-floating-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px;
   font-weight: 700;
   color: #22324a;
   margin-bottom: 8px;
+  cursor: move;
+  user-select: none;
+  gap: 10px;
+}
+
+.play-floating-hint {
+  color: #60748f;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .play-floating-html {

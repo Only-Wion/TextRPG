@@ -59,6 +59,15 @@ class PostgresAuthRepository(
     def __init__(self, dsn: str):
         self.dsn = dsn
         ensure_schema(dsn)
+        self._ensure_runtime_columns()
+
+    def _ensure_runtime_columns(self) -> None:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "alter table user_session_metadata add column if not exists ui_generation_status text not null default 'ready'"
+                )
+            conn.commit()
 
     def create_user(self, email: str, username: str, password: str) -> dict[str, Any]:
         normalized_email = email.strip().lower()
@@ -365,7 +374,9 @@ class PostgresAuthRepository(
                 rows = cursor.fetchall() or []
         return [dict(row) for row in rows]
 
-    def get_user_pack(self, user_id: str, private_pack_id: str) -> dict[str, Any] | None:
+    def get_user_pack(
+        self, user_id: str, private_pack_id: str
+    ) -> dict[str, Any] | None:
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -389,7 +400,9 @@ class PostgresAuthRepository(
         return dict(row) if row else None
 
     def upsert_user_pack(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        private_pack_id = str(payload.get("private_pack_id") or payload.get("pack_id") or "").strip()
+        private_pack_id = str(
+            payload.get("private_pack_id") or payload.get("pack_id") or ""
+        ).strip()
         if not private_pack_id:
             raise ValueError("private_pack_id is required")
         internal_pack_id = str(payload.get("internal_pack_id") or uuid.uuid4())
@@ -467,7 +480,11 @@ class PostgresAuthRepository(
                         version,
                         str(payload.get("storage_backend") or "filesystem"),
                         str(payload.get("storage_path") or ""),
-                        str(payload.get("cards_root") or pack.get("cards_root") or "cards"),
+                        str(
+                            payload.get("cards_root")
+                            or pack.get("cards_root")
+                            or "cards"
+                        ),
                         as_json(payload.get("manifest") or {}),
                     ),
                 )
@@ -514,14 +531,15 @@ class PostgresAuthRepository(
                     """
                     insert into user_session_metadata (
                         user_id, save_slot, language, enabled_packs_json,
-                        location_label, turn_count, updated_label
-                    ) values (%s, %s, %s, %s, %s, %s, %s)
+                        location_label, turn_count, updated_label, ui_generation_status
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s)
                     on conflict(user_id, save_slot) do update set
                         language = excluded.language,
                         enabled_packs_json = excluded.enabled_packs_json,
                         location_label = excluded.location_label,
                         turn_count = excluded.turn_count,
-                        updated_label = excluded.updated_label
+                        updated_label = excluded.updated_label,
+                        ui_generation_status = excluded.ui_generation_status
                     """,
                     (
                         user_id,
@@ -531,6 +549,7 @@ class PostgresAuthRepository(
                         str(payload.get("location_label", "Unknown") or "Unknown"),
                         int(payload.get("turn_count", 0) or 0),
                         str(payload.get("updated_at", "unknown") or "unknown"),
+                        str(payload.get("ui_generation_status", "ready") or "ready"),
                     ),
                 )
             conn.commit()
@@ -540,7 +559,7 @@ class PostgresAuthRepository(
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    select save_slot, language, enabled_packs_json, location_label, turn_count, updated_label
+                    select save_slot, language, enabled_packs_json, location_label, turn_count, updated_label, ui_generation_status
                     from user_session_metadata
                     where user_id = %s
                     order by updated_label desc, save_slot asc
@@ -561,6 +580,7 @@ class PostgresAuthRepository(
                     "location_label": row["location_label"],
                     "turn_count": int(row["turn_count"] or 0),
                     "updated_label": row["updated_label"],
+                    "ui_generation_status": str(row["ui_generation_status"] or "ready"),
                 }
             )
         return summaries
