@@ -169,7 +169,6 @@ Behavior:
 - Returns all attributes grouped by entity id.
 
 Current implementation:
-- `game/core/world_store.py` (local backend)
 - `game/infrastructure/postgres/stores.py::PostgresWorldStore` (postgres backend)
 
 Contract:
@@ -191,7 +190,6 @@ Canonical operations:
 ### `all_edges() -> list[dict]`
 
 Current implementation:
-- `game/core/kg_store.py` (local backend)
 - `game/infrastructure/postgres/stores.py::PostgresKGStore` (postgres backend)
 
 Contract:

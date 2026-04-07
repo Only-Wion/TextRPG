@@ -48,7 +48,7 @@ class Settings:
     model_name: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
     base_url: str = os.getenv("OPENAI_BASE_URL", "")
-    storage_backend: str = os.getenv("TEXTRPG_STORAGE_BACKEND", "local")
+    storage_backend: str = os.getenv("TEXTRPG_STORAGE_BACKEND", "postgres")
     postgres_dsn: str = os.getenv("TEXTRPG_POSTGRES_DSN", "")
     pack_storage_backend: str = os.getenv("TEXTRPG_PACK_STORAGE_BACKEND", "local")
     oss_endpoint: str = os.getenv("TEXTRPG_OSS_ENDPOINT", "")
@@ -57,6 +57,7 @@ class Settings:
     oss_access_key_secret: str = os.getenv("TEXTRPG_OSS_ACCESS_KEY_SECRET", "")
     oss_prefix: str = os.getenv("TEXTRPG_OSS_PREFIX", "textrpg")
     oss_region: str = os.getenv("TEXTRPG_OSS_REGION", "")
+    ops_every_n_turns: int = int(os.getenv("TEXTRPG_OPS_EVERY_N_TURNS", "3"))
     top_k_cards: int = 6
     top_k_memories: int = 4
     max_recent_messages: int = 6

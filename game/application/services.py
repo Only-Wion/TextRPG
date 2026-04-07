@@ -263,6 +263,7 @@ class SessionService:
         self._session_index.archive_binding(user_id, save_slot)
         self._session_metadata_repository.delete_session_metadata(user_id, save_slot)
         self._chat_history_repository.delete_chat_history(user_id, save_slot)
+        self._ui_template_repository.delete_session_ui_binding(user_id, save_slot)
         return self.list_sessions(user_id)
 
     def set_language(self, user_id: str, language: str) -> None:

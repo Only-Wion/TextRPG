@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from copy import deepcopy
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional
@@ -27,20 +28,7 @@ from ..config import (
 )
 from ..core.card_repository import CardRepository
 from ..core.rule_engine import RuleEngine
-from ..core.rag_store import RAGStore
-from ..core.kg_store import KGStore
-from ..core.world_store import WorldStore
-from ..core.graph import (
-    apply_updates,
-    build_graph,
-    checkpoint,
-    ingest_input,
-    load_overlays,
-    plan_ops,
-    retrieve_context,
-    validate_ops,
-)
-from ..llm import llm_narrate_stream
+from ..core.graph import build_turn_graphs, retrieve_context, should_run_ops
 from ..infrastructure.contracts import (
     ChatHistoryStoreProtocol,
     KGStoreProtocol,
@@ -50,9 +38,7 @@ from ..infrastructure.contracts import (
     WorldStoreProtocol,
 )
 from ..infrastructure.session_files import (
-    ChatHistoryStore,
     SessionMetadataStore,
-    UIPanelStore,
 )
 from ..infrastructure.postgres.session_files import (
     PostgresChatHistoryStore,
@@ -87,7 +73,8 @@ class GameSession:
     kg: KGStoreProtocol
     rag: RAGStoreProtocol
     rules: RuleEngine
-    app: Any
+    narration_app: Any
+    ops_app: Any
     state: Dict[str, Any]
 
 
@@ -109,16 +96,16 @@ class GameService:
             packs_root=user_packs_root,
             registry_path=self._user_pack_registry_path,
         )
-        if SETTINGS.storage_backend == "postgres":
-            if not SETTINGS.postgres_dsn:
-                raise ValueError(
-                    "TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres"
-                )
-            self.chat_history_store = PostgresChatHistoryStore(SETTINGS.postgres_dsn)
-            self.ui_panel_store = PostgresUIPanelStore(SETTINGS.postgres_dsn)
-        else:
-            self.chat_history_store = ChatHistoryStore()
-            self.ui_panel_store = UIPanelStore()
+        if SETTINGS.storage_backend != "postgres":
+            raise ValueError(
+                "PostgreSQL-only mode requires TEXTRPG_STORAGE_BACKEND=postgres"
+            )
+        if not SETTINGS.postgres_dsn:
+            raise ValueError(
+                "TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres"
+            )
+        self.chat_history_store = PostgresChatHistoryStore(SETTINGS.postgres_dsn)
+        self.ui_panel_store = PostgresUIPanelStore(SETTINGS.postgres_dsn)
         self.session_metadata_store: SessionMetadataStoreProtocol = (
             SessionMetadataStore()
         )
@@ -200,23 +187,155 @@ class GameService:
         session = self._session
         session.state["turn_id"] = session.state.get("turn_id", 0) + 1
         session.state["player_input"] = input_text
+        turn_state = deepcopy(session.state)
+
+        ops_result_box: Dict[str, Any] = {}
+        ops_error_box: List[BaseException] = []
+        ops_thread = self._start_ops_branch(
+            session, turn_state, ops_result_box, ops_error_box
+        )
         try:
             with self._llm_settings_scope():
-                result = session.app.invoke(session.state)
+                narration_result = session.narration_app.invoke(turn_state)
         except Exception as exc:
             message = str(exc)
             # Surface common provider/model mismatches as a user-fixable 400 error.
             if "invalid_parameter_error" in message or "not supported" in message:
                 raise ValueError(f"LLM settings invalid: {message}") from exc
             raise
-        narration = result.get("narration", "")
-        session.state.update(result)
+        self._wait_for_ops_branch(ops_thread, ops_result_box, ops_error_box)
+        return self._finalize_turn(
+            session, input_text, narration_result, ops_result_box.get("result")
+        )
+
+    def step_stream(self, input_text: str):
+        if not self._session:
+            raise RuntimeError("game not started")
+
+        session = self._session
+        session.state["turn_id"] = session.state.get("turn_id", 0) + 1
+        session.state["player_input"] = input_text
+        turn_state = deepcopy(session.state)
+
+        ops_result_box: Dict[str, Any] = {}
+        ops_error_box: List[BaseException] = []
+        ops_thread = self._start_ops_branch(
+            session, turn_state, ops_result_box, ops_error_box
+        )
+
+        try:
+            with self._llm_settings_scope():
+                final_state: Dict[str, Any] | None = None
+                for mode, payload in session.narration_app.stream(
+                    turn_state,
+                    stream_mode=["custom", "values"],
+                ):
+                    if mode == "custom" and isinstance(payload, dict):
+                        if (
+                            payload.get("type") == "narration_delta"
+                            and isinstance(payload.get("delta"), str)
+                            and payload.get("delta")
+                        ):
+                            yield {"type": "narration_delta", "delta": payload["delta"]}
+                        continue
+
+                    if mode == "values" and isinstance(payload, dict):
+                        final_state = payload
+
+                if isinstance(final_state, dict):
+                    narration_result = final_state
+                else:
+                    narration_result = {}
+        except Exception as exc:
+            message = str(exc)
+            if "invalid_parameter_error" in message or "not supported" in message:
+                raise ValueError(f"LLM settings invalid: {message}") from exc
+            raise
+
+        self._wait_for_ops_branch(ops_thread, ops_result_box, ops_error_box)
+        result = self._finalize_turn(
+            session,
+            input_text,
+            narration_result,
+            ops_result_box.get("result"),
+        )
+        yield {
+            "type": "done",
+            "result": result,
+            "state_view": self.get_current_state_view(),
+        }
+
+    def _start_ops_branch(
+        self,
+        session: GameSession,
+        turn_state: Dict[str, Any],
+        result_box: Dict[str, Any],
+        error_box: List[BaseException],
+    ) -> threading.Thread | None:
+        if not should_run_ops(turn_state):
+            return None
+
+        def runner() -> None:
+            try:
+                with self._llm_settings_scope():
+                    result_box["result"] = session.ops_app.invoke(deepcopy(turn_state))
+            except Exception as exc:
+                error_box.append(exc)
+
+        thread = threading.Thread(target=runner, daemon=True)
+        thread.start()
+        return thread
+
+    def _wait_for_ops_branch(
+        self,
+        ops_thread: threading.Thread | None,
+        result_box: Dict[str, Any],
+        error_box: List[BaseException],
+    ) -> None:
+        if ops_thread is not None:
+            ops_thread.join()
+        if error_box:
+            exc = error_box[0]
+            message = str(exc)
+            if "invalid_parameter_error" in message or "not supported" in message:
+                raise ValueError(f"LLM settings invalid: {message}") from exc
+            raise exc
+
+    def _finalize_turn(
+        self,
+        session: GameSession,
+        input_text: str,
+        narration_result: Dict[str, Any],
+        ops_result: Dict[str, Any] | None,
+    ) -> Dict[str, Any]:
+        session.state.update(narration_result or {})
+        if isinstance(ops_result, dict):
+            session.state.update(ops_result)
+
+        narration = str(session.state.get("narration", ""))
+        result = {
+            "narration": narration,
+            "validated_ops": session.state.get("validated_ops", []),
+            "errors": session.state.get("errors", []),
+        }
+
         history = list(session.state.get("chat_history", []))
         history.append({"role": "user", "content": input_text})
         history.append({"role": "assistant", "content": narration})
         session.state["chat_history"] = history
         session.state["recent_messages"] = history[-10:]
+
         self._refresh_world_facts(session)
+        session.state.update(
+            retrieve_context(
+                session.state,
+                session.repo,
+                session.rag,
+                session.world,
+                session.kg,
+                session.rules,
+            )
+        )
         if session.state.get("ui_update_mode", "manual") == "auto":
             every = int(session.state.get("ui_auto_update_every", 1) or 1)
             if every <= 0:
@@ -228,77 +347,6 @@ class GameService:
         self._save_chat_history(session)
         self._persist_session_metadata(session)
         return result
-
-    def step_stream(self, input_text: str):
-        if not self._session:
-            raise RuntimeError("game not started")
-
-        session = self._session
-        session.state["turn_id"] = session.state.get("turn_id", 0) + 1
-        session.state["player_input"] = input_text
-
-        try:
-            with self._llm_settings_scope():
-                session.state.update(ingest_input(session.state))
-                session.state.update(load_overlays(session.state, session.repo))
-                session.state.update(
-                    retrieve_context(
-                        session.state,
-                        session.repo,
-                        session.rag,
-                        session.world,
-                        session.kg,
-                        session.rules,
-                    )
-                )
-                session.state.update(plan_ops(session.state))
-                session.state.update(validate_ops(session.state, session.rules))
-                session.state.update(
-                    apply_updates(session.state, session.world, session.kg, session.rag)
-                )
-
-                narration_parts: List[str] = []
-                for delta in llm_narrate_stream(session.state):
-                    narration_parts.append(delta)
-                    yield {"type": "narration_delta", "delta": delta}
-
-                narration = "".join(narration_parts)
-                session.state["narration"] = narration
-                session.state.update(
-                    checkpoint(session.state, session.world, session.kg, session.rag)
-                )
-        except Exception as exc:
-            message = str(exc)
-            if "invalid_parameter_error" in message or "not supported" in message:
-                raise ValueError(f"LLM settings invalid: {message}") from exc
-            raise
-
-        result = {
-            "narration": session.state.get("narration", ""),
-            "validated_ops": session.state.get("validated_ops", []),
-            "errors": session.state.get("errors", []),
-        }
-        history = list(session.state.get("chat_history", []))
-        history.append({"role": "user", "content": input_text})
-        history.append({"role": "assistant", "content": result["narration"]})
-        session.state["chat_history"] = history
-        session.state["recent_messages"] = history[-10:]
-        self._refresh_world_facts(session)
-        if session.state.get("ui_update_mode", "manual") == "auto":
-            every = int(session.state.get("ui_auto_update_every", 1) or 1)
-            if every <= 0:
-                every = 1
-            if session.state["turn_id"] % every == 0:
-                self._schedule_ui_update()
-        else:
-            self._refresh_custom_ui_panels(session)
-        self._save_chat_history(session)
-        self._persist_session_metadata(session)
-        yield {
-            "type": "done",
-            "result": result,
-            "state_view": self.get_current_state_view(),
-        }
 
     def set_language(self, language: str) -> None:
         if not self._session:
@@ -418,6 +466,11 @@ class GameService:
         if self._session and self._session.save_slot == save_slot:
             self._release_active_session()
 
+        # Clear runtime caches keyed by slot name (e.g. postgres session_key)
+        # to prevent stale chat/UI data from being reused by a future slot
+        # with the same save_slot id.
+        self._clear_slot_runtime_caches(save_slot)
+
         archived_path = self._resolve_archive_path(save_slot)
         archived_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(source_paths["data_dir"]), str(archived_path))
@@ -437,6 +490,25 @@ class GameService:
         )
         next_selected = remaining_slots[0] if remaining_slots else "slot_001"
         return self.list_sessions(selected_slot=next_selected)
+
+    def _clear_slot_runtime_caches(self, save_slot: str) -> None:
+        paths = get_slot_paths(save_slot)
+        try:
+            self.chat_history_store.save(paths["chat_history_path"], [])
+        except Exception:
+            logger.exception(
+                "ui-observe archive clear chat cache failed user=%s slot=%s",
+                self.user_id,
+                save_slot,
+            )
+        try:
+            self.ui_panel_store.save(paths["ui_panels_path"], [])
+        except Exception:
+            logger.exception(
+                "ui-observe archive clear ui cache failed user=%s slot=%s",
+                self.user_id,
+                save_slot,
+            )
 
     def get_llm_settings(self) -> Dict[str, Any]:
         return self._runtime_llm_settings.to_public_dict()
@@ -616,7 +688,7 @@ class GameService:
                         0.9,
                         "bootstrap",
                     )
-        app = build_graph(repo, rag, world, kg, rules)
+        graphs = build_turn_graphs(repo, rag, world, kg, rules)
         ui_cards = list(repo.by_type("ui"))
         logger.warning(
             "ui-observe session build user=%s slot=%s enabled_packs=%s ui_cards=%d ui_card_ids=%s",
@@ -661,7 +733,8 @@ class GameService:
             kg=kg,
             rag=rag,
             rules=rules,
-            app=app,
+            narration_app=graphs.narration_app,
+            ops_app=graphs.ops_app,
             state=state,
         )
         self._refresh_world_facts(session)

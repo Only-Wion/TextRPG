@@ -108,6 +108,56 @@ Notes:
 - `result` is the direct turn output from the application service.
 - `state_view` is the frontend-safe projection after the turn completes.
 - The turn updates the authenticated user's persisted chat history for the active save slot.
+- Turn execution now uses split branches:
+  - narration branch runs every turn.
+  - ops branch (`plan_ops -> validate_ops -> apply_updates`) runs every N turns.
+- N is controlled by environment variable `TEXTRPG_OPS_EVERY_N_TURNS` (default `3`).
+- On turns where ops is skipped, `result.validated_ops` and `result.errors` may keep the latest values from the most recent ops turn.
+
+Authentication:
+- `Authorization: Bearer <token>`
+
+### `POST /game/step/stream`
+
+Purpose:
+- Execute one turn with Server-Sent Events (SSE) incremental narration output.
+
+Request body:
+```json
+{
+  "input_text": "look around the tavern"
+}
+```
+
+Response shape:
+- `text/event-stream` with these event types:
+  - `narration_delta`
+  - `done`
+  - `error`
+
+Event payloads:
+```text
+event: narration_delta
+data: {"delta":"You "}
+
+event: narration_delta
+data: {"delta":"look around the tavern."}
+
+event: done
+data: {"result": {"narration": "You look around the tavern."}, "state_view": {}}
+```
+
+Error event payload:
+```text
+event: error
+data: {"detail":"stream step failed"}
+```
+
+Notes:
+- `done` payload is equivalent to the `POST /game/step` response shape.
+- Streaming and non-streaming turns share the same split turn architecture.
+- `narration_delta` is emitted from narration branch immediately.
+- ops branch may run in parallel and only triggers every N turns (`TEXTRPG_OPS_EVERY_N_TURNS`).
 
 Authentication:
 - `Authorization: Bearer <token>`

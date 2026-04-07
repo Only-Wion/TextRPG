@@ -55,6 +55,30 @@ Response:
 }
 ```
 
+## Step Turn (SSE Stream)
+
+Request:
+```bash
+curl -N -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  http://localhost:8000/game/step/stream \
+  -d '{"input_text":"look around"}'
+```
+
+Response stream (example):
+```text
+event: narration_delta
+data: {"delta":"You "}
+
+event: narration_delta
+data: {"delta":"look around."}
+
+event: done
+data: {"result":{"narration":"You look around."},"state_view":{"turn_id":1}}
+```
+
 ## List Sessions
 
 Request:

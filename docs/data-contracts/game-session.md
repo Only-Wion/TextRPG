@@ -187,6 +187,59 @@ Field notes:
 }
 ```
 
+Field behavior notes:
+- `result.narration` is updated every turn.
+- `result.validated_ops` and `result.errors` are refreshed on ops turns only.
+- ops cadence is controlled by `TEXTRPG_OPS_EVERY_N_TURNS` (default `3`).
+- On non-ops turns, `validated_ops` and `errors` may retain values from the latest ops turn.
+
+## StepStreamResponse (SSE)
+
+Endpoint:
+- `POST /game/step/stream`
+
+Media type:
+- `text/event-stream`
+
+Event sequence:
+- One or more `narration_delta` events.
+- One terminal `done` event containing final `GameActionResponse` payload.
+- Optional `error` event if the stream fails.
+
+Execution notes:
+- narration branch runs every turn and streams `narration_delta` incrementally.
+- ops branch runs every N turns and may execute in parallel with narration.
+- N is controlled by `TEXTRPG_OPS_EVERY_N_TURNS` (default `3`).
+
+`narration_delta` event data:
+```json
+{
+  "delta": "You "
+}
+```
+
+`done` event data:
+```json
+{
+  "result": {
+    "narration": "You look around the tavern."
+  },
+  "state_view": {
+    "turn_id": 1
+  }
+}
+```
+
+`error` event data:
+```json
+{
+  "detail": "stream step failed"
+}
+```
+
+Compatibility note:
+- `done` uses the same payload structure as `StepResponse`.
+
 ## UiModeRequest
 
 ```json

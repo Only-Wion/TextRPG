@@ -63,7 +63,7 @@ Purpose:
 Responsibilities:
 - Render session navigation shell
 - Render collapsible top control drawer
-- Render narration feed
+- Render narration feed (incremental stream deltas + finalized turn result)
 - Render command composer
 - Render left-sidebar inspector groups
 - Provide UI Agent controls in sidebar (manual/auto mode, N-turn auto interval, update/rebuild)
@@ -75,12 +75,19 @@ Primary backend dependencies:
 - `GET /auth/me`
 - `GET /game/state`
 - `POST /game/step`
+- `POST /game/step/stream`
 - `POST /game/load`
 - `PATCH /game/ui-mode`
 - `PATCH /game/ui-auto-update`
 - `POST /game/ui/update`
 - `POST /game/ui/generate`
 - `PATCH /game/ui/visibility`
+
+Turn-execution expectation:
+- narration is updated every turn and may arrive before ops processing finishes.
+- world-state mutations (`validated_ops`) are cadence-driven and run every N turns.
+- N is backend-configured by `TEXTRPG_OPS_EVERY_N_TURNS` (default `3`).
+- frontend should treat `result.narration` as always-fresh, while `result.validated_ops` may update less frequently.
 
 ### `/packs`
 
@@ -170,6 +177,7 @@ Current frontend write entrypoints live in:
 - `frontend/lib/api.ts#duplicateGameSession`
 - `frontend/lib/api.ts#archiveGameSession`
 - `frontend/lib/api.ts#stepGameSession`
+- `frontend/lib/api.ts#stepGameSessionStream`
 - `frontend/lib/api.ts#setPackEnabled`
 - `frontend/lib/api.ts#removePack`
 - `frontend/lib/api.ts#exportPack`
