@@ -168,6 +168,7 @@ export type GameStepStreamEvent =
 
 export type DesignerCardSummary = {
   path: string;
+  folder_path: string;
   card_id: string;
   card_type: string;
   category: string;
@@ -176,6 +177,7 @@ export type DesignerCardSummary = {
 
 export type DesignerCardPayload = {
   path: string;
+  folder_path: string;
   pack_id: string;
   card_type: string;
   card_id: string;
@@ -194,6 +196,7 @@ export type CreateDesignerPackRequest = {
 export type SaveDesignerCardRequest = {
   card_type: string;
   card_id: string;
+  folder_path?: string;
   frontmatter_text: string;
   body: string;
   original_path?: string;

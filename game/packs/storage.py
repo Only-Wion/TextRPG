@@ -5,6 +5,7 @@ from typing import Protocol
 import shutil
 import tempfile
 import zipfile
+import json
 
 from ..config import SETTINGS
 from .zip_utils import ensure_within_directory, safe_extract
@@ -40,6 +41,7 @@ class PackStorageProtocol(Protocol):
         cards_root: str,
         card_type: str,
         card_id: str,
+        folder_path: str | None,
         frontmatter: dict,
         body: str,
         original_path: Path | None = None,
@@ -65,6 +67,16 @@ def _resolve_card_type_dir(pack_root: Path, card_type: str) -> str:
     if (pack_root / plural).exists():
         return plural
     return plural
+
+
+def _normalize_nested_folder(folder_path: str | None) -> str:
+    raw = str(folder_path or "").replace("\\", "/").strip().strip("/")
+    if not raw:
+        return ""
+    parts = [segment.strip() for segment in raw.split("/")]
+    if any((not segment) or segment in {".", ".."} for segment in parts):
+        raise ValueError("folder path is invalid")
+    return "/".join(parts)
 
 
 class LocalPackStorage:
@@ -120,6 +132,7 @@ class LocalPackStorage:
         cards_root: str,
         card_type: str,
         card_id: str,
+        folder_path: str | None,
         frontmatter: dict,
         body: str,
         original_path: Path | None = None,
@@ -132,7 +145,11 @@ class LocalPackStorage:
         frontmatter["type"] = card_type
         validate_card_frontmatter(frontmatter, body)
         pack_root = self.get_pack_cards_root(pack_id, version, cards_root)
-        card_dir = pack_root / _resolve_card_type_dir(pack_root, card_type)
+        type_dir = _resolve_card_type_dir(pack_root, card_type)
+        nested_folder = _normalize_nested_folder(folder_path)
+        card_dir = pack_root / type_dir
+        if nested_folder:
+            card_dir = card_dir / Path(nested_folder)
         card_dir.mkdir(parents=True, exist_ok=True)
         path = card_dir / f"{card_id}.md"
         path.write_text(render_card(frontmatter, body), encoding="utf-8")
@@ -171,10 +188,10 @@ class LocalPackStorage:
 
 
 class OssPackStorage(LocalPackStorage):
-    """OSS-backed pack storage with a local cache mirror."""
+    """OSS-backed pack storage without persistent local cache writes."""
 
-    def __init__(self, packs_root: Path):
-        super().__init__(packs_root)
+    def __init__(self, packs_root: Path, user_namespace: str | None = None):
+        self.packs_root = packs_root
         if not SETTINGS.oss_endpoint or not SETTINGS.oss_bucket:
             raise ValueError(
                 "TEXTRPG_OSS_ENDPOINT and TEXTRPG_OSS_BUCKET are required for OSS pack storage"
@@ -190,12 +207,11 @@ class OssPackStorage(LocalPackStorage):
             SETTINGS.oss_bucket,
         )
         self._prefix = str(SETTINGS.oss_prefix or "textrpg").strip("/")
+        namespace = str(user_namespace or "default").strip().strip("/")
+        self._user_namespace = namespace or "default"
 
     def get_pack_dir(self, pack_id: str, version: str) -> Path:
-        local = super().get_pack_dir(pack_id, version)
-        if not local.exists():
-            self._download_pack(pack_id, version, local)
-        return local
+        return self.packs_root / pack_id / version
 
     def install_pack_from_zip(
         self,
@@ -204,18 +220,34 @@ class OssPackStorage(LocalPackStorage):
         version: str,
         cards_root: str,
     ) -> None:
-        super().install_pack_from_zip(zip_path, pack_id, version, cards_root)
-        self._upload_pack_dir(pack_id, version)
+        with zipfile.ZipFile(zip_path) as zf:
+            names = [name for name in zf.namelist() if not name.endswith("/")]
+            if not any(
+                Path(name).parts and Path(name).parts[0] == cards_root for name in names
+            ):
+                raise ValueError("cards_root missing in zip")
+            for name in names:
+                key = self._object_key(pack_id, version, Path(name))
+                self._bucket.put_object(key, zf.read(name))
 
     def remove_pack(self, pack_id: str, version: str) -> None:
         prefix = self._pack_prefix(pack_id, version)
         for obj in self._oss2.ObjectIterator(self._bucket, prefix=prefix):
             self._bucket.delete_object(obj.key)
-        super().remove_pack(pack_id, version)
 
     def export_pack(self, pack_id: str, version: str, output_path: Path) -> None:
-        self.get_pack_dir(pack_id, version)
-        super().export_pack(pack_id, version, output_path)
+        prefix = self._pack_prefix(pack_id, version)
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            found = False
+            for obj in self._oss2.ObjectIterator(self._bucket, prefix=prefix):
+                relative = obj.key[len(prefix) :].lstrip("/")
+                if not relative:
+                    continue
+                found = True
+                content = self._bucket.get_object(obj.key).read()
+                zf.writestr(relative, content)
+        if not found:
+            raise ValueError("pack files missing")
 
     def save_card(
         self,
@@ -224,85 +256,174 @@ class OssPackStorage(LocalPackStorage):
         cards_root: str,
         card_type: str,
         card_id: str,
+        folder_path: str | None,
         frontmatter: dict,
         body: str,
         original_path: Path | None = None,
     ) -> Path:
-        path = super().save_card(
-            pack_id,
-            version,
-            cards_root,
-            card_type,
-            card_id,
-            frontmatter,
-            body,
-            original_path=original_path,
+        from .card_editor import render_card
+        from .validator import validate_card_frontmatter
+
+        frontmatter = dict(frontmatter)
+        frontmatter["id"] = card_id
+        frontmatter["type"] = card_type
+        validate_card_frontmatter(frontmatter, body)
+
+        card_dir = self._resolve_card_type_dir_remote(
+            pack_id, version, cards_root, card_type
         )
-        self._upload_file(path, pack_id, version)
+        nested_folder = _normalize_nested_folder(folder_path)
+        relative = Path(cards_root) / card_dir
+        if nested_folder:
+            relative = relative / Path(nested_folder)
+        relative = relative / f"{card_id}.md"
+        path = self.get_pack_dir(pack_id, version) / relative
+        self._bucket.put_object(
+            self._object_key(pack_id, version, relative),
+            render_card(frontmatter, body).encode("utf-8"),
+        )
         if original_path:
-            self._delete_remote_path(original_path, pack_id, version)
+            pack_dir = self.get_pack_dir(pack_id, version)
+            old_target = Path(original_path)
+            if ensure_within_directory(pack_dir, old_target):
+                old_relative = old_target.relative_to(pack_dir)
+                # Only delete old object when path actually changed (rename/move).
+                if old_relative != relative:
+                    self._bucket.delete_object(
+                        self._object_key(pack_id, version, old_relative)
+                    )
         return path
 
     def update_card(self, path: Path, frontmatter: dict, body: str) -> None:
-        super().update_card(path, frontmatter, body)
+        from .card_editor import render_card
+        from .validator import validate_card_frontmatter
+
+        validate_card_frontmatter(frontmatter, body)
         pack_id, version = self._resolve_pack_from_path(path)
-        self._upload_file(path, pack_id, version)
+        pack_dir = self.get_pack_dir(pack_id, version)
+        if not ensure_within_directory(pack_dir, Path(path)):
+            raise ValueError("card path is outside pack root")
+        relative = Path(path).relative_to(pack_dir)
+        self._bucket.put_object(
+            self._object_key(pack_id, version, relative),
+            render_card(frontmatter, body).encode("utf-8"),
+        )
 
     def delete_card(
         self, pack_id: str, version: str, cards_root: str, path: Path
     ) -> None:
-        super().delete_card(pack_id, version, cards_root, path)
         self._delete_remote_path(path, pack_id, version)
 
     def sync_pack(self, pack_id: str, version: str) -> None:
-        pack_dir = super().get_pack_dir(pack_id, version)
-        if not pack_dir.exists():
+        prefix = self._pack_prefix(pack_id, version)
+        if not any(
+            True for _ in self._oss2.ObjectIterator(self._bucket, prefix=prefix)
+        ):
             raise ValueError("pack files missing")
-        self._upload_pack_dir(pack_id, version)
+
+    def list_card_paths(
+        self, pack_id: str, version: str, cards_root: str
+    ) -> list[Path]:
+        prefix = self._pack_prefix(pack_id, version)
+        cards_prefix = f"{prefix}/{str(cards_root).strip('/')}/"
+        root = self.get_pack_cards_root(pack_id, version, cards_root)
+        paths: list[Path] = []
+        for obj in self._oss2.ObjectIterator(self._bucket, prefix=cards_prefix):
+            rel = obj.key[len(prefix) :].lstrip("/")
+            if rel.endswith(".md"):
+                paths.append(root.parent / rel)
+        return sorted(paths)
+
+    def read_card_text(self, path: Path) -> str:
+        pack_id, version = self._resolve_pack_from_path(path)
+        pack_dir = self.get_pack_dir(pack_id, version)
+        target = Path(path)
+        if not ensure_within_directory(pack_dir, target):
+            raise ValueError("card path is outside pack root")
+        relative = target.relative_to(pack_dir)
+        data = self._bucket.get_object(
+            self._object_key(pack_id, version, relative)
+        ).read()
+        return data.decode("utf-8")
+
+    def card_exists(self, path: Path) -> bool:
+        try:
+            pack_id, version = self._resolve_pack_from_path(path)
+            pack_dir = self.get_pack_dir(pack_id, version)
+            target = Path(path)
+            if not ensure_within_directory(pack_dir, target):
+                return False
+            relative = target.relative_to(pack_dir)
+            key = self._object_key(pack_id, version, relative)
+            return bool(self._bucket.object_exists(key))
+        except Exception:
+            return False
+
+    def create_pack_manifest(
+        self,
+        pack_id: str,
+        version: str,
+        cards_root: str,
+        manifest: dict,
+    ) -> None:
+        manifest_rel = Path("pack.json")
+        self._bucket.put_object(
+            self._object_key(pack_id, version, manifest_rel),
+            json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+        )
+        keep_rel = Path(cards_root) / ".keep"
+        self._bucket.put_object(
+            self._object_key(pack_id, version, keep_rel),
+            b"",
+        )
 
     def _pack_prefix(self, pack_id: str, version: str) -> str:
-        return f"{self._prefix}/packs/{pack_id}/{version}"
+        return f"{self._prefix}/users/{self._user_namespace}/packs/{pack_id}/{version}"
 
     def _object_key(self, pack_id: str, version: str, relative_path: Path) -> str:
         relative = str(relative_path).replace("\\", "/").lstrip("/")
         return f"{self._pack_prefix(pack_id, version)}/{relative}"
 
-    def _upload_pack_dir(self, pack_id: str, version: str) -> None:
-        pack_dir = super().get_pack_dir(pack_id, version)
-        if not pack_dir.exists():
-            return
-        for path in pack_dir.rglob("*"):
-            if path.is_file():
-                self._upload_file(path, pack_id, version)
-
-    def _upload_file(self, path: Path, pack_id: str, version: str) -> None:
-        pack_dir = super().get_pack_dir(pack_id, version)
-        relative = path.relative_to(pack_dir)
-        self._bucket.put_object_from_file(
-            self._object_key(pack_id, version, relative), str(path)
-        )
-
-    def _download_pack(self, pack_id: str, version: str, dest_root: Path) -> None:
-        prefix = self._pack_prefix(pack_id, version)
-        found = False
-        for obj in self._oss2.ObjectIterator(self._bucket, prefix=prefix):
-            found = True
-            relative = obj.key[len(prefix) :].lstrip("/")
-            if not relative:
-                continue
-            target = dest_root / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            self._bucket.get_object_to_file(obj.key, str(target))
-        if found:
-            dest_root.mkdir(parents=True, exist_ok=True)
-
     def _delete_remote_path(self, path: Path, pack_id: str, version: str) -> None:
-        pack_dir = super().get_pack_dir(pack_id, version)
+        pack_dir = self.get_pack_dir(pack_id, version)
         target = Path(path)
         if not ensure_within_directory(pack_dir, target):
             return
         relative = target.relative_to(pack_dir)
         self._bucket.delete_object(self._object_key(pack_id, version, relative))
+
+    def _resolve_card_type_dir_remote(
+        self,
+        pack_id: str,
+        version: str,
+        cards_root: str,
+        card_type: str,
+    ) -> str:
+        normalized = str(card_type).strip()
+        if not normalized:
+            return "cards"
+        singular = normalized
+        plural = "memories" if normalized == "memory" else f"{normalized}s"
+        existing = self._list_card_type_dirs(pack_id, version, cards_root)
+        if singular in existing:
+            return singular
+        if plural in existing:
+            return plural
+        return plural
+
+    def _list_card_type_dirs(
+        self, pack_id: str, version: str, cards_root: str
+    ) -> set[str]:
+        prefix = f"{self._pack_prefix(pack_id, version)}/{str(cards_root).strip('/')}/"
+        result: set[str] = set()
+        for obj in self._oss2.ObjectIterator(self._bucket, prefix=prefix):
+            rel = obj.key[len(prefix) :].lstrip("/")
+            if not rel:
+                continue
+            first = rel.split("/", 1)[0].strip()
+            if first:
+                result.add(first)
+        return result
 
     def _resolve_pack_from_path(self, path: Path) -> tuple[str, str]:
         try:

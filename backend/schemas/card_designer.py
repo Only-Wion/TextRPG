@@ -20,6 +20,7 @@ class CreateCardTemplateRequest(BaseModel):
 class SaveDesignerCardRequest(BaseModel):
     card_type: str = Field(min_length=1)
     card_id: str = Field(min_length=1)
+    folder_path: str | None = None
     frontmatter: dict[str, Any] | None = None
     frontmatter_text: str | None = None
     body: str = ""
@@ -42,6 +43,7 @@ class DesignerAgentMessageRequest(BaseModel):
 
 class DesignerCardSummaryResponse(BaseModel):
     path: str
+    folder_path: str
     card_id: str
     card_type: str
     category: str
@@ -50,6 +52,7 @@ class DesignerCardSummaryResponse(BaseModel):
 
 class DesignerCardPayloadResponse(BaseModel):
     path: str
+    folder_path: str
     pack_id: str
     card_type: str
     card_id: str

@@ -138,6 +138,7 @@ Purpose:
 Responsibilities:
 - render three-column designer layout
 - edit or create one card
+- save cards into nested folders under the selected category/type (`folder_path`)
 - browse existing cards with filtering
 - reload and clear Existing Cards filters from the library panel
 - create a new pack manifest

@@ -46,11 +46,8 @@ from ..infrastructure.postgres.session_files import (
 )
 from ..infrastructure.store_factory import SessionStoreFactory
 from ..packs.manager import PackManager
-from ..packs.registry import PackRecord
 from ..packs.card_editor import (
     DEFAULT_CARD_TYPES,
-    parse_card,
-    render_card,
     validate_card,
 )
 from ..packs.validator import validate_manifest
@@ -91,10 +88,16 @@ class GameService:
         self._user_pack_root = USER_PACKS_DIR / self.user_id
         self._user_pack_registry_path = self._user_pack_root / "pack_registry.json"
         self._bootstrap_user_pack_namespace()
-        user_packs_root = packs_root or self._user_pack_root
+        if packs_root is not None:
+            user_packs_root = packs_root
+        elif SETTINGS.pack_storage_backend == "oss":
+            user_packs_root = Path(SETTINGS.pack_cache_root) / self.user_id
+        else:
+            user_packs_root = self._user_pack_root
         self.pack_manager = PackManager(
             packs_root=user_packs_root,
             registry_path=self._user_pack_registry_path,
+            user_namespace=self.user_id,
         )
         if SETTINGS.storage_backend != "postgres":
             raise ValueError(
@@ -145,6 +148,10 @@ class GameService:
             json.dumps(normalized_packs, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         for pack_id, payload in packs.items():
+            if SETTINGS.pack_storage_backend == "oss":
+                # OSS mode keeps a local cache under pack_cache_root; avoid persisting
+                # pack files inside data/user_packs.
+                continue
             if not isinstance(payload, dict):
                 continue
             version = str(payload.get("version", "")).strip()
@@ -573,6 +580,7 @@ class GameService:
         card_id: str,
         frontmatter: Dict[str, Any],
         body: str,
+        folder_path: str | None = None,
         original_path: Path | None = None,
     ) -> Path:
         return self.pack_manager.save_card(
@@ -581,6 +589,7 @@ class GameService:
             card_id,
             frontmatter,
             body,
+            folder_path=folder_path,
             original_path=original_path,
         )
 
@@ -594,32 +603,8 @@ class GameService:
         validate_manifest(data)
 
     def create_pack(self, manifest: Dict[str, Any]) -> None:
-        normalized_manifest = dict(manifest)
-        normalized_manifest["cards_root"] = str(
-            normalized_manifest.get("cards_root") or "cards"
-        )
-        validate_manifest(normalized_manifest)
-        pack_id = str(normalized_manifest["pack_id"])
-        version = str(normalized_manifest["version"])
-        pack_dir = self.pack_manager.packs_root / pack_id / version
-        if pack_dir.exists():
-            raise ValueError("pack already exists")
-        cards_root = Path(str(normalized_manifest["cards_root"]))
-        pack_dir.mkdir(parents=True, exist_ok=True)
-        (pack_dir / cards_root).mkdir(parents=True, exist_ok=True)
-        manifest_path = pack_dir / "pack.json"
-        manifest_path.write_text(json_dump(normalized_manifest), encoding="utf-8")
-        record = PackRecord(
-            pack_id=pack_id,
-            name=str(normalized_manifest["name"]),
-            version=version,
-            author=str(normalized_manifest["author"]),
-            description=str(normalized_manifest["description"]),
-            cards_root=str(normalized_manifest["cards_root"]),
-            enabled=False,
-            source="local",
-        )
-        self.pack_manager.registry.upsert(record)
+        record = self.pack_manager.create_pack(manifest)
+        self.pack_manager.sync_pack_content(record.pack_id)
 
     def get_card_template(self, card_type: str) -> Dict[str, Any]:
         normalized_type = str(card_type).strip() or "card"
@@ -635,8 +620,8 @@ class GameService:
         root = self._pack_cards_root(pack_id)
         existing: List[str] = []
         seen: set[str] = set()
-        for path in root.rglob("*.md"):
-            fm, _ = parse_card(path)
+        for path in self.pack_manager.list_pack_cards(pack_id):
+            fm = self.pack_manager.load_card(pack_id, path).get("frontmatter", {})
             t = str(fm.get("type", "")).strip()
             if t and t not in seen:
                 seen.add(t)
@@ -649,15 +634,30 @@ class GameService:
         return merged
 
     def list_pack_cards(self, pack_id: str) -> List[Path]:
-        root = self._pack_cards_root(pack_id)
-        return list(root.rglob("*.md"))
+        return self.pack_manager.list_pack_cards(pack_id)
 
-    def load_card(self, path: Path) -> Dict[str, Any]:
-        fm, body = parse_card(path)
-        return {"frontmatter": fm, "body": body}
+    def load_card(self, path: Path, pack_id: str | None = None) -> Dict[str, Any]:
+        resolved_pack_id = pack_id or self._infer_pack_id_from_card_path(path)
+        return self.pack_manager.load_card(resolved_pack_id, path)
 
     def delete_card(self, pack_id: str, path: Path) -> None:
         self.pack_manager.delete_card(pack_id, path)
+
+    def card_exists(self, pack_id: str, path: Path) -> bool:
+        return self.pack_manager.card_exists(pack_id, path)
+
+    def _infer_pack_id_from_card_path(self, path: Path) -> str:
+        raw = Path(path)
+        try:
+            rel = raw.resolve(strict=False).relative_to(
+                self.pack_manager.packs_root.resolve(strict=False)
+            )
+        except Exception:
+            rel = raw
+        parts = rel.parts
+        if not parts:
+            raise ValueError("invalid card path")
+        return str(parts[0])
 
     def _build_session(
         self, save_slot: str, language: Optional[str] = None

@@ -524,7 +524,8 @@ class PackService:
         )
         if not version:
             return
-        storage_path = f"{user_id}/{private_pack_id}/{version}/{cards_root}"
+        oss_prefix = str(SETTINGS.oss_prefix or "textrpg").strip("/")
+        storage_path = f"{oss_prefix}/users/{user_id}/packs/{private_pack_id}/{version}/{cards_root}"
         self._pack_catalog_repository.upsert_user_pack_version(
             user_id,
             private_pack_id,
@@ -655,6 +656,7 @@ class PackService:
         card_id: str,
         frontmatter: dict[str, Any],
         body: str,
+        folder_path: str | None = None,
         original_path: Path | None = None,
     ) -> Path:
         return self._registry.for_user(user_id).save_card(
@@ -663,6 +665,7 @@ class PackService:
             card_id,
             frontmatter,
             body,
+            folder_path=folder_path,
             original_path=original_path,
         )
 
@@ -803,7 +806,7 @@ class CardDesignerService:
         records: list[dict[str, Any]] = []
         for path in service.list_pack_cards(pack_id):
             rel_path = str(path.relative_to(root)).replace("\\", "/")
-            category_name = path.parent.name
+            category_name, folder_path = self._extract_category_and_folder(root, path)
             if (
                 normalized_category
                 and normalized_category.lower() != "all"
@@ -812,14 +815,19 @@ class CardDesignerService:
                 continue
             if normalized_keyword and normalized_keyword not in rel_path.lower():
                 continue
-            card = service.load_card(path)
+            card = service.load_card(path, pack_id)
             frontmatter = card.get("frontmatter", {})
             card_id = str(frontmatter.get("id", path.stem))
-            card_type = str(frontmatter.get("type", category_name or "card"))
+            card_type = str(
+                frontmatter.get("type")
+                or self._infer_card_type_from_category(category_name)
+                or "card"
+            )
             title = str(frontmatter.get("name") or frontmatter.get("title") or card_id)
             records.append(
                 {
                     "path": rel_path,
+                    "folder_path": folder_path,
                     "card_id": card_id,
                     "card_type": card_type,
                     "category": category_name,
@@ -831,14 +839,19 @@ class CardDesignerService:
     def load_card(self, user_id: str, pack_id: str, card_path: str) -> dict[str, Any]:
         service = self._service(user_id)
         target = self._resolve_card_path(service, pack_id, card_path)
-        card = service.load_card(target)
+        card = service.load_card(target, pack_id)
         frontmatter = card.get("frontmatter", {})
+        root = service._pack_cards_root(pack_id)
+        category_name, folder_path = self._extract_category_and_folder(root, target)
         return {
-            "path": str(target.relative_to(service._pack_cards_root(pack_id))).replace(
-                "\\", "/"
-            ),
+            "path": str(target.relative_to(root)).replace("\\", "/"),
+            "folder_path": folder_path,
             "pack_id": pack_id,
-            "card_type": str(frontmatter.get("type", target.parent.name or "card")),
+            "card_type": str(
+                frontmatter.get("type")
+                or self._infer_card_type_from_category(category_name)
+                or "card"
+            ),
             "card_id": str(frontmatter.get("id", target.stem)),
             "frontmatter": frontmatter,
             "body": str(card.get("body", "")),
@@ -853,6 +866,7 @@ class CardDesignerService:
         pack_id: str,
         card_type: str,
         card_id: str,
+        folder_path: str | None,
         frontmatter: dict[str, Any],
         body: str,
         original_path: str | None = None,
@@ -863,8 +877,20 @@ class CardDesignerService:
             if original_path
             else None
         )
+        normalized_folder = self._normalize_folder_path(folder_path)
+        if normalized_folder is None and original is not None:
+            normalized_folder = self._folder_path_from_existing(
+                service._pack_cards_root(pack_id),
+                original,
+            )
         saved = service.save_card(
-            pack_id, card_type, card_id, frontmatter, body, original_path=original
+            pack_id,
+            card_type,
+            card_id,
+            frontmatter,
+            body,
+            folder_path=normalized_folder,
+            original_path=original,
         )
         return self.load_card(
             user_id,
@@ -937,8 +963,46 @@ class CardDesignerService:
         root = service._pack_cards_root(pack_id)
         raw = Path(str(card_path).strip())
         target = raw if raw.is_absolute() else (root / raw)
-        if not target.exists():
+        if not service.card_exists(pack_id, target):
             raise ValueError("card not found")
         if not service._is_within(target, root):
             raise ValueError("card path is outside pack root")
         return target
+
+    def _extract_category_and_folder(self, root: Path, path: Path) -> tuple[str, str]:
+        rel = path.relative_to(root)
+        parts = rel.parts
+        if len(parts) <= 1:
+            return (path.parent.name, "")
+        category = str(parts[0]).strip()
+        folder = "/".join(str(part).strip() for part in parts[1:-1] if str(part).strip())
+        return (category, folder)
+
+    def _infer_card_type_from_category(self, category: str) -> str:
+        normalized = str(category).strip()
+        if not normalized:
+            return "card"
+        if normalized == "memories":
+            return "memory"
+        if normalized.endswith("s") and len(normalized) > 1:
+            return normalized[:-1]
+        return normalized
+
+    def _normalize_folder_path(self, folder_path: str | None) -> str | None:
+        if folder_path is None:
+            return None
+        raw = str(folder_path).replace("\\", "/").strip().strip("/")
+        if not raw:
+            return ""
+        if raw.startswith("/"):
+            raise ValueError("folder path must be relative")
+        parts = [segment.strip() for segment in raw.split("/")]
+        if any((not segment) or segment in {".", ".."} for segment in parts):
+            raise ValueError("folder path is invalid")
+        return "/".join(parts)
+
+    def _folder_path_from_existing(self, root: Path, path: Path) -> str:
+        rel = path.relative_to(root)
+        if len(rel.parts) <= 2:
+            return ""
+        return "/".join(rel.parts[1:-1])

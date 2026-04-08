@@ -50,13 +50,16 @@ class Settings:
     base_url: str = os.getenv("OPENAI_BASE_URL", "")
     storage_backend: str = os.getenv("TEXTRPG_STORAGE_BACKEND", "postgres")
     postgres_dsn: str = os.getenv("TEXTRPG_POSTGRES_DSN", "")
-    pack_storage_backend: str = os.getenv("TEXTRPG_PACK_STORAGE_BACKEND", "local")
+    pack_storage_backend: str = os.getenv("TEXTRPG_PACK_STORAGE_BACKEND", "oss")
     oss_endpoint: str = os.getenv("TEXTRPG_OSS_ENDPOINT", "")
     oss_bucket: str = os.getenv("TEXTRPG_OSS_BUCKET", "")
     oss_access_key_id: str = os.getenv("TEXTRPG_OSS_ACCESS_KEY_ID", "")
     oss_access_key_secret: str = os.getenv("TEXTRPG_OSS_ACCESS_KEY_SECRET", "")
     oss_prefix: str = os.getenv("TEXTRPG_OSS_PREFIX", "textrpg")
     oss_region: str = os.getenv("TEXTRPG_OSS_REGION", "")
+    pack_cache_root: str = os.getenv(
+        "TEXTRPG_PACK_CACHE_ROOT", "/tmp/textrpg_pack_cache"
+    )
     ops_every_n_turns: int = int(os.getenv("TEXTRPG_OPS_EVERY_N_TURNS", "3"))
     top_k_cards: int = 6
     top_k_memories: int = 4

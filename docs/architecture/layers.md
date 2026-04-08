@@ -58,7 +58,7 @@ Contains:
 - SQLite KG store.
 - Chroma RAG store.
 - Filesystem-based pack registry and pack storage.
-- Pack content storage now has an abstraction seam; the default backend remains local filesystem, and OSS-ready settings are read from `TEXTRPG_PACK_STORAGE_BACKEND` / `TEXTRPG_OSS_*`.
+- Pack content storage now runs in OSS-only mode (`TEXTRPG_PACK_STORAGE_BACKEND=oss`) with user-scoped object prefixes under `TEXTRPG_OSS_PREFIX`.
 - JSON persistence for chat history and UI panel cache.
 - Session store factory used by the application layer to resolve concrete store implementations.
 - PostgreSQL infrastructure implementations for server-side persistence.
