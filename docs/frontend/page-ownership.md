@@ -99,6 +99,7 @@ Current backend dependencies:
 - `GET /auth/me`
 - `GET /game/state`
 - `POST /game/step`
+- `POST /game/step/stream`
 - `POST /game/load`
 
 Current frontend behaviors:

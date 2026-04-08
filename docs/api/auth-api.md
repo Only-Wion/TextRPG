@@ -99,6 +99,7 @@ The following routes now require an authenticated user:
 - `POST /game/start`
 - `POST /game/load`
 - `POST /game/step`
+- `POST /game/step/stream`
 - `POST /game/sessions/{slot_id}/duplicate`
 - `POST /game/sessions/{slot_id}/archive`
 - `PATCH /game/ui-mode`

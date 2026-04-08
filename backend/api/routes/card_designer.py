@@ -106,6 +106,7 @@ def save_pack_card(
             pack_id,
             payload.card_type,
             payload.card_id,
+            payload.folder_path,
             _coerce_frontmatter(payload),
             payload.body,
             original_path=payload.original_path,

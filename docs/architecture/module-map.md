@@ -19,8 +19,8 @@ This file maps the current repository modules to the target layered architecture
 | `game/application/services.py` | application | keep | Thin service boundary for API-facing use cases. |
 | `game/service/ui_agents.py` | application | keep for now | UI panel business workflow. |
 | `game/packs/manager.py` | application + infrastructure | split later | Mixes use case logic with filesystem operations. |
-| `game/core/world_store.py` | infrastructure | relocate later | SQLite-backed implementation. |
-| `game/core/kg_store.py` | infrastructure | relocate later | SQLite-backed implementation. |
+| `game/infrastructure/postgres/stores.py::PostgresWorldStore` | infrastructure | keep | PostgreSQL-backed world attribute implementation. |
+| `game/infrastructure/postgres/stores.py::PostgresKGStore` | infrastructure | keep | PostgreSQL-backed KG edge implementation. |
 | `game/core/rag_store.py` | infrastructure | relocate later | Chroma-backed implementation. |
 | `game/packs/registry.py` | infrastructure | relocate later | JSON registry implementation. |
 | `game/infrastructure/contracts.py` | infrastructure | keep | Canonical store contracts for application-layer dependencies. |
@@ -50,8 +50,8 @@ Wrap without rewriting:
 - `game/llm.py`
 
 Treat as infrastructure even before moving files:
-- `game/core/world_store.py`
-- `game/core/kg_store.py`
+- `game/infrastructure/postgres/stores.py::PostgresWorldStore`
+- `game/infrastructure/postgres/stores.py::PostgresKGStore`
 - `game/core/rag_store.py`
 - `game/packs/registry.py`
 

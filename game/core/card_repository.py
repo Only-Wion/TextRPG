@@ -111,27 +111,3 @@ class CardRepository:
                 scored.append((score, card))
         scored.sort(key=lambda x: x[0], reverse=True)
         return [c for _, c in scored[:k]]
-
-    def load_overlays(self) -> List[Dict[str, Any]]:
-        """从各个根目录的 _overlay 中加载 overlay ops。"""
-        roots = [self.cards_dir] + list(self.extra_roots)
-        overlays: List[tuple[int, List[Dict[str, Any]]]] = []
-        for root in roots:
-            overlay_dir = root / "_overlay"
-            if not overlay_dir.exists():
-                continue
-            for path in overlay_dir.rglob("*.md"):
-                text = path.read_text(encoding="utf-8")
-                fm, _ = parse_frontmatter(text)
-                if fm.get("kind") != "overlay_ops":
-                    continue
-                priority = int(fm.get("priority", 0))
-                ops = fm.get("ops", []) or []
-                for op in ops:
-                    op["source"] = "overlay"
-                overlays.append((priority, ops))
-        overlays.sort(key=lambda x: x[0])
-        merged: List[Dict[str, Any]] = []
-        for _, ops in overlays:
-            merged.extend(ops)
-        return merged

@@ -117,18 +117,46 @@ function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview 
   }
 }
 
+function directoryOfCardPath(path: string): string {
+  const normalized = String(path || "").replace(/\\+/g, "/").replace(/^\/+|\/+$/g, "");
+  if (!normalized) {
+    return "";
+  }
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 1) {
+    return "";
+  }
+  parts.pop();
+  return parts.join("/");
+}
+
+function folderPathFromCurrentDirectory(currentDirectory: string): string {
+  const normalized = String(currentDirectory || "")
+    .replace(/\\+/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+  if (!normalized) {
+    return "";
+  }
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 1) {
+    return "";
+  }
+  return parts.slice(1).join("/");
+}
+
 export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps) {
   const [runtimePacks, setRuntimePacks] = useState(packs);
   const [mode, setMode] = useState<DesignerMode>(packs.length > 0 ? "edit" : "create-pack");
   const [selectedPackId, setSelectedPackId] = useState(packs[0]?.pack_id ?? "");
   const [cardTypes, setCardTypes] = useState<string[]>([]);
   const [cards, setCards] = useState<DesignerCardSummary[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [currentDirectory, setCurrentDirectory] = useState("");
   const [keyword, setKeyword] = useState("");
   const [editingCardPath, setEditingCardPath] = useState("");
   const [editingCardType, setEditingCardType] = useState("card");
   const [customCardType, setCustomCardType] = useState("");
   const [editingCardId, setEditingCardId] = useState("");
+  const [editingFolderPath, setEditingFolderPath] = useState("");
   const [frontmatterText, setFrontmatterText] = useState("{}");
   const [bodyText, setBodyText] = useState("");
   const [createPackDraft, setCreatePackDraft] = useState<CreatePackDraft>(createEmptyPackDraft());
@@ -146,10 +174,58 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     return Array.isArray(history) ? history : [];
   }, [agentSession]);
 
-  const categoryOptions = useMemo(() => {
-    const values = Array.from(new Set(cards.map((card) => card.category))).sort();
-    return ["All", ...values];
-  }, [cards]);
+  const normalizedCurrentDirectory = useMemo(
+    () => currentDirectory.trim().replace(/\\+/g, "/").replace(/^\/+|\/+$/g, ""),
+    [currentDirectory],
+  );
+
+  const currentDirectoryPrefix = normalizedCurrentDirectory ? `${normalizedCurrentDirectory}/` : "";
+
+  const visibleFolders = useMemo(() => {
+    const folders = new Set<string>();
+    for (const card of cards) {
+      const relative = currentDirectoryPrefix
+        ? card.path.startsWith(currentDirectoryPrefix)
+          ? card.path.slice(currentDirectoryPrefix.length)
+          : ""
+        : card.path;
+      if (!relative) {
+        continue;
+      }
+      const parts = relative.split("/").filter(Boolean);
+      if (parts.length > 1) {
+        folders.add(parts[0]);
+      }
+    }
+    return Array.from(folders).sort((a, b) => a.localeCompare(b));
+  }, [cards, currentDirectoryPrefix]);
+
+  const visibleCards = useMemo(() => {
+    return cards
+      .filter((card) => {
+        const relative = currentDirectoryPrefix
+          ? card.path.startsWith(currentDirectoryPrefix)
+            ? card.path.slice(currentDirectoryPrefix.length)
+            : ""
+          : card.path;
+        if (!relative) {
+          return false;
+        }
+        return !relative.includes("/");
+      })
+      .sort((a, b) => a.card_id.localeCompare(b.card_id));
+  }, [cards, currentDirectoryPrefix]);
+
+  const breadcrumbItems = useMemo(() => {
+    const parts = normalizedCurrentDirectory ? normalizedCurrentDirectory.split("/").filter(Boolean) : [];
+    const crumbs: Array<{ label: string; path: string }> = [{ label: "root", path: "" }];
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      crumbs.push({ label: part, path: current });
+    }
+    return crumbs;
+  }, [normalizedCurrentDirectory]);
 
   const agentTargetPackId = useMemo(() => {
     const sessionPackId = String(agentSession?.selected_pack_id ?? "").trim();
@@ -195,6 +271,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         }
         setCardTypes(nextTypes.length > 0 ? nextTypes : ["card"]);
         setCards(nextCards);
+        setCurrentDirectory("");
         if (!editingCardPath && nextTypes.length > 0) {
           setEditingCardType(nextTypes[0]);
         }
@@ -241,20 +318,13 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     };
   }, [selectedPackId, mode, agentSession]);
 
-  useEffect(() => {
-    if (selectedCategory !== "All" && !categoryOptions.includes(selectedCategory)) {
-      setSelectedCategory("All");
-    }
-  }, [categoryOptions, selectedCategory]);
-
-  async function refreshCards(packId: string, nextCategory?: string, nextKeyword?: string) {
+  async function refreshCards(packId: string, nextKeyword?: string) {
     if (!packId) {
       return;
     }
     setIsCardsLoading(true);
     try {
       const updated = await getDesignerCards(packId, {
-        category: nextCategory && nextCategory !== "All" ? nextCategory : undefined,
         keyword: nextKeyword?.trim() ? nextKeyword.trim() : undefined,
       });
       setCards(updated);
@@ -265,9 +335,14 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     }
   }
 
-  function resetEditor() {
+  function resetEditor(useCurrentDirectoryFolder: boolean = false) {
     setEditingCardPath("");
     setEditingCardId("");
+    setEditingFolderPath(
+      useCurrentDirectoryFolder
+        ? folderPathFromCurrentDirectory(normalizedCurrentDirectory)
+        : "",
+    );
     setCustomCardType("");
     setFrontmatterText("{}");
     setBodyText("");
@@ -287,6 +362,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       setEditingCardType(payload.card_type);
       setCustomCardType("");
       setEditingCardId(payload.card_id);
+      setEditingFolderPath(payload.folder_path || "");
+      setCurrentDirectory(directoryOfCardPath(payload.path));
       setFrontmatterText(stringifyFrontmatter(payload.frontmatter));
       setBodyText(payload.body);
       setSuccessMessage(`Loaded ${payload.path}`);
@@ -329,6 +406,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       const payload = await saveDesignerCard(selectedPackId, {
         card_type: currentCardType || "card",
         card_id: editingCardId.trim(),
+        folder_path: editingFolderPath.trim() || undefined,
         frontmatter_text: submittedFrontmatterText,
         body: submittedBodyText,
         original_path: editingCardPath || undefined,
@@ -336,7 +414,9 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       setEditingCardPath(payload.path);
       setEditingCardType(payload.card_type);
       setEditingCardId(payload.card_id);
-      await refreshCards(selectedPackId, selectedCategory, keyword);
+      setEditingFolderPath(payload.folder_path || "");
+      setCurrentDirectory(directoryOfCardPath(payload.path));
+      await refreshCards(selectedPackId, keyword);
       setSuccessMessage(`Saved ${payload.path}`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save the card.");
@@ -370,7 +450,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     try {
       await deleteDesignerCard(selectedPackId, editingCardPath);
       resetEditor();
-      await refreshCards(selectedPackId, selectedCategory, keyword);
+      await refreshCards(selectedPackId, keyword);
       setSuccessMessage("Card deleted.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to delete the card.");
@@ -431,7 +511,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       if (response.selected_pack_id && response.selected_pack_id !== selectedPackId) {
         setSelectedPackId(response.selected_pack_id);
       } else if (selectedPackId) {
-        await refreshCards(selectedPackId, selectedCategory, keyword);
+        await refreshCards(selectedPackId, keyword);
       }
       setAgentInput("");
     } catch (error) {
@@ -484,8 +564,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                       id="designer-pack-id"
                       onChange={(event) => {
                         setSelectedPackId(event.target.value);
-                        setSelectedCategory("All");
                         setKeyword("");
+                        setCurrentDirectory("");
                         setAgentSession(null);
                         setToolLogs([]);
                         resetEditor();
@@ -544,11 +624,24 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                     />
                   </div>
 
+                  <div className="settings-field">
+                    <label className="settings-label" htmlFor="designer-folder-path">
+                      Folder Path (optional)
+                    </label>
+                    <input
+                      className="light-input"
+                      id="designer-folder-path"
+                      onChange={(event) => setEditingFolderPath(event.target.value)}
+                      placeholder="e.g. main_story/chapter_01"
+                      value={editingFolderPath}
+                    />
+                  </div>
+
                   <div className="designer-inline-actions">
                     <button className="light-action-button load" onClick={handleGenerateTemplate} type="button">
                       Generate Template
                     </button>
-                    <button className="light-action-button archive" onClick={resetEditor} type="button">
+                    <button className="light-action-button archive" onClick={() => resetEditor(true)} type="button">
                       New Card
                     </button>
                   </div>
@@ -641,27 +734,12 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               {mode === "edit" ? (
                 <>
                   <div className="designer-filter-row">
-                    <select
-                      className="light-input"
-                      onChange={(event) => {
-                        const nextCategory = event.target.value;
-                        setSelectedCategory(nextCategory);
-                        void refreshCards(selectedPackId, nextCategory, keyword);
-                      }}
-                      value={selectedCategory}
-                    >
-                      {categoryOptions.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
                     <input
                       className="light-input"
                       onChange={(event) => {
                         const nextKeyword = event.target.value;
                         setKeyword(nextKeyword);
-                        void refreshCards(selectedPackId, selectedCategory, nextKeyword);
+                        void refreshCards(selectedPackId, nextKeyword);
                       }}
                       placeholder="Search cards"
                       value={keyword}
@@ -669,33 +747,78 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                     <button
                       className="light-action-button load"
                       disabled={isCardsLoading || !selectedPackId}
-                      onClick={() => void refreshCards(selectedPackId, selectedCategory, keyword)}
+                      onClick={() => void refreshCards(selectedPackId, keyword)}
                       type="button"
                     >
                       {isCardsLoading ? "Loading..." : "Reload"}
                     </button>
                     <button
                       className="light-action-button archive"
-                      disabled={isCardsLoading || (!keyword && selectedCategory === "All")}
+                      disabled={isCardsLoading || (!keyword && !currentDirectory)}
                       onClick={() => {
-                        setSelectedCategory("All");
                         setKeyword("");
-                        void refreshCards(selectedPackId, "All", "");
+                        setCurrentDirectory("");
+                        void refreshCards(selectedPackId, "");
                       }}
                       type="button"
                     >
-                      Clear Filters
+                      Reset View
                     </button>
+                  </div>
+
+                  <div className="designer-filter-row">
+                    <button
+                      className="light-action-button archive"
+                      disabled={!normalizedCurrentDirectory}
+                      onClick={() => {
+                        const parts = normalizedCurrentDirectory.split("/").filter(Boolean);
+                        parts.pop();
+                        setCurrentDirectory(parts.join("/"));
+                      }}
+                      type="button"
+                    >
+                      Up
+                    </button>
+                    <div className="light-inline-note" style={{ flex: 1 }}>
+                      {breadcrumbItems.map((crumb, index) => (
+                        <span key={crumb.path || "root"}>
+                          {index > 0 ? " / " : ""}
+                          <button
+                            className="light-action-button load"
+                            onClick={() => setCurrentDirectory(crumb.path)}
+                            style={{ padding: "2px 8px", minHeight: "auto" }}
+                            type="button"
+                          >
+                            {crumb.label}
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="light-inline-note">
                     {isCardsLoading
                       ? "Loading existing cards..."
-                      : `Showing ${cards.length} card${cards.length === 1 ? "" : "s"}.`}
+                      : `Showing ${visibleFolders.length} folder${visibleFolders.length === 1 ? "" : "s"} and ${visibleCards.length} card${visibleCards.length === 1 ? "" : "s"} in ${normalizedCurrentDirectory || "root"}.`}
                   </div>
 
                   <div className="designer-card-list">
-                    {cards.map((card) => (
+                    {visibleFolders.map((folder) => {
+                      const nextPath = normalizedCurrentDirectory ? `${normalizedCurrentDirectory}/${folder}` : folder;
+                      return (
+                        <button
+                          className="designer-card-row"
+                          key={`folder:${nextPath}`}
+                          onClick={() => setCurrentDirectory(nextPath)}
+                          type="button"
+                        >
+                          <div className="designer-card-title">[Folder] {folder}</div>
+                          <div className="designer-card-meta">{nextPath}</div>
+                        </button>
+                      );
+                    })}
+
+                    {visibleCards.map((card) => (
                       <button
                         className={`designer-card-row ${card.path === editingCardPath ? "active" : ""}`}
                         key={card.path}
@@ -709,7 +832,9 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                         <div className="designer-card-path">{card.path}</div>
                       </button>
                     ))}
-                    {cards.length === 0 ? <div className="light-inline-note">No cards matched the current filters.</div> : null}
+                    {visibleFolders.length === 0 && visibleCards.length === 0 ? (
+                      <div className="light-inline-note">No folders or cards in current directory.</div>
+                    ) : null}
                   </div>
                 </>
               ) : (

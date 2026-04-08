@@ -1,4 +1,4 @@
----
+                                                                                                                                                                                                                                                                                                                                                                                                                                                             ---
 id: player-status
 name: "\u73A9\u5BB6\u72B6\u6001\u9762\u677F"
 type: ui

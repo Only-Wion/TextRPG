@@ -50,7 +50,7 @@ Per-version metadata for a user-owned pack:
 {
   "version": "0.1.0",
   "storage_backend": "oss",
-  "storage_path": "<user_id>/starter_kingdom/0.1.0/cards",
+  "storage_path": "<oss_prefix>/users/<user_id>/packs/starter_kingdom/0.1.0/cards",
   "cards_root": "cards",
   "manifest": {
     "pack_id": "starter_kingdom",
@@ -84,9 +84,10 @@ Field notes:
 - `cards_root` is kept in `PackRecord` for runtime compatibility, but Card Designer create-pack requests no longer require user input for it.
 - Pack IDs are currently treated as private IDs inside one user namespace.
 - Planned marketplace public IDs (`public_pack_id`) are reserved for future publication flows and remain unimplemented.
-- Pack content storage is being abstracted; current default backend is local filesystem, and OSS migration settings are read from `TEXTRPG_PACK_STORAGE_BACKEND`, `TEXTRPG_OSS_ENDPOINT`, `TEXTRPG_OSS_BUCKET`, `TEXTRPG_OSS_ACCESS_KEY_ID`, `TEXTRPG_OSS_ACCESS_KEY_SECRET`, `TEXTRPG_OSS_PREFIX`, and `TEXTRPG_OSS_REGION`.
-- The OSS backend keeps a local cache mirror for the existing Path-based card editing flow, so the server still needs writable disk for the cache directory.
-- User-scoped pack namespace root is `data/user_packs/<user_id>/`.
+- Pack content storage is OSS-only; required settings are `TEXTRPG_PACK_STORAGE_BACKEND=oss`, `TEXTRPG_OSS_ENDPOINT`, `TEXTRPG_OSS_BUCKET`, `TEXTRPG_OSS_ACCESS_KEY_ID`, `TEXTRPG_OSS_ACCESS_KEY_SECRET`, `TEXTRPG_OSS_PREFIX`, and `TEXTRPG_OSS_REGION`.
+- OSS card operations are now served directly from object storage; no persistent local pack-file cache is required.
+- Registry metadata remains under `data/user_packs/<user_id>/pack_registry.json`; pack markdown content is stored under OSS keys only.
+- OSS user-scoped namespace root is `<oss_prefix>/users/<user_id>/packs/`.
 
 ## Pack Enable State
 

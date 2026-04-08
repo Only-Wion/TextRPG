@@ -6,7 +6,7 @@ Status:
 - Current implementation: local-development backend contract
 - Current storage backing: local sqlite + file storage
 - Target production backing: PostgreSQL + file storage
-- Pack content storage is behind a backend abstraction; the default path remains filesystem-backed local cache, and an OSS backend can be enabled through `TEXTRPG_PACK_STORAGE_BACKEND=oss` plus the `TEXTRPG_OSS_*` environment variables.
+- Pack content storage is OSS-only and requires `TEXTRPG_PACK_STORAGE_BACKEND=oss` with `TEXTRPG_OSS_*` environment variables.
 
 Authentication:
 - Every route below requires `Authorization: Bearer <token>`
@@ -21,9 +21,8 @@ Response:
 
 Notes:
 - This route is editing-oriented and is intended for the Card Designer page.
-- Pack files remain filesystem-backed.
-- When OSS pack storage is enabled, the filesystem paths are a local cache mirror of the object store.
-- Pack content namespace is user-scoped: `data/user_packs/<user_id>/<pack_id>/<version>/<cards_root>`.
+- Pack files are persisted in OSS directly; backend card read/write no longer depends on persistent local pack caches.
+- OSS object namespace is user-scoped: `<oss_prefix>/users/<user_id>/packs/<pack_id>/<version>/<cards_root>/...`.
 
 ## `POST /card-designer/packs`
 
@@ -71,6 +70,7 @@ Response shape:
 [
   {
     "path": "characters/bartender.md",
+    "folder_path": "",
     "card_id": "bartender",
     "card_type": "character",
     "category": "characters",
@@ -80,9 +80,9 @@ Response shape:
 ```
 
 Notes:
-- This endpoint reads card files from user-scoped pack paths (`data/user_packs/<user_id>/<pack_id>/<version>/<cards_root>`), not from a PostgreSQL card table.
+- This endpoint reads card files from OSS user-scoped object keys, not from a PostgreSQL card table.
 - In `postgres` backend mode, PostgreSQL persists user/session metadata; pack/card content remains file-backed.
-- In OSS mode, those filesystem paths are the local cache mirror; the object store is the source of truth.
+- In OSS mode, object storage is the only source of truth for pack files.
 
 ## `GET /card-designer/packs/{pack_id}/cards/{card_path}`
 
@@ -93,6 +93,7 @@ Response shape:
 ```json
 {
   "path": "characters/bartender.md",
+  "folder_path": "",
   "pack_id": "starter_kingdom",
   "card_type": "character",
   "card_id": "bartender",
@@ -123,6 +124,7 @@ Request body:
 {
   "card_type": "character",
   "card_id": "bartender",
+  "folder_path": "main_story/chapter_01",
   "frontmatter_text": "{\n  \"id\": \"bartender\",\n  \"type\": \"character\"\n}",
   "body": "Card body markdown",
   "original_path": "characters/old_bartender.md"
@@ -135,6 +137,9 @@ Response:
 Notes:
 - The current frontend sends `frontmatter_text` so the browser does not need a YAML dependency.
 - The backend also accepts structured `frontmatter` for future clients.
+- `folder_path` is optional and represents a nested directory under the type directory.
+  Example final path: `events/main_story/chapter_01/event-a.md`.
+- If `folder_path` is omitted while editing an existing card (`original_path` provided), backend keeps the card in its original nested folder by default.
 
 ## `POST /card-designer/cards/validate`
 

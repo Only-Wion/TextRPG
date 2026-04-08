@@ -52,8 +52,8 @@ Required environment variables:
 
 Important runtime behavior:
 
-- OSS backend keeps a local cache mirror under the existing pack filesystem root.
-- Server still needs writable local disk for the cache mirror.
+- OSS backend serves pack files directly from object storage.
+- Persistent local pack-file cache is not required.
 
 ### One-time Sync for Existing Packs
 

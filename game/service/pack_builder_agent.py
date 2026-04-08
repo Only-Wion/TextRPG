@@ -428,6 +428,9 @@ class PackBuilderAgent:
         return {
             "card_type": card_type,
             "card_id": card_id,
+            "folder_path": (
+                str(data.get("folder_path", "")).strip() if data.get("folder_path") is not None else ""
+            ),
             "frontmatter": frontmatter,
             "body": str(data.get("body", "") or "TBD"),
         }
@@ -487,11 +490,12 @@ class PackBuilderAgent:
             "save_card": StructuredTool.from_function(
                 name="save_card",
                 description="保存单张卡牌。",
-                func=lambda pack_id="", card_type="card", card_id="new_card", frontmatter=None, body="": self._tool_save_card(
+                func=lambda pack_id="", card_type="card", card_id="new_card", folder_path="", frontmatter=None, body="": self._tool_save_card(
                     {
                         "pack_id": pack_id,
                         "card_type": card_type,
                         "card_id": card_id,
+                        "folder_path": folder_path,
                         "frontmatter": frontmatter or {},
                         "body": body,
                     },
@@ -581,11 +585,11 @@ class PackBuilderAgent:
         root = self.service._pack_cards_root(resolved)
         path = Path(str(card_path).strip())
         target = path if path.is_absolute() else (root / path)
-        if not target.exists():
+        if not self.service.card_exists(resolved, target):
             return f"read_card failed: file not found -> {card_path}"
         if not self.service._is_within(target, root):
             return "read_card failed: card path is outside pack root"
-        card = self.service.load_card(target)
+        card = self.service.load_card(target, resolved)
         payload = {
             "path": str(target.relative_to(root)).replace("\\", "/"),
             "frontmatter": card.get("frontmatter", {}),
@@ -602,9 +606,12 @@ class PackBuilderAgent:
             card_id=card_payload["card_id"],
             frontmatter=card_payload["frontmatter"],
             body=card_payload["body"],
+            folder_path=card_payload.get("folder_path") or None,
         )
         state["selected_pack_id"] = pack_id
-        return f"save_card -> {pack_id}/{card_payload['card_type']}/{card_payload['card_id']}"
+        folder = str(card_payload.get("folder_path", "") or "").strip()
+        suffix = f"/{folder}" if folder else ""
+        return f"save_card -> {pack_id}/{card_payload['card_type']}{suffix}/{card_payload['card_id']}"
 
     def _tool_batch_save_cards(
         self, pack_id: str, cards: List[Dict[str, Any]], state: Dict[str, Any]
@@ -639,7 +646,7 @@ class PackBuilderAgent:
         invalid = 0
         for path in cards:
             try:
-                fm = self.service.load_card(path).get("frontmatter", {})
+                fm = self.service.load_card(path, pack_id).get("frontmatter", {})
                 cid = str(fm.get("id", "")).strip() or path.stem
                 ids[cid] = ids.get(cid, 0) + 1
             except Exception:

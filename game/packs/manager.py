@@ -11,8 +11,9 @@ import requests
 import yaml
 
 from ..config import ENGINE_VERSION, PACKS_DIR, PACK_REGISTRY_PATH, SETTINGS
+from .card_editor import parse_card
 from .registry import PackRecord, PackRegistry
-from .storage import LocalPackStorage, OssPackStorage, PackStorageProtocol
+from .storage import OssPackStorage, PackStorageProtocol
 from .validator import PACK_ID_RE, SEMVER_RE, validate_manifest
 
 MAX_ZIP_BYTES = 50 * 1024 * 1024
@@ -26,13 +27,16 @@ class PackManager:
         packs_root: Path = PACKS_DIR,
         registry_path: Path = PACK_REGISTRY_PATH,
         storage: PackStorageProtocol | None = None,
+        user_namespace: str | None = None,
     ):
         if storage is not None:
             self.storage = storage
-        elif SETTINGS.pack_storage_backend == "oss":
-            self.storage = OssPackStorage(packs_root)
         else:
-            self.storage = LocalPackStorage(packs_root)
+            if SETTINGS.pack_storage_backend != "oss":
+                raise ValueError(
+                    "Pack storage is OSS-only. Set TEXTRPG_PACK_STORAGE_BACKEND=oss"
+                )
+            self.storage = OssPackStorage(packs_root, user_namespace=user_namespace)
         self.packs_root = self.storage.packs_root
         self.registry = PackRegistry(registry_path)
 
@@ -141,6 +145,49 @@ class PackManager:
             pack_id, record.version, record.cards_root
         )
 
+    def create_pack(self, manifest: Dict[str, Any]) -> PackRecord:
+        normalized_manifest = dict(manifest)
+        normalized_manifest["cards_root"] = str(
+            normalized_manifest.get("cards_root") or "cards"
+        )
+        validate_manifest(normalized_manifest)
+        pack_id = str(normalized_manifest["pack_id"])
+        version = str(normalized_manifest["version"])
+        if self.registry.get(pack_id):
+            raise ValueError("pack already exists")
+
+        if isinstance(self.storage, OssPackStorage):
+            self.storage.create_pack_manifest(
+                pack_id,
+                version,
+                str(normalized_manifest["cards_root"]),
+                normalized_manifest,
+            )
+        else:
+            pack_dir = self.packs_root / pack_id / version
+            if pack_dir.exists():
+                raise ValueError("pack already exists")
+            cards_root = Path(str(normalized_manifest["cards_root"]))
+            pack_dir.mkdir(parents=True, exist_ok=True)
+            (pack_dir / cards_root).mkdir(parents=True, exist_ok=True)
+            (pack_dir / "pack.json").write_text(
+                json.dumps(normalized_manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+        record = PackRecord(
+            pack_id=pack_id,
+            name=str(normalized_manifest["name"]),
+            version=version,
+            author=str(normalized_manifest["author"]),
+            description=str(normalized_manifest["description"]),
+            cards_root=str(normalized_manifest["cards_root"]),
+            enabled=False,
+            source="local",
+        )
+        self.registry.upsert(record)
+        return record
+
     def create_card(
         self,
         pack_id: str,
@@ -149,7 +196,14 @@ class PackManager:
         frontmatter: Dict[str, Any],
         body: str,
     ) -> Path:
-        return self.save_card(pack_id, card_type, card_id, frontmatter, body)
+        return self.save_card(
+            pack_id,
+            card_type,
+            card_id,
+            frontmatter,
+            body,
+            folder_path=None,
+        )
 
     def save_card(
         self,
@@ -158,6 +212,7 @@ class PackManager:
         card_id: str,
         frontmatter: Dict[str, Any],
         body: str,
+        folder_path: str | None = None,
         original_path: Path | None = None,
     ) -> Path:
         record = self.registry.get(pack_id)
@@ -169,6 +224,7 @@ class PackManager:
             record.cards_root,
             card_type,
             card_id,
+            folder_path,
             frontmatter,
             body,
             original_path=original_path,
@@ -182,6 +238,34 @@ class PackManager:
         if not record:
             raise ValueError("pack not found")
         self.storage.delete_card(pack_id, record.version, record.cards_root, path)
+
+    def list_pack_cards(self, pack_id: str) -> List[Path]:
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        if isinstance(self.storage, OssPackStorage):
+            return self.storage.list_card_paths(
+                pack_id, record.version, record.cards_root
+            )
+        root = self.storage.get_pack_cards_root(
+            pack_id, record.version, record.cards_root
+        )
+        return list(root.rglob("*.md"))
+
+    def load_card(self, pack_id: str, path: Path) -> Dict[str, Any]:
+        if isinstance(self.storage, OssPackStorage):
+            text = self.storage.read_card_text(path)
+            return self._parse_card_text(text)
+        fm, body = parse_card(path)
+        return {"frontmatter": fm, "body": body}
+
+    def card_exists(self, pack_id: str, path: Path) -> bool:
+        record = self.registry.get(pack_id)
+        if not record:
+            return False
+        if isinstance(self.storage, OssPackStorage):
+            return self.storage.card_exists(path)
+        return Path(path).exists()
 
     def sync_pack_content(self, pack_id: str) -> None:
         """同步指定卡包内容到当前存储后端。"""
@@ -242,3 +326,14 @@ class PackManager:
             return
         if isinstance(requires, str) and requires > ENGINE_VERSION:
             raise ValueError("engine version too low for this pack")
+
+    def _parse_card_text(self, text: str) -> Dict[str, Any]:
+        raw = text or ""
+        if raw.startswith("---"):
+            parts = raw.split("---", 2)
+            fm = yaml.safe_load(parts[1]) or {}
+            body = parts[2].lstrip("\n")
+            if not isinstance(fm, dict):
+                fm = {}
+            return {"frontmatter": fm, "body": body}
+        return {"frontmatter": {}, "body": raw}
