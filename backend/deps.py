@@ -14,7 +14,6 @@ from game.application.services import (
     SessionService,
     SettingsService,
 )
-from game.infrastructure.auth_sqlite import SqliteAuthRepository
 from game.infrastructure.postgres.auth_repository import PostgresAuthRepository
 from game.service.api import GameService
 
@@ -33,14 +32,16 @@ def get_game_service_registry() -> GameServiceRegistry:
 
 
 @lru_cache(maxsize=1)
-def get_auth_repository() -> SqliteAuthRepository | PostgresAuthRepository:
-    if SETTINGS.storage_backend == "postgres":
-        if not SETTINGS.postgres_dsn:
-            raise ValueError(
-                "TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres"
-            )
-        return PostgresAuthRepository(SETTINGS.postgres_dsn)
-    return SqliteAuthRepository()
+def get_auth_repository() -> PostgresAuthRepository:
+    if SETTINGS.storage_backend != "postgres":
+        raise ValueError(
+            "PostgreSQL-only mode requires TEXTRPG_STORAGE_BACKEND=postgres"
+        )
+    if not SETTINGS.postgres_dsn:
+        raise ValueError(
+            "TEXTRPG_POSTGRES_DSN is required when TEXTRPG_STORAGE_BACKEND=postgres"
+        )
+    return PostgresAuthRepository(SETTINGS.postgres_dsn)
 
 
 def get_auth_service() -> AuthService:

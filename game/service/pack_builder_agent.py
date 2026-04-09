@@ -9,7 +9,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import StructuredTool
 
-from ..llm import MockLLM, get_llm
+from ..llm import MockLLM, _extract_usage_tokens, _record_usage, get_llm
 from .api import GameService
 
 
@@ -289,6 +289,8 @@ class PackBuilderAgent:
         ]
         try:
             resp = llm.invoke(messages)
+            in_tokens, out_tokens = _extract_usage_tokens(resp)
+            _record_usage("pack_builder_question", in_tokens, out_tokens)
             return str(resp.content)
         except Exception as exc:
             return f"LLM call failed in question mode: {exc}"
@@ -348,6 +350,8 @@ class PackBuilderAgent:
                 )
             try:
                 resp = llm.invoke(messages)
+                in_tokens, out_tokens = _extract_usage_tokens(resp)
+                _record_usage("pack_builder_plan", in_tokens, out_tokens)
             except Exception as exc:
                 return ActionPlan(
                     reply=f"LLM call failed in planning: {exc}", actions=[]
@@ -429,7 +433,9 @@ class PackBuilderAgent:
             "card_type": card_type,
             "card_id": card_id,
             "folder_path": (
-                str(data.get("folder_path", "")).strip() if data.get("folder_path") is not None else ""
+                str(data.get("folder_path", "")).strip()
+                if data.get("folder_path") is not None
+                else ""
             ),
             "frontmatter": frontmatter,
             "body": str(data.get("body", "") or "TBD"),
@@ -777,6 +783,8 @@ class PackBuilderAgent:
         ]
         try:
             continuation_resp = llm.invoke(continuation_messages)
+            in_tokens, out_tokens = _extract_usage_tokens(continuation_resp)
+            _record_usage("pack_builder_recover", in_tokens, out_tokens)
         except Exception:
             return partial_text
         continued = str(continuation_resp.content)

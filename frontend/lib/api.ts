@@ -9,6 +9,13 @@ import type {
   DesignerCardPayload,
   DesignerCardSummary,
   DuplicateSessionRequest,
+  CoinBalanceResponse,
+  CoinConsumptionRecord,
+  CoinRedeemRequest,
+  CoinRedeemResponse,
+  LLMPlanRecord,
+  LLMPlanSelectRequest,
+  LLMPlanSelection,
   LLMSettingsPublic,
   LoginRequest,
   LLMSettingsUpdateRequest,
@@ -20,6 +27,7 @@ import type {
   RegisterRequest,
   SessionManagerView,
   SetupBootstrapView,
+  SettingsOverview,
   SaveDesignerCardRequest,
   StartGameRequest,
   StateView,
@@ -440,6 +448,34 @@ export async function deletePackUiTemplate(packId: string, templateId: string): 
 
 export async function updateLLMSettings(payload: LLMSettingsUpdateRequest): Promise<LLMSettingsPublic> {
   return jsonRequest<LLMSettingsPublic, LLMSettingsUpdateRequest>("/settings/llm", "PUT", payload);
+}
+
+export async function getSettingsOverview(): Promise<SettingsOverview> {
+  return requiredJsonFetch<SettingsOverview>("/settings/overview");
+}
+
+export async function getLLMPlans(): Promise<LLMPlanRecord[]> {
+  return requiredJsonFetch<LLMPlanRecord[]>("/settings/llm/plans");
+}
+
+export async function getLLMPlanSelection(): Promise<LLMPlanSelection> {
+  return requiredJsonFetch<LLMPlanSelection>("/settings/llm/selection");
+}
+
+export async function updateLLMPlanSelection(payload: LLMPlanSelectRequest): Promise<LLMPlanSelection> {
+  return jsonRequest<LLMPlanSelection, LLMPlanSelectRequest>("/settings/llm/selection", "PUT", payload);
+}
+
+export async function getCoinBalance(): Promise<CoinBalanceResponse> {
+  return requiredJsonFetch<CoinBalanceResponse>("/settings/coins/balance");
+}
+
+export async function redeemCoins(payload: CoinRedeemRequest): Promise<CoinRedeemResponse> {
+  return jsonRequest<CoinRedeemResponse, CoinRedeemRequest>("/settings/coins/redeem", "POST", payload);
+}
+
+export async function getCoinConsumptions(limit = 100): Promise<CoinConsumptionRecord[]> {
+  return requiredJsonFetch<CoinConsumptionRecord[]>(`/settings/coins/consumptions?limit=${encodeURIComponent(String(limit))}`);
 }
 
 export async function getDesignerPacks(): Promise<PackRecord[]> {

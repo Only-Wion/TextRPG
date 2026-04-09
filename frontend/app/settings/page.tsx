@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { SettingsShell } from "../../components/settings-shell";
-import { getCurrentUser, getLLMSettings } from "../../lib/api";
+import { getCurrentUser, getSettingsOverview } from "../../lib/api";
 import { getServerAccessToken } from "../../lib/auth";
 
 export default async function SettingsPage() {
@@ -8,9 +8,9 @@ export default async function SettingsPage() {
   if (!token) {
     redirect("/login");
   }
-  const [settings, currentUser] = await Promise.all([getLLMSettings(), getCurrentUser()]);
+  const [overview, currentUser] = await Promise.all([getSettingsOverview(), getCurrentUser()]);
   if (!currentUser) {
     redirect("/login");
   }
-  return <SettingsShell currentUser={currentUser} settings={settings} />;
+  return <SettingsShell currentUser={currentUser} overview={overview} />;
 }

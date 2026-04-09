@@ -38,6 +38,79 @@ create table if not exists user_llm_settings (
     updated_at timestamptz not null default now()
 );
 
+create table if not exists llm_plan_catalog (
+    plan_id text primary key,
+    name text not null,
+    description text not null,
+    provider text not null,
+    model_name text not null,
+    embedding_model text not null,
+    base_url text not null,
+    server_api_key_encrypted text not null,
+    input_tokens_per_coin integer not null,
+    output_tokens_per_coin integer not null,
+    is_active boolean not null default true,
+    display_order integer not null default 0,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists user_llm_plan_selection (
+    user_id text primary key references users(id) on delete cascade,
+    plan_id text not null references llm_plan_catalog(plan_id),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists user_coin_accounts (
+    user_id text primary key references users(id) on delete cascade,
+    coin_balance numeric(20, 4) not null default 0,
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists coin_redeem_keys (
+    key_hash text primary key,
+    tier_cny integer not null,
+    coins_granted numeric(20, 4) not null,
+    batch_id text not null,
+    status text not null default 'unused',
+    redeemed_by_user_id text references users(id) on delete set null,
+    redeemed_at timestamptz,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists idx_coin_redeem_keys_batch_id
+    on coin_redeem_keys(batch_id);
+
+create table if not exists user_coin_ledger (
+    ledger_id bigserial primary key,
+    user_id text not null references users(id) on delete cascade,
+    delta_coin numeric(20, 4) not null,
+    balance_after numeric(20, 4) not null,
+    reason_type text not null,
+    reason_detail_json jsonb not null default '{}'::jsonb,
+    related_id text,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists idx_user_coin_ledger_user_time
+    on user_coin_ledger(user_id, created_at desc);
+
+create table if not exists llm_usage_records (
+    usage_id bigserial primary key,
+    user_id text not null references users(id) on delete cascade,
+    plan_id text,
+    scene text not null,
+    input_tokens integer not null default 0,
+    output_tokens integer not null default 0,
+    input_coin_cost numeric(20, 4) not null default 0,
+    output_coin_cost numeric(20, 4) not null default 0,
+    total_coin_cost numeric(20, 4) not null default 0,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists idx_llm_usage_records_user_time
+    on llm_usage_records(user_id, created_at desc);
+
 create table if not exists user_pack_states (
     user_id text not null references users(id) on delete cascade,
     pack_id text not null,
