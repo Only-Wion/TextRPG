@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import secrets
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
 from game.config import load_runtime_llm_settings, normalize_llm_settings
@@ -43,6 +44,10 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _hash_redeem_key(redeem_key: str) -> str:
+    return hashlib.sha256(redeem_key.strip().encode("utf-8")).hexdigest()
+
+
 class PostgresAuthRepository(
     UserRepositoryProtocol,
     UserSessionIndexProtocol,
@@ -60,6 +65,7 @@ class PostgresAuthRepository(
         self.dsn = dsn
         ensure_schema(dsn)
         self._ensure_runtime_columns()
+        self._ensure_default_llm_plans()
 
     def _ensure_runtime_columns(self) -> None:
         with connect(self.dsn) as conn:
@@ -67,6 +73,56 @@ class PostgresAuthRepository(
                 cursor.execute(
                     "alter table user_session_metadata add column if not exists ui_generation_status text not null default 'ready'"
                 )
+            conn.commit()
+
+    def _ensure_default_llm_plans(self) -> None:
+        defaults = [
+            {
+                "plan_id": "deepseek-starter",
+                "name": "DeepSeek Starter",
+                "description": "平衡成本与质量，适合日常剧情推进",
+                "provider": "deepseek",
+                "model_name": "deepseek-chat",
+                "embedding_model": "text-embedding-3-small",
+                "base_url": "https://api.deepseek.com/v1",
+                "server_api_key_encrypted": "",
+                "input_tokens_per_coin": 1200,
+                "output_tokens_per_coin": 800,
+                "display_order": 10,
+            },
+            {
+                "plan_id": "qwen-standard",
+                "name": "Qwen Standard",
+                "description": "通用对话方案，稳定性较高",
+                "provider": "alibaba",
+                "model_name": "qwen-plus",
+                "embedding_model": "text-embedding-v4",
+                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "server_api_key_encrypted": "",
+                "input_tokens_per_coin": 1000,
+                "output_tokens_per_coin": 700,
+                "display_order": 20,
+            },
+        ]
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                for item in defaults:
+                    cursor.execute(
+                        """
+                        insert into llm_plan_catalog (
+                            plan_id, name, description, provider, model_name, embedding_model,
+                            base_url, server_api_key_encrypted, input_tokens_per_coin,
+                            output_tokens_per_coin, is_active, display_order
+                        ) values (
+                            %(plan_id)s, %(name)s, %(description)s, %(provider)s, %(model_name)s,
+                            %(embedding_model)s, %(base_url)s, %(server_api_key_encrypted)s,
+                            %(input_tokens_per_coin)s, %(output_tokens_per_coin)s, true,
+                            %(display_order)s
+                        )
+                        on conflict(plan_id) do nothing
+                        """,
+                        item,
+                    )
             conn.commit()
 
     def create_user(self, email: str, username: str, password: str) -> dict[str, Any]:
@@ -234,6 +290,22 @@ class PostgresAuthRepository(
             conn.commit()
 
     def get_llm_settings(self, user_id: str) -> dict[str, Any]:
+        selected = self.get_user_selected_llm_plan(user_id)
+        if selected:
+            return {
+                "provider": selected["provider"],
+                "model_name": selected["model_name"],
+                "embedding_model": selected["embedding_model"],
+                "base_url": selected["base_url"],
+                "api_key": selected.get("server_api_key_encrypted", ""),
+                "use_mock_llm": False,
+                "force_fake_embeddings": bool(
+                    str(selected.get("provider", "")).strip().lower() == "deepseek"
+                ),
+                "plan_id": selected["plan_id"],
+                "input_tokens_per_coin": int(selected["input_tokens_per_coin"]),
+                "output_tokens_per_coin": int(selected["output_tokens_per_coin"]),
+            }
         with connect(self.dsn) as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -256,6 +328,9 @@ class PostgresAuthRepository(
             "api_key": row["api_key_encrypted"],
             "use_mock_llm": bool(row["use_mock_llm"]),
             "force_fake_embeddings": bool(row["force_fake_embeddings"]),
+            "plan_id": "",
+            "input_tokens_per_coin": 0,
+            "output_tokens_per_coin": 0,
         }
 
     def update_llm_settings(
@@ -294,6 +369,510 @@ class PostgresAuthRepository(
                 )
             conn.commit()
         return settings.__dict__.copy()
+
+    def list_llm_plans(self) -> list[dict[str, Any]]:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select plan_id, name, description, provider, model_name, embedding_model,
+                           base_url, input_tokens_per_coin, output_tokens_per_coin,
+                           is_active, display_order, updated_at
+                    from llm_plan_catalog
+                    where is_active = true
+                    order by display_order asc, plan_id asc
+                    """
+                )
+                rows = cursor.fetchall() or []
+        return [dict(row) for row in rows]
+
+    def list_all_llm_plans(self) -> list[dict[str, Any]]:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select plan_id, name, description, provider, model_name, embedding_model,
+                           base_url, input_tokens_per_coin, output_tokens_per_coin,
+                           is_active, display_order, updated_at
+                    from llm_plan_catalog
+                    order by is_active desc, display_order asc, plan_id asc
+                    """
+                )
+                rows = cursor.fetchall() or []
+        return [dict(row) for row in rows]
+
+    def get_user_selected_llm_plan(self, user_id: str) -> dict[str, Any] | None:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select p.plan_id, p.name, p.description, p.provider, p.model_name,
+                           p.embedding_model, p.base_url, p.server_api_key_encrypted,
+                           p.input_tokens_per_coin, p.output_tokens_per_coin,
+                           p.is_active, p.display_order
+                    from user_llm_plan_selection s
+                    join llm_plan_catalog p on p.plan_id = s.plan_id
+                    where s.user_id = %s and p.is_active = true
+                    """,
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def set_user_selected_llm_plan(self, user_id: str, plan_id: str) -> dict[str, Any]:
+        normalized_plan_id = str(plan_id).strip()
+        if not normalized_plan_id:
+            raise ValueError("plan_id is required")
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "select plan_id from llm_plan_catalog where plan_id = %s and is_active = true",
+                    (normalized_plan_id,),
+                )
+                exists = cursor.fetchone()
+                if not exists:
+                    raise ValueError("llm plan not found")
+                cursor.execute(
+                    """
+                    insert into user_llm_plan_selection (user_id, plan_id)
+                    values (%s, %s)
+                    on conflict(user_id) do update set
+                        plan_id = excluded.plan_id,
+                        updated_at = now()
+                    """,
+                    (user_id, normalized_plan_id),
+                )
+            conn.commit()
+        selected = self.get_user_selected_llm_plan(user_id)
+        if not selected:
+            raise ValueError("failed to persist llm plan selection")
+        return selected
+
+    def get_user_coin_balance(self, user_id: str) -> float:
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into user_coin_accounts (user_id, coin_balance)
+                    values (%s, 0)
+                    on conflict(user_id) do nothing
+                    """,
+                    (user_id,),
+                )
+                cursor.execute(
+                    "select coin_balance from user_coin_accounts where user_id = %s",
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+            conn.commit()
+        return float(row["coin_balance"] if row else 0)
+
+    def redeem_coin_key(self, user_id: str, redeem_key: str) -> dict[str, Any]:
+        normalized = str(redeem_key).strip()
+        if not normalized:
+            raise ValueError("redeem key is required")
+        key_hash = _hash_redeem_key(normalized)
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into user_coin_accounts (user_id, coin_balance)
+                    values (%s, 0)
+                    on conflict(user_id) do nothing
+                    """,
+                    (user_id,),
+                )
+                cursor.execute(
+                    """
+                    select key_hash, status, tier_cny, coins_granted
+                    from coin_redeem_keys
+                    where key_hash = %s
+                    for update
+                    """,
+                    (key_hash,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise ValueError("invalid redeem key")
+                if str(row["status"]) != "unused":
+                    raise ValueError("redeem key already used")
+                coins = Decimal(str(row["coins_granted"]))
+                cursor.execute(
+                    """
+                    update user_coin_accounts
+                    set coin_balance = coin_balance + %s,
+                        updated_at = now()
+                    where user_id = %s
+                    returning coin_balance
+                    """,
+                    (coins, user_id),
+                )
+                balance_row = cursor.fetchone()
+                balance_after = Decimal(str(balance_row["coin_balance"] if balance_row else 0))
+                cursor.execute(
+                    """
+                    update coin_redeem_keys
+                    set status = 'redeemed',
+                        redeemed_by_user_id = %s,
+                        redeemed_at = now()
+                    where key_hash = %s
+                    """,
+                    (user_id, key_hash),
+                )
+                cursor.execute(
+                    """
+                    insert into user_coin_ledger (
+                        user_id, delta_coin, balance_after, reason_type, reason_detail_json, related_id
+                    ) values (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        coins,
+                        balance_after,
+                        "recharge",
+                        as_json({"tier_cny": int(row["tier_cny"])}),
+                        key_hash,
+                    ),
+                )
+            conn.commit()
+        return {
+            "coins_added": float(coins),
+            "balance_after": float(balance_after),
+        }
+
+    def list_user_coin_ledger(
+        self,
+        user_id: str,
+        *,
+        reason_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        normalized_limit = max(1, min(int(limit or 50), 200))
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                if reason_type:
+                    cursor.execute(
+                        """
+                        select ledger_id, delta_coin, balance_after, reason_type,
+                               reason_detail_json, related_id, created_at
+                        from user_coin_ledger
+                        where user_id = %s and reason_type = %s
+                        order by created_at desc
+                        limit %s
+                        """,
+                        (user_id, str(reason_type), normalized_limit),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        select ledger_id, delta_coin, balance_after, reason_type,
+                               reason_detail_json, related_id, created_at
+                        from user_coin_ledger
+                        where user_id = %s
+                        order by created_at desc
+                        limit %s
+                        """,
+                        (user_id, normalized_limit),
+                    )
+                rows = cursor.fetchall() or []
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["delta_coin"] = float(payload.get("delta_coin") or 0)
+            payload["balance_after"] = float(payload.get("balance_after") or 0)
+            result.append(payload)
+        return result
+
+    def charge_llm_usage(
+        self,
+        user_id: str,
+        plan_id: str,
+        scene: str,
+        input_tokens: int,
+        output_tokens: int,
+        input_tokens_per_coin: int,
+        output_tokens_per_coin: int,
+    ) -> dict[str, Any]:
+        in_tokens = max(0, int(input_tokens or 0))
+        out_tokens = max(0, int(output_tokens or 0))
+        in_rate = max(1, int(input_tokens_per_coin or 1))
+        out_rate = max(1, int(output_tokens_per_coin or 1))
+
+        in_cost = (Decimal(in_tokens) / Decimal(in_rate)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        out_cost = (Decimal(out_tokens) / Decimal(out_rate)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        total_cost = (in_cost + out_cost).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into user_coin_accounts (user_id, coin_balance)
+                    values (%s, 0)
+                    on conflict(user_id) do nothing
+                    """,
+                    (user_id,),
+                )
+                cursor.execute(
+                    "select coin_balance from user_coin_accounts where user_id = %s for update",
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+                current_balance = Decimal(str(row["coin_balance"] if row else 0))
+                if current_balance < total_cost:
+                    raise ValueError("insufficient coin balance")
+
+                cursor.execute(
+                    """
+                    insert into llm_usage_records (
+                        user_id, plan_id, scene, input_tokens, output_tokens,
+                        input_coin_cost, output_coin_cost, total_coin_cost
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                    returning usage_id
+                    """,
+                    (
+                        user_id,
+                        str(plan_id or ""),
+                        str(scene or "unknown"),
+                        in_tokens,
+                        out_tokens,
+                        in_cost,
+                        out_cost,
+                        total_cost,
+                    ),
+                )
+                usage_row = cursor.fetchone()
+                usage_id = str(usage_row["usage_id"] if usage_row else "")
+                cursor.execute(
+                    """
+                    update user_coin_accounts
+                    set coin_balance = coin_balance - %s,
+                        updated_at = now()
+                    where user_id = %s
+                    returning coin_balance
+                    """,
+                    (total_cost, user_id),
+                )
+                after_row = cursor.fetchone()
+                balance_after = Decimal(str(after_row["coin_balance"] if after_row else 0))
+                cursor.execute(
+                    """
+                    insert into user_coin_ledger (
+                        user_id, delta_coin, balance_after, reason_type, reason_detail_json, related_id
+                    ) values (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        -total_cost,
+                        balance_after,
+                        "llm_usage",
+                        as_json(
+                            {
+                                "plan_id": str(plan_id or ""),
+                                "scene": str(scene or "unknown"),
+                                "input_tokens": in_tokens,
+                                "output_tokens": out_tokens,
+                                "input_coin_cost": float(in_cost),
+                                "output_coin_cost": float(out_cost),
+                            }
+                        ),
+                        usage_id,
+                    ),
+                )
+            conn.commit()
+        return {
+            "usage_id": usage_id,
+            "total_coin_cost": float(total_cost),
+            "balance_after": float(balance_after),
+        }
+
+    def admin_upsert_llm_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
+        plan_id = str(payload.get("plan_id") or "").strip()
+        if not plan_id:
+            raise ValueError("plan_id is required")
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    insert into llm_plan_catalog (
+                        plan_id, name, description, provider, model_name, embedding_model,
+                        base_url, server_api_key_encrypted, input_tokens_per_coin,
+                        output_tokens_per_coin, is_active, display_order
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    on conflict(plan_id) do update set
+                        name = excluded.name,
+                        description = excluded.description,
+                        provider = excluded.provider,
+                        model_name = excluded.model_name,
+                        embedding_model = excluded.embedding_model,
+                        base_url = excluded.base_url,
+                        server_api_key_encrypted = case
+                            when excluded.server_api_key_encrypted = '' then llm_plan_catalog.server_api_key_encrypted
+                            else excluded.server_api_key_encrypted
+                        end,
+                        input_tokens_per_coin = excluded.input_tokens_per_coin,
+                        output_tokens_per_coin = excluded.output_tokens_per_coin,
+                        is_active = excluded.is_active,
+                        display_order = excluded.display_order,
+                        updated_at = now()
+                    """,
+                    (
+                        plan_id,
+                        str(payload.get("name") or plan_id),
+                        str(payload.get("description") or ""),
+                        str(payload.get("provider") or "custom"),
+                        str(payload.get("model_name") or ""),
+                        str(payload.get("embedding_model") or ""),
+                        str(payload.get("base_url") or ""),
+                        str(payload.get("server_api_key_encrypted") or ""),
+                        max(1, int(payload.get("input_tokens_per_coin") or 1)),
+                        max(1, int(payload.get("output_tokens_per_coin") or 1)),
+                        bool(payload.get("is_active", True)),
+                        int(payload.get("display_order") or 0),
+                    ),
+                )
+            conn.commit()
+        selected = next(
+            (item for item in self.list_llm_plans() if item.get("plan_id") == plan_id),
+            None,
+        )
+        if selected:
+            return selected
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select plan_id, name, description, provider, model_name, embedding_model,
+                           base_url, input_tokens_per_coin, output_tokens_per_coin,
+                           is_active, display_order, updated_at
+                    from llm_plan_catalog
+                    where plan_id = %s
+                    """,
+                    (plan_id,),
+                )
+                row = cursor.fetchone()
+        if not row:
+            raise ValueError("failed to persist llm plan")
+        return dict(row)
+
+    def admin_delete_llm_plan(self, plan_id: str) -> None:
+        normalized_plan_id = str(plan_id).strip()
+        if not normalized_plan_id:
+            raise ValueError("plan_id is required")
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "delete from user_llm_plan_selection where plan_id = %s",
+                    (normalized_plan_id,),
+                )
+                cursor.execute(
+                    "delete from llm_plan_catalog where plan_id = %s",
+                    (normalized_plan_id,),
+                )
+            conn.commit()
+
+    def admin_set_llm_plan_active(self, plan_id: str, is_active: bool) -> dict[str, Any]:
+        normalized_plan_id = str(plan_id).strip()
+        if not normalized_plan_id:
+            raise ValueError("plan_id is required")
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    update llm_plan_catalog
+                    set is_active = %s, updated_at = now()
+                    where plan_id = %s
+                    """,
+                    (bool(is_active), normalized_plan_id),
+                )
+                if cursor.rowcount == 0:
+                    raise ValueError("llm plan not found")
+            conn.commit()
+        selected = next(
+            (item for item in self.list_all_llm_plans() if item.get("plan_id") == normalized_plan_id),
+            None,
+        )
+        if selected is None:
+            raise ValueError("failed to update llm plan")
+        return selected
+
+    def admin_list_redeem_keys(
+        self, *, status: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        normalized_limit = max(1, min(int(limit or 200), 500))
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                if status:
+                    cursor.execute(
+                        """
+                        select key_hash, tier_cny, coins_granted, batch_id, status,
+                               redeemed_by_user_id, redeemed_at, created_at
+                        from coin_redeem_keys
+                        where status = %s
+                        order by created_at desc
+                        limit %s
+                        """,
+                        (str(status), normalized_limit),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        select key_hash, tier_cny, coins_granted, batch_id, status,
+                               redeemed_by_user_id, redeemed_at, created_at
+                        from coin_redeem_keys
+                        order by created_at desc
+                        limit %s
+                        """,
+                        (normalized_limit,),
+                    )
+                rows = cursor.fetchall() or []
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["coins_granted"] = float(payload.get("coins_granted") or 0)
+            result.append(payload)
+        return result
+
+    def admin_generate_redeem_keys(
+        self,
+        *,
+        tier_cny: int,
+        coins_granted: float,
+        count: int,
+        batch_id: str,
+    ) -> list[str]:
+        normalized_count = max(1, min(int(count or 1), 10000))
+        normalized_batch_id = str(batch_id).strip() or str(uuid.uuid4())
+        normalized_tier = int(tier_cny)
+        normalized_coins = Decimal(str(coins_granted)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        generated: list[str] = []
+        with connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                for _ in range(normalized_count):
+                    code = f"TRPG-{secrets.token_hex(8).upper()}"
+                    generated.append(code)
+                    cursor.execute(
+                        """
+                        insert into coin_redeem_keys (
+                            key_hash, tier_cny, coins_granted, batch_id, status
+                        ) values (%s, %s, %s, %s, 'unused')
+                        """,
+                        (
+                            _hash_redeem_key(code),
+                            normalized_tier,
+                            normalized_coins,
+                            normalized_batch_id,
+                        ),
+                    )
+            conn.commit()
+        return generated
 
     def list_enabled_pack_ids(self, user_id: str) -> list[str]:
         with connect(self.dsn) as conn:

@@ -7,7 +7,34 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from .config import load_runtime_llm_settings
+from .config import load_runtime_billing_context, load_runtime_llm_settings
+
+
+def _extract_usage_tokens(message: Any) -> tuple[int, int]:
+    usage = getattr(message, "usage_metadata", None)
+    if isinstance(usage, dict):
+        in_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+        out_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        return (max(0, in_tokens), max(0, out_tokens))
+
+    metadata = getattr(message, "response_metadata", None)
+    if isinstance(metadata, dict):
+        token_usage = metadata.get("token_usage")
+        if isinstance(token_usage, dict):
+            in_tokens = int(token_usage.get("prompt_tokens") or token_usage.get("input_tokens") or 0)
+            out_tokens = int(token_usage.get("completion_tokens") or token_usage.get("output_tokens") or 0)
+            return (max(0, in_tokens), max(0, out_tokens))
+    return (0, 0)
+
+
+def _record_usage(scene: str, input_tokens: int, output_tokens: int) -> None:
+    context = load_runtime_billing_context()
+    if not isinstance(context, dict):
+        return
+    callback = context.get("on_usage")
+    if not callable(callback):
+        return
+    callback(str(scene or "unknown"), int(input_tokens or 0), int(output_tokens or 0))
 
 class MockLLM:
     """无 API Key 时的确定性规划/叙事替代实现。"""
@@ -227,6 +254,8 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
 
     messages = build_plan_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("turn_ops_plan", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -236,6 +265,8 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("turn_ops_plan_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:
@@ -249,6 +280,8 @@ def llm_narrate(state: Dict[str, Any]) -> str:
         return llm.narrate(state)
     messages = build_narrate_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("turn_narrate", in_tokens, out_tokens)
     return response.content
 
 
@@ -260,14 +293,22 @@ def llm_narrate_stream(state: Dict[str, Any]):
         return
 
     messages = build_narrate_prompt(state)
+    total_in_tokens = 0
+    total_out_tokens = 0
     try:
         for chunk in llm.stream(messages):
             delta = getattr(chunk, 'content', '')
             if isinstance(delta, str) and delta:
                 yield delta
+            in_tokens, out_tokens = _extract_usage_tokens(chunk)
+            total_in_tokens = max(total_in_tokens, in_tokens)
+            total_out_tokens = max(total_out_tokens, out_tokens)
+        _record_usage("turn_narrate_stream", total_in_tokens, total_out_tokens)
     except Exception:
         # Stream 不可用时回退到单次调用，保证行为稳定。
         response = llm.invoke(messages)
+        in_tokens, out_tokens = _extract_usage_tokens(response)
+        _record_usage("turn_narrate_stream_fallback", in_tokens, out_tokens)
         if response.content:
             yield response.content
 
@@ -279,6 +320,8 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
         return llm.ui_panels(state)
     messages = build_ui_panels_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("ui_generate_panels", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -287,6 +330,8 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("ui_generate_panels_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:
@@ -328,6 +373,8 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
         return {'update': False, 'html': ''}
     messages = build_ui_update_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("ui_update_panel", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -336,6 +383,8 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("ui_update_panel_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:

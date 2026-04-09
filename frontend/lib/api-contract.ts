@@ -72,6 +72,64 @@ export type LLMSettingsUpdateRequest = {
   force_fake_embeddings: boolean;
 };
 
+export type LLMPlanRecord = {
+  plan_id: string;
+  name: string;
+  description: string;
+  provider: string;
+  model_name: string;
+  embedding_model: string;
+  base_url: string;
+  input_tokens_per_coin: number;
+  output_tokens_per_coin: number;
+  display_order: number;
+};
+
+export type LLMPlanSelection = {
+  selected_plan_id: string;
+  name?: string;
+  description?: string;
+  input_tokens_per_coin?: number;
+  output_tokens_per_coin?: number;
+};
+
+export type SettingsOverview = {
+  plans: LLMPlanRecord[];
+  selected_plan_id: string;
+  coin_balance: number;
+  redeem_tiers: Record<string, number>;
+};
+
+export type LLMPlanSelectRequest = {
+  plan_id: string;
+};
+
+export type CoinRedeemRequest = {
+  redeem_key: string;
+};
+
+export type CoinRedeemResponse = {
+  coins_added: number;
+  balance_after: number;
+};
+
+export type CoinBalanceResponse = {
+  coin_balance: number;
+};
+
+export type CoinConsumptionRecord = {
+  ledger_id: number;
+  created_at: string;
+  delta_coin: number;
+  balance_after: number;
+  scene: string;
+  plan_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  input_coin_cost: number;
+  output_coin_cost: number;
+};
+
 export type SetupBootstrapView = {
   selected_slot: string;
   available_slots: string[];

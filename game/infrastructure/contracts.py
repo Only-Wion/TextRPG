@@ -101,6 +101,58 @@ class UserSettingsRepositoryProtocol(Protocol):
         self, user_id: str, payload: dict[str, Any]
     ) -> dict[str, Any]: ...
 
+    def list_all_llm_plans(self) -> list[dict[str, Any]]: ...
+
+    def list_llm_plans(self) -> list[dict[str, Any]]: ...
+
+    def get_user_selected_llm_plan(self, user_id: str) -> dict[str, Any] | None: ...
+
+    def set_user_selected_llm_plan(
+        self, user_id: str, plan_id: str
+    ) -> dict[str, Any]: ...
+
+    def get_user_coin_balance(self, user_id: str) -> float: ...
+
+    def redeem_coin_key(self, user_id: str, redeem_key: str) -> dict[str, Any]: ...
+
+    def list_user_coin_ledger(
+        self,
+        user_id: str,
+        *,
+        reason_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]: ...
+
+    def charge_llm_usage(
+        self,
+        user_id: str,
+        plan_id: str,
+        scene: str,
+        input_tokens: int,
+        output_tokens: int,
+        input_tokens_per_coin: int,
+        output_tokens_per_coin: int,
+    ) -> dict[str, Any]: ...
+
+    def admin_upsert_llm_plan(self, payload: dict[str, Any]) -> dict[str, Any]: ...
+
+    def admin_delete_llm_plan(self, plan_id: str) -> None: ...
+
+    def admin_set_llm_plan_active(self, plan_id: str, is_active: bool) -> dict[str, Any]: ...
+
+    def admin_list_redeem_keys(
+        self, *, status: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]: ...
+
+    def admin_generate_redeem_keys(
+        self,
+        *,
+        tier_cny: int,
+        coins_granted: float,
+        count: int,
+        batch_id: str,
+    ) -> list[str]: ...
+
 
 class UserPackStateRepositoryProtocol(Protocol):
     """Contract for per-user pack enable state."""

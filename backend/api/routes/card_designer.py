@@ -24,7 +24,9 @@ from game.application.services import CardDesignerService
 router = APIRouter(prefix="/card-designer", tags=["card-designer"])
 
 
-def _coerce_frontmatter(payload: SaveDesignerCardRequest | ValidateDesignerCardRequest) -> dict[str, Any]:
+def _coerce_frontmatter(
+    payload: SaveDesignerCardRequest | ValidateDesignerCardRequest,
+) -> dict[str, Any]:
     if payload.frontmatter is not None:
         return payload.frontmatter
     if payload.frontmatter_text:
@@ -69,17 +71,25 @@ def list_pack_cards(
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> list[DesignerCardSummaryResponse]:
-    return [DesignerCardSummaryResponse(**item) for item in service.list_cards(current_user["id"], pack_id, category, keyword)]
+    return [
+        DesignerCardSummaryResponse(**item)
+        for item in service.list_cards(current_user["id"], pack_id, category, keyword)
+    ]
 
 
-@router.get("/packs/{pack_id}/cards/{card_path:path}", response_model=DesignerCardPayloadResponse)
+@router.get(
+    "/packs/{pack_id}/cards/{card_path:path}",
+    response_model=DesignerCardPayloadResponse,
+)
 def load_pack_card(
     pack_id: str,
     card_path: str,
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> DesignerCardPayloadResponse:
-    return DesignerCardPayloadResponse(**service.load_card(current_user["id"], pack_id, card_path))
+    return DesignerCardPayloadResponse(
+        **service.load_card(current_user["id"], pack_id, card_path)
+    )
 
 
 @router.post("/packs/{pack_id}/cards/template", response_model=dict[str, Any])
@@ -120,11 +130,15 @@ def validate_pack_card(
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> CardValidationResponse:
-    service.validate_card(current_user["id"], _coerce_frontmatter(payload), payload.body)
+    service.validate_card(
+        current_user["id"], _coerce_frontmatter(payload), payload.body
+    )
     return CardValidationResponse(ok=True)
 
 
-@router.delete("/packs/{pack_id}/cards/{card_path:path}", response_model=CardValidationResponse)
+@router.delete(
+    "/packs/{pack_id}/cards/{card_path:path}", response_model=CardValidationResponse
+)
 def delete_pack_card(
     pack_id: str,
     card_path: str,
@@ -141,7 +155,9 @@ def create_designer_agent_session(
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> DesignerAgentSessionResponse:
-    return DesignerAgentSessionResponse(**service.create_agent_session(current_user["id"], payload.pack_id))
+    return DesignerAgentSessionResponse(
+        **service.create_agent_session(current_user["id"], payload.pack_id)
+    )
 
 
 @router.get("/agent/sessions/{session_id}", response_model=DesignerAgentSessionResponse)
@@ -150,14 +166,20 @@ def get_designer_agent_session(
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> DesignerAgentSessionResponse:
-    return DesignerAgentSessionResponse(**service.get_agent_session(current_user["id"], session_id))
+    return DesignerAgentSessionResponse(
+        **service.get_agent_session(current_user["id"], session_id)
+    )
 
 
-@router.post("/agent/sessions/{session_id}/messages", response_model=DesignerAgentMessageResponse)
+@router.post(
+    "/agent/sessions/{session_id}/messages", response_model=DesignerAgentMessageResponse
+)
 def send_designer_agent_message(
     session_id: str,
     payload: DesignerAgentMessageRequest,
     service: CardDesignerService = Depends(get_card_designer_service),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> DesignerAgentMessageResponse:
-    return DesignerAgentMessageResponse(**service.send_agent_message(current_user["id"], session_id, payload.message))
+    return DesignerAgentMessageResponse(
+        **service.send_agent_message(current_user["id"], session_id, payload.message)
+    )

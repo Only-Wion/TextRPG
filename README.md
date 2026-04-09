@@ -24,11 +24,13 @@ python -m game.main
 
 If `OPENAI_API_KEY` is not set, the game runs in mock-LLM mode.
 
-## UI (Streamlit)
+## Local Admin Console (Streamlit)
 
 ```
-streamlit run ui/app.py
+./scripts/run_admin_console.sh
 ```
+
+Legacy Streamlit gameplay pages are deprecated and no longer maintained.
 
 ## Card packs
 

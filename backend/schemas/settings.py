@@ -11,3 +11,15 @@ class LLMSettingsUpdateRequest(BaseModel):
     api_key: str = ""
     use_mock_llm: bool = False
     force_fake_embeddings: bool = False
+
+
+class LLMPlanSelectRequest(BaseModel):
+    plan_id: str
+
+
+class CoinRedeemRequest(BaseModel):
+    redeem_key: str
+
+
+class CoinConsumptionQuery(BaseModel):
+    limit: int = 100

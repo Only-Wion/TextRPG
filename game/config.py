@@ -87,6 +87,9 @@ class LLMSettings:
     api_key: str = os.getenv("OPENAI_API_KEY", "")
     use_mock_llm: bool = SETTINGS.use_mock_llm
     force_fake_embeddings: bool = SETTINGS.force_fake_embeddings
+    plan_id: str = ""
+    input_tokens_per_coin: int = 0
+    output_tokens_per_coin: int = 0
 
     def to_public_dict(self) -> Dict[str, Any]:
         """返回可用于 UI 展示的配置（隐藏密钥）。"""
@@ -98,12 +101,17 @@ class LLMSettings:
             "api_key_set": bool(self.api_key),
             "use_mock_llm": self.use_mock_llm,
             "force_fake_embeddings": self.force_fake_embeddings,
+            "plan_id": self.plan_id,
         }
 
 
 RUNTIME_LLM_SETTINGS = LLMSettings()
 ACTIVE_LLM_SETTINGS_OVERRIDE: ContextVar[LLMSettings | None] = ContextVar(
     "ACTIVE_LLM_SETTINGS_OVERRIDE",
+    default=None,
+)
+ACTIVE_LLM_BILLING_CONTEXT: ContextVar[Dict[str, Any] | None] = ContextVar(
+    "ACTIVE_LLM_BILLING_CONTEXT",
     default=None,
 )
 
@@ -128,6 +136,13 @@ def normalize_llm_settings(
         force_fake_embeddings=bool(
             payload.get("force_fake_embeddings", current.force_fake_embeddings)
         ),
+        plan_id=str(payload.get("plan_id", current.plan_id)).strip(),
+        input_tokens_per_coin=max(
+            0, int(payload.get("input_tokens_per_coin", current.input_tokens_per_coin) or 0)
+        ),
+        output_tokens_per_coin=max(
+            0, int(payload.get("output_tokens_per_coin", current.output_tokens_per_coin) or 0)
+        ),
     )
 
 
@@ -143,6 +158,22 @@ def activate_runtime_llm_settings(settings: LLMSettings):
             # In streaming/request context switches, token reset may happen on a different context.
             # Ignore this cleanup error to avoid surfacing it to users.
             pass
+
+
+@contextmanager
+def activate_runtime_billing_context(context: Dict[str, Any] | None):
+    token = ACTIVE_LLM_BILLING_CONTEXT.set(context)
+    try:
+        yield
+    finally:
+        try:
+            ACTIVE_LLM_BILLING_CONTEXT.reset(token)
+        except ValueError:
+            pass
+
+
+def load_runtime_billing_context() -> Dict[str, Any] | None:
+    return ACTIVE_LLM_BILLING_CONTEXT.get()
 
 
 def load_runtime_llm_settings() -> LLMSettings:

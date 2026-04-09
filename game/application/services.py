@@ -16,6 +16,7 @@ from game.infrastructure.contracts import (
 )
 from game.config import (
     SETTINGS,
+    activate_runtime_billing_context,
     activate_runtime_llm_settings,
     load_runtime_llm_settings,
     normalize_llm_settings,
@@ -35,7 +36,7 @@ class GameServiceRegistry:
     def for_user(self, user_id: str) -> GameService:
         service = self._services.get(user_id)
         if service is None:
-            service = GameService(user_id)
+            service = GameService(user_id, settings_repository=self._settings_repository)
             self._services[user_id] = service
         service.set_runtime_llm_settings(
             self._settings_repository.get_llm_settings(user_id)
@@ -729,6 +730,108 @@ class SettingsService:
         self._settings_repository = settings_repository
         self._registry = registry
 
+    @staticmethod
+    def _redeem_tier_table() -> dict[int, float]:
+        # Pricing tiers (CNY) mapped to granted site coins.
+        return {
+            1: 100.0,
+            6: 650.0,
+            18: 2100.0,
+            30: 3800.0,
+        }
+
+    def get_settings_overview(self, user_id: str) -> dict[str, Any]:
+        plans = self.list_llm_plans(user_id)
+        selected = self._settings_repository.get_user_selected_llm_plan(user_id)
+        balance = self._settings_repository.get_user_coin_balance(user_id)
+        return {
+            "plans": plans,
+            "selected_plan_id": str(selected.get("plan_id", "")) if selected else "",
+            "coin_balance": float(balance),
+            "redeem_tiers": self._redeem_tier_table(),
+        }
+
+    def list_llm_plans(self, user_id: str) -> list[dict[str, Any]]:
+        # Warm the user-scoped runtime service so the rest of session endpoints
+        # stay in sync with latest settings.
+        self._registry.for_user(user_id)
+        plans = self._settings_repository.list_llm_plans()
+        return [
+            {
+                "plan_id": str(item.get("plan_id", "")),
+                "name": str(item.get("name", "")),
+                "description": str(item.get("description", "")),
+                "provider": str(item.get("provider", "")),
+                "model_name": str(item.get("model_name", "")),
+                "embedding_model": str(item.get("embedding_model", "")),
+                "base_url": str(item.get("base_url", "")),
+                "input_tokens_per_coin": int(item.get("input_tokens_per_coin") or 0),
+                "output_tokens_per_coin": int(item.get("output_tokens_per_coin") or 0),
+                "display_order": int(item.get("display_order") or 0),
+            }
+            for item in plans
+        ]
+
+    def get_selected_llm_plan(self, user_id: str) -> dict[str, Any]:
+        selected = self._settings_repository.get_user_selected_llm_plan(user_id)
+        if not selected:
+            return {"selected_plan_id": ""}
+        return {
+            "selected_plan_id": str(selected.get("plan_id", "")),
+            "name": str(selected.get("name", "")),
+            "description": str(selected.get("description", "")),
+            "input_tokens_per_coin": int(selected.get("input_tokens_per_coin") or 0),
+            "output_tokens_per_coin": int(selected.get("output_tokens_per_coin") or 0),
+        }
+
+    def set_selected_llm_plan(self, user_id: str, plan_id: str) -> dict[str, Any]:
+        selected = self._settings_repository.set_user_selected_llm_plan(user_id, plan_id)
+        self._registry.for_user(user_id)
+        return {
+            "selected_plan_id": str(selected.get("plan_id", "")),
+            "name": str(selected.get("name", "")),
+            "description": str(selected.get("description", "")),
+            "input_tokens_per_coin": int(selected.get("input_tokens_per_coin") or 0),
+            "output_tokens_per_coin": int(selected.get("output_tokens_per_coin") or 0),
+        }
+
+    def get_coin_balance(self, user_id: str) -> dict[str, Any]:
+        return {"coin_balance": float(self._settings_repository.get_user_coin_balance(user_id))}
+
+    def redeem_coin_key(self, user_id: str, redeem_key: str) -> dict[str, Any]:
+        payload = self._settings_repository.redeem_coin_key(user_id, redeem_key)
+        return {
+            "coins_added": float(payload.get("coins_added", 0.0)),
+            "balance_after": float(payload.get("balance_after", 0.0)),
+        }
+
+    def list_coin_consumptions(self, user_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._settings_repository.list_user_coin_ledger(
+            user_id,
+            reason_type="llm_usage",
+            limit=limit,
+        )
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            detail = row.get("reason_detail_json")
+            if not isinstance(detail, dict):
+                detail = {}
+            result.append(
+                {
+                    "ledger_id": int(row.get("ledger_id") or 0),
+                    "created_at": str(row.get("created_at", "")),
+                    "delta_coin": float(row.get("delta_coin") or 0),
+                    "balance_after": float(row.get("balance_after") or 0),
+                    "scene": str(detail.get("scene", "")),
+                    "plan_id": str(detail.get("plan_id", "")),
+                    "input_tokens": int(detail.get("input_tokens") or 0),
+                    "output_tokens": int(detail.get("output_tokens") or 0),
+                    "input_coin_cost": float(detail.get("input_coin_cost") or 0),
+                    "output_coin_cost": float(detail.get("output_coin_cost") or 0),
+                }
+            )
+        return result
+
     def get_llm_settings(self, user_id: str) -> dict[str, Any]:
         settings = self._settings_repository.get_llm_settings(user_id)
         self._registry.for_user(user_id)
@@ -931,7 +1034,25 @@ class CardDesignerService:
             load_runtime_llm_settings(),
         )
         state = dict(session.get("state", {}) or {})
-        with activate_runtime_llm_settings(runtime_settings):
+        with activate_runtime_llm_settings(runtime_settings), activate_runtime_billing_context(
+            {
+                "user_id": user_id,
+                "plan_id": str(getattr(runtime_settings, "plan_id", "") or ""),
+                "on_usage": lambda scene, in_tokens, out_tokens: self._settings_repository.charge_llm_usage(
+                    user_id=user_id,
+                    plan_id=str(getattr(runtime_settings, "plan_id", "") or ""),
+                    scene=f"designer:{scene}",
+                    input_tokens=int(in_tokens or 0),
+                    output_tokens=int(out_tokens or 0),
+                    input_tokens_per_coin=int(getattr(runtime_settings, "input_tokens_per_coin", 0) or 0),
+                    output_tokens_per_coin=int(getattr(runtime_settings, "output_tokens_per_coin", 0) or 0),
+                )
+                if str(getattr(runtime_settings, "plan_id", "") or "").strip()
+                and int(getattr(runtime_settings, "input_tokens_per_coin", 0) or 0) > 0
+                and int(getattr(runtime_settings, "output_tokens_per_coin", 0) or 0) > 0
+                else None,
+            }
+        ):
             result = self._agent_for_user(user_id).process(message, state)
         updated_state = result.get("state", state)
         selected_pack_id = str(
@@ -975,7 +1096,9 @@ class CardDesignerService:
         if len(parts) <= 1:
             return (path.parent.name, "")
         category = str(parts[0]).strip()
-        folder = "/".join(str(part).strip() for part in parts[1:-1] if str(part).strip())
+        folder = "/".join(
+            str(part).strip() for part in parts[1:-1] if str(part).strip()
+        )
         return (category, folder)
 
     def _infer_card_type_from_category(self, category: str) -> str:

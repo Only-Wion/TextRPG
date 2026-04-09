@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from copy import deepcopy
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,7 @@ from ..config import (
     USER_PACKS_DIR,
     SETTINGS,
     activate_runtime_llm_settings,
+    activate_runtime_billing_context,
     get_slot_paths,
     load_runtime_llm_settings,
     normalize_llm_settings,
@@ -35,6 +37,7 @@ from ..infrastructure.contracts import (
     RAGStoreProtocol,
     SessionMetadataStoreProtocol,
     UIPanelStoreProtocol,
+    UserSettingsRepositoryProtocol,
     WorldStoreProtocol,
 )
 from ..infrastructure.session_files import (
@@ -83,6 +86,7 @@ class GameService:
         user_id: str = "default",
         packs_root: Path | None = None,
         store_factory: SessionStoreFactory | None = None,
+        settings_repository: UserSettingsRepositoryProtocol | None = None,
     ):
         self.user_id = str(user_id)
         self._user_pack_root = USER_PACKS_DIR / self.user_id
@@ -119,6 +123,7 @@ class GameService:
         self.ui_update_agent = UIPanelUpdateAgent()
         self.ui_variable_agent = UIVariableUpdateAgent()
         self._runtime_llm_settings = load_runtime_llm_settings()
+        self._settings_repository = settings_repository
         self._ui_lock = threading.Lock()
         self._ui_gen_thread: threading.Thread | None = None
         self._ui_update_thread: threading.Thread | None = None
@@ -1334,8 +1339,38 @@ class GameService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return ARCHIVES_DIR / f"{save_slot}_{timestamp}"
 
+    def _on_llm_usage(self, scene: str, input_tokens: int, output_tokens: int) -> None:
+        if not self._settings_repository:
+            return
+        plan_id = str(getattr(self._runtime_llm_settings, "plan_id", "") or "").strip()
+        input_rate = int(getattr(self._runtime_llm_settings, "input_tokens_per_coin", 0) or 0)
+        output_rate = int(getattr(self._runtime_llm_settings, "output_tokens_per_coin", 0) or 0)
+        if not plan_id or input_rate <= 0 or output_rate <= 0:
+            return
+        self._settings_repository.charge_llm_usage(
+            user_id=self.user_id,
+            plan_id=plan_id,
+            scene=str(scene or "unknown"),
+            input_tokens=int(input_tokens or 0),
+            output_tokens=int(output_tokens or 0),
+            input_tokens_per_coin=input_rate,
+            output_tokens_per_coin=output_rate,
+        )
+
+    @contextmanager
     def _llm_settings_scope(self):
-        return activate_runtime_llm_settings(self._runtime_llm_settings)
+        with ExitStack() as stack:
+            stack.enter_context(activate_runtime_llm_settings(self._runtime_llm_settings))
+            stack.enter_context(
+                activate_runtime_billing_context(
+                    {
+                        "user_id": self.user_id,
+                        "plan_id": str(getattr(self._runtime_llm_settings, "plan_id", "") or ""),
+                        "on_usage": self._on_llm_usage,
+                    }
+                )
+            )
+            yield
 
 
 def json_dump(data: Dict[str, Any]) -> str:
