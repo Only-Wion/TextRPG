@@ -5,7 +5,8 @@ import threading
 
 from .core.card_repository import CardRepository
 from .core.rule_engine import RuleEngine
-from .core.graph import build_turn_graphs, should_run_ops
+from .core.graph import build_turn_graphs, retrieve_context, should_run_ops
+from .core.story_graph import seed_story_runtime
 from .config import get_slot_paths
 from .infrastructure.contracts import KGStoreProtocol, WorldStoreProtocol
 from .infrastructure.store_factory import SessionStoreFactory
@@ -14,14 +15,8 @@ from .infrastructure.store_factory import SessionStoreFactory
 def bootstrap(
     repo: CardRepository, world: WorldStoreProtocol, kg: KGStoreProtocol
 ) -> None:
-    """当 KG 为空时，用卡牌的初始关系做一次初始化。"""
-    if kg.all_edges():
-        return
-    for card in repo.all():
-        for rel in card.initial_relations:
-            kg.add_edge(
-                rel["subject_id"], rel["relation"], rel["object_id"], 0.9, "bootstrap"
-            )
+    """用卡牌图数据初始化 KG 和事件运行时状态。"""
+    seed_story_runtime(repo, world, kg, turn=0)
 
 
 def main() -> None:
@@ -48,6 +43,7 @@ def main() -> None:
         "recent_messages": [],
         "chat_history": [],
     }
+    state.update(retrieve_context(state, repo, rag, world, kg, rules))
 
     print("Welcome to TextRPG. Type /help for commands, or /quit to exit.\n")
     opening = repo.get("opening")

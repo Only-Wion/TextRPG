@@ -1,0 +1,84 @@
+{
+  "version": "1",
+  "entry_events": [
+    "event-meet-lumingfei"
+  ],
+  "nodes": [
+    {
+      "card_id": "event-meet-lumingfei",
+      "x": 120,
+      "y": 220
+    },
+    {
+      "card_id": "event-yanling-test",
+      "x": 430,
+      "y": 120
+    },
+    {
+      "card_id": "world-dragon-lore",
+      "x": 430,
+      "y": 340
+    },
+    {
+      "card_id": "char-lu-mingfei",
+      "x": 760,
+      "y": 120
+    },
+    {
+      "card_id": "loc-dormitory",
+      "x": 760,
+      "y": 320
+    },
+    {
+      "card_id": "loc-classroom",
+      "x": 980,
+      "y": 320
+    }
+  ],
+  "edges": [
+    {
+      "id": "related-lumingfei-char",
+      "from": "event-meet-lumingfei",
+      "to": "char-lu-mingfei",
+      "type": "related",
+      "directed": false,
+      "label": "相关人物"
+    },
+    {
+      "id": "related-lumingfei-dormitory",
+      "from": "event-meet-lumingfei",
+      "to": "loc-dormitory",
+      "type": "related",
+      "directed": false,
+      "label": "宿舍区域"
+    },
+    {
+      "id": "related-yanling-classroom",
+      "from": "event-yanling-test",
+      "to": "loc-classroom",
+      "type": "related",
+      "directed": false,
+      "label": "发生地点"
+    },
+    {
+      "id": "flow-lumingfei-yanling",
+      "from": "event-meet-lumingfei",
+      "to": "event-yanling-test",
+      "type": "event_flow",
+      "directed": true,
+      "label": "与路明非建立接触",
+      "condition_key": "met_lu_mingfei",
+      "priority": 10
+    },
+    {
+      "id": "flow-lumingfei-lore",
+      "from": "event-meet-lumingfei",
+      "to": "world-dragon-lore",
+      "type": "event_flow",
+      "directed": true,
+      "label": "获得龙族线索",
+      "condition_key": "learned_dragon_lore",
+      "priority": 5
+    }
+  ]
+}

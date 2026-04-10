@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 
 import {
   createDesignerAgentSession,
@@ -17,6 +18,7 @@ import {
 import type {
   AuthUser,
   DesignerAgentSession,
+  DesignerCardPayload,
   DesignerCardSummary,
   PackRecord,
 } from "../lib/api-contract";
@@ -27,8 +29,6 @@ type CardDesignerShellProps = {
   currentUser: AuthUser;
 };
 
-type DesignerMode = "edit" | "create-pack";
-
 type CreatePackDraft = {
   pack_id: string;
   name: string;
@@ -36,6 +36,68 @@ type CreatePackDraft = {
   author: string;
   description: string;
 };
+
+type CardEditorDraft = {
+  tabId: string;
+  title: string;
+  originalPath: string;
+  cardType: string;
+  customCardType: string;
+  cardId: string;
+  folderPath: string;
+  frontmatterText: string;
+  body: string;
+};
+
+type CardEditorTab = {
+  id: string;
+  title: string;
+  draft: CardEditorDraft;
+};
+
+type TreeFolder = {
+  path: string;
+  name: string;
+  parentPath: string;
+  depth: number;
+};
+
+type CanvasNode = {
+  id: string;
+  cardPath: string;
+  title: string;
+  cardType: string;
+  x: number;
+  y: number;
+};
+
+type CanvasEdge = {
+  id: string;
+  fromId: string;
+  toId: string;
+  label: string;
+};
+
+type DragState =
+  | {
+      type: "node";
+      nodeId: string;
+      pointerX: number;
+      pointerY: number;
+      originX: number;
+      originY: number;
+    }
+  | {
+      type: "pan";
+      pointerX: number;
+      pointerY: number;
+      originX: number;
+      originY: number;
+    }
+  | null;
+
+const CANVAS_TAB_ID = "canvas";
+const CREATE_PACK_TAB_ID = "create-pack";
 
 function stringifyFrontmatter(payload: Record<string, unknown>): string {
   return JSON.stringify(payload, null, 2);
@@ -51,25 +113,84 @@ function createEmptyPackDraft(): CreatePackDraft {
   };
 }
 
-type PendingCardPreview = {
-  title: string;
-  card_type: string;
-  card_id: string;
-  tags: string[];
-  body: string;
-};
+function createBlankCardDraft(overrides: Partial<CardEditorDraft> = {}): CardEditorDraft {
+  return {
+    tabId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "New Card",
+    originalPath: "",
+    cardType: "card",
+    customCardType: "",
+    cardId: "",
+    folderPath: "",
+    frontmatterText: "{}",
+    body: "",
+    ...overrides,
+  };
+}
 
-type PendingBatchSavePreview = {
-  pack_id: string;
-  cards: PendingCardPreview[];
-};
+function normalizePath(value: string): string {
+  return String(value || "")
+    .replace(/\\+/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .trim();
+}
 
-function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview | null {
-  const marker = "以下动作将修改数据，请确认后执行：";
-  if (!content.includes(marker)) {
+function pluralizeType(cardType: string): string {
+  const normalized = normalizePath(cardType);
+  if (!normalized) {
+    return "cards";
+  }
+  if (normalized === "memory") {
+    return "memories";
+  }
+  if (normalized.endsWith("s")) {
+    return normalized;
+  }
+  return `${normalized}s`;
+}
+
+function singularizeCategory(category: string): string {
+  const normalized = normalizePath(category);
+  if (!normalized) {
+    return "card";
+  }
+  if (normalized === "memories") {
+    return "memory";
+  }
+  if (normalized.endsWith("s") && normalized.length > 1) {
+    return normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+function formatFolderTarget(cardType: string, folderPath: string): string {
+  const category = pluralizeType(cardType);
+  const nested = normalizePath(folderPath);
+  return nested ? `${category}/${nested}` : category;
+}
+
+function splitTreeFolder(fullFolderPath: string): { category: string; nestedFolder: string } {
+  const normalized = normalizePath(fullFolderPath);
+  if (!normalized) {
+    return { category: "", nestedFolder: "" };
+  }
+  const parts = normalized.split("/");
+  return {
+    category: parts[0] ?? "",
+    nestedFolder: parts.slice(1).join("/"),
+  };
+}
+
+function fullFolderPathFromCard(card: DesignerCardSummary): string {
+  const category = normalizePath(card.category);
+  const folder = normalizePath(card.folder_path);
+  return folder ? `${category}/${folder}` : category;
+}
+
+function parsePendingBatchSavePreview(content: string) {
+  if (!content.includes("batch_save_cards")) {
     return null;
   }
-
   const line = content
     .split("\n")
     .map((item) => item.trim())
@@ -77,12 +198,10 @@ function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview 
   if (!line) {
     return null;
   }
-
   const jsonText = line.slice("- batch_save_cards:".length).trim();
   if (!jsonText) {
     return null;
   }
-
   try {
     const payload = JSON.parse(jsonText) as {
       pack_id?: unknown;
@@ -93,21 +212,19 @@ function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview 
         body?: unknown;
       }>;
     };
-    const rawCards = Array.isArray(payload.cards) ? payload.cards : [];
-    const cards: PendingCardPreview[] = rawCards.map((card) => {
-      const frontmatter = card.frontmatter ?? {};
-      const title = String(frontmatter.title ?? frontmatter.name ?? card.card_id ?? "untitled").trim() || "untitled";
-      const rawTags = frontmatter.tags;
-      const tags = Array.isArray(rawTags) ? rawTags.map((tag) => String(tag)) : [];
-      return {
-        title,
-        card_type: String(card.card_type ?? "card"),
-        card_id: String(card.card_id ?? "unknown"),
-        tags,
-        body: String(card.body ?? ""),
-      };
-    });
-
+    const cards = Array.isArray(payload.cards)
+      ? payload.cards.map((card) => {
+          const frontmatter = card.frontmatter ?? {};
+          const rawTags = frontmatter.tags;
+          return {
+            title: String(frontmatter.title ?? frontmatter.name ?? card.card_id ?? "untitled"),
+            card_type: String(card.card_type ?? "card"),
+            card_id: String(card.card_id ?? "unknown"),
+            tags: Array.isArray(rawTags) ? rawTags.map((tag) => String(tag)) : [],
+            body: String(card.body ?? ""),
+          };
+        })
+      : [];
     return {
       pack_id: String(payload.pack_id ?? ""),
       cards,
@@ -117,49 +234,69 @@ function parsePendingBatchSavePreview(content: string): PendingBatchSavePreview 
   }
 }
 
-function directoryOfCardPath(path: string): string {
-  const normalized = String(path || "").replace(/\\+/g, "/").replace(/^\/+|\/+$/g, "");
-  if (!normalized) {
-    return "";
+function buildFolderList(cards: DesignerCardSummary[], cardTypes: string[], localFolders: string[]): TreeFolder[] {
+  const allFolders = new Set<string>();
+
+  for (const cardType of cardTypes) {
+    allFolders.add(pluralizeType(cardType));
   }
-  const parts = normalized.split("/").filter(Boolean);
-  if (parts.length <= 1) {
-    return "";
+
+  for (const card of cards) {
+    const fullPath = fullFolderPathFromCard(card);
+    const parts = normalizePath(fullPath).split("/").filter(Boolean);
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      allFolders.add(current);
+    }
   }
-  parts.pop();
-  return parts.join("/");
+
+  for (const localFolder of localFolders) {
+    const parts = normalizePath(localFolder).split("/").filter(Boolean);
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      allFolders.add(current);
+    }
+  }
+
+  return Array.from(allFolders)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .map((path) => {
+      const parts = path.split("/").filter(Boolean);
+      return {
+        path,
+        name: parts[parts.length - 1] ?? path,
+        parentPath: parts.slice(0, -1).join("/"),
+        depth: Math.max(0, parts.length - 1),
+      };
+    });
 }
 
-function folderPathFromCurrentDirectory(currentDirectory: string): string {
-  const normalized = String(currentDirectory || "")
-    .replace(/\\+/g, "/")
-    .replace(/^\/+|\/+$/g, "");
-  if (!normalized) {
-    return "";
-  }
-  const parts = normalized.split("/").filter(Boolean);
-  if (parts.length <= 1) {
-    return "";
-  }
-  return parts.slice(1).join("/");
+function buildInitialDraftFromPayload(payload: DesignerCardPayload): CardEditorDraft {
+  return createBlankCardDraft({
+    title: payload.card_id,
+    originalPath: payload.path,
+    cardType: payload.card_type,
+    cardId: payload.card_id,
+    folderPath: payload.folder_path || "",
+    frontmatterText: stringifyFrontmatter(payload.frontmatter),
+    body: payload.body,
+  });
 }
 
 export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps) {
   const [runtimePacks, setRuntimePacks] = useState(packs);
-  const [mode, setMode] = useState<DesignerMode>(packs.length > 0 ? "edit" : "create-pack");
   const [selectedPackId, setSelectedPackId] = useState(packs[0]?.pack_id ?? "");
   const [cardTypes, setCardTypes] = useState<string[]>([]);
   const [cards, setCards] = useState<DesignerCardSummary[]>([]);
-  const [currentDirectory, setCurrentDirectory] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [editingCardPath, setEditingCardPath] = useState("");
-  const [editingCardType, setEditingCardType] = useState("card");
-  const [customCardType, setCustomCardType] = useState("");
-  const [editingCardId, setEditingCardId] = useState("");
-  const [editingFolderPath, setEditingFolderPath] = useState("");
-  const [frontmatterText, setFrontmatterText] = useState("{}");
-  const [bodyText, setBodyText] = useState("");
+  const [localFolders, setLocalFolders] = useState<string[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [editorTabs, setEditorTabs] = useState<CardEditorTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string>(packs.length > 0 ? CANVAS_TAB_ID : CREATE_PACK_TAB_ID);
   const [createPackDraft, setCreatePackDraft] = useState<CreatePackDraft>(createEmptyPackDraft());
+  const [keyword, setKeyword] = useState("");
   const [agentSession, setAgentSession] = useState<DesignerAgentSession | null>(null);
   const [agentInput, setAgentInput] = useState("");
   const [toolLogs, setToolLogs] = useState<string[]>([]);
@@ -167,65 +304,21 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [isCardsLoading, setIsCardsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [canvasNodes, setCanvasNodes] = useState<CanvasNode[]>([]);
+  const [canvasEdges, setCanvasEdges] = useState<CanvasEdge[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const [canvasScale, setCanvasScale] = useState(1);
 
-  const currentCardType = customCardType.trim() || editingCardType;
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<DragState>(null);
+
   const agentHistory = useMemo(() => {
     const history = agentSession?.state?.history;
     return Array.isArray(history) ? history : [];
   }, [agentSession]);
-
-  const normalizedCurrentDirectory = useMemo(
-    () => currentDirectory.trim().replace(/\\+/g, "/").replace(/^\/+|\/+$/g, ""),
-    [currentDirectory],
-  );
-
-  const currentDirectoryPrefix = normalizedCurrentDirectory ? `${normalizedCurrentDirectory}/` : "";
-
-  const visibleFolders = useMemo(() => {
-    const folders = new Set<string>();
-    for (const card of cards) {
-      const relative = currentDirectoryPrefix
-        ? card.path.startsWith(currentDirectoryPrefix)
-          ? card.path.slice(currentDirectoryPrefix.length)
-          : ""
-        : card.path;
-      if (!relative) {
-        continue;
-      }
-      const parts = relative.split("/").filter(Boolean);
-      if (parts.length > 1) {
-        folders.add(parts[0]);
-      }
-    }
-    return Array.from(folders).sort((a, b) => a.localeCompare(b));
-  }, [cards, currentDirectoryPrefix]);
-
-  const visibleCards = useMemo(() => {
-    return cards
-      .filter((card) => {
-        const relative = currentDirectoryPrefix
-          ? card.path.startsWith(currentDirectoryPrefix)
-            ? card.path.slice(currentDirectoryPrefix.length)
-            : ""
-          : card.path;
-        if (!relative) {
-          return false;
-        }
-        return !relative.includes("/");
-      })
-      .sort((a, b) => a.card_id.localeCompare(b.card_id));
-  }, [cards, currentDirectoryPrefix]);
-
-  const breadcrumbItems = useMemo(() => {
-    const parts = normalizedCurrentDirectory ? normalizedCurrentDirectory.split("/").filter(Boolean) : [];
-    const crumbs: Array<{ label: string; path: string }> = [{ label: "root", path: "" }];
-    let current = "";
-    for (const part of parts) {
-      current = current ? `${current}/${part}` : part;
-      crumbs.push({ label: part, path: current });
-    }
-    return crumbs;
-  }, [normalizedCurrentDirectory]);
 
   const agentTargetPackId = useMemo(() => {
     const sessionPackId = String(agentSession?.selected_pack_id ?? "").trim();
@@ -233,31 +326,97 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       return sessionPackId;
     }
     const statePackId = String((agentSession?.state as { selected_pack_id?: unknown } | undefined)?.selected_pack_id ?? "").trim();
-    if (statePackId) {
-      return statePackId;
-    }
-    return selectedPackId;
+    return statePackId || selectedPackId;
   }, [agentSession, selectedPackId]);
 
   const agentTargetPackName = useMemo(() => {
-    if (!agentTargetPackId) {
-      return "Unknown";
-    }
     const record = runtimePacks.find((pack) => pack.pack_id === agentTargetPackId);
     return record?.name ?? "Unknown";
   }, [agentTargetPackId, runtimePacks]);
 
+  const activeEditorTab = useMemo(
+    () => editorTabs.find((tab) => tab.id === activeTabId) ?? null,
+    [activeTabId, editorTabs],
+  );
+
+  const folderList = useMemo(() => buildFolderList(cards, cardTypes, localFolders), [cardTypes, cards, localFolders]);
+
+  const cardsByFolder = useMemo(() => {
+    const map = new Map<string, DesignerCardSummary[]>();
+    for (const card of cards) {
+      const folder = fullFolderPathFromCard(card);
+      const items = map.get(folder) ?? [];
+      items.push(card);
+      map.set(folder, items);
+    }
+    for (const entry of map.values()) {
+      entry.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return map;
+  }, [cards]);
+
+  const folderChildren = useMemo(() => {
+    const map = new Map<string, TreeFolder[]>();
+    for (const folder of folderList) {
+      const items = map.get(folder.parentPath) ?? [];
+      items.push(folder);
+      map.set(folder.parentPath, items);
+    }
+    for (const entry of map.values()) {
+      entry.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return map;
+  }, [folderList]);
+
+  const keywordLower = keyword.trim().toLowerCase();
+
+  const visibleFolderPaths = useMemo(() => {
+    if (!keywordLower) {
+      return new Set(folderList.map((folder) => folder.path));
+    }
+    const visible = new Set<string>();
+    for (const folder of folderList) {
+      if (folder.path.toLowerCase().includes(keywordLower)) {
+        let current = folder.path;
+        while (current) {
+          visible.add(current);
+          current = current.split("/").slice(0, -1).join("/");
+        }
+      }
+    }
+    for (const card of cards) {
+      const haystack = [card.title, card.card_id, card.path, card.card_type].join(" ").toLowerCase();
+      if (!haystack.includes(keywordLower)) {
+        continue;
+      }
+      const folderPath = fullFolderPathFromCard(card);
+      visible.add(folderPath);
+      let current = folderPath;
+      while (current) {
+        visible.add(current);
+        current = current.split("/").slice(0, -1).join("/");
+      }
+    }
+    return visible;
+  }, [cards, folderList, keywordLower]);
+
   useEffect(() => {
     if (runtimePacks.length === 0) {
-      setMode("create-pack");
-    }
-  }, [runtimePacks.length]);
-
-  useEffect(() => {
-    if (!selectedPackId || mode !== "edit") {
+      setSelectedPackId("");
+      setActiveTabId(CREATE_PACK_TAB_ID);
       return;
     }
+    if (!runtimePacks.some((pack) => pack.pack_id === selectedPackId)) {
+      setSelectedPackId(runtimePacks[0]?.pack_id ?? "");
+    }
+  }, [runtimePacks, selectedPackId]);
 
+  useEffect(() => {
+    if (!selectedPackId) {
+      setCards([]);
+      setCardTypes([]);
+      return;
+    }
     let cancelled = false;
     async function loadDesignerData() {
       setIsCardsLoading(true);
@@ -271,10 +430,21 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         }
         setCardTypes(nextTypes.length > 0 ? nextTypes : ["card"]);
         setCards(nextCards);
-        setCurrentDirectory("");
-        if (!editingCardPath && nextTypes.length > 0) {
-          setEditingCardType(nextTypes[0]);
-        }
+        setLocalFolders([]);
+        setExpandedFolders(
+          Object.fromEntries(
+            buildFolderList(nextCards, nextTypes, []).map((folder) => [folder.path, folder.depth <= 1]),
+          ),
+        );
+        setEditorTabs([]);
+        setCanvasNodes([]);
+        setCanvasEdges([]);
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        setConnectSourceId(null);
+        setCanvasOffset({ x: 0, y: 0 });
+        setCanvasScale(1);
+        setActiveTabId(CANVAS_TAB_ID);
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : "Failed to load designer data.");
@@ -285,48 +455,121 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         }
       }
     }
-
     void loadDesignerData();
     return () => {
       cancelled = true;
     };
-  }, [selectedPackId, mode]);
+  }, [selectedPackId]);
 
   useEffect(() => {
-    if (mode !== "edit" || agentSession) {
+    if (!selectedPackId || agentSession) {
       return;
     }
-
     let cancelled = false;
     async function bootstrapAgentSession() {
       try {
-        const nextSession = await createDesignerAgentSession(selectedPackId || undefined);
+        const session = await createDesignerAgentSession(selectedPackId);
         if (!cancelled) {
-          setAgentSession(nextSession);
-          setToolLogs([]);
+          setAgentSession(session);
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Failed to create designer session.");
+          setErrorMessage(error instanceof Error ? error.message : "Failed to initialize designer agent.");
         }
       }
     }
-
     void bootstrapAgentSession();
     return () => {
       cancelled = true;
     };
-  }, [selectedPackId, mode, agentSession]);
+  }, [agentSession, selectedPackId]);
 
-  async function refreshCards(packId: string, nextKeyword?: string) {
-    if (!packId) {
+  useEffect(() => {
+    function handlePointerMove(event: MouseEvent) {
+      const dragState = dragStateRef.current;
+      if (!dragState) {
+        return;
+      }
+      if (dragState.type === "node") {
+        const deltaX = (event.clientX - dragState.pointerX) / canvasScale;
+        const deltaY = (event.clientY - dragState.pointerY) / canvasScale;
+        setCanvasNodes((current) =>
+          current.map((node) =>
+            node.id === dragState.nodeId
+              ? {
+                  ...node,
+                  x: dragState.originX + deltaX,
+                  y: dragState.originY + deltaY,
+                }
+              : node,
+          ),
+        );
+        return;
+      }
+      setCanvasOffset({
+        x: dragState.originX + (event.clientX - dragState.pointerX),
+        y: dragState.originY + (event.clientY - dragState.pointerY),
+      });
+    }
+
+    function handlePointerUp() {
+      dragStateRef.current = null;
+    }
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+  }, [canvasScale]);
+
+  function setActivePack(packId: string) {
+    setSelectedPackId(packId);
+    setAgentSession(null);
+    setToolLogs([]);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
+  function updateEditorTab(tabId: string, updater: (draft: CardEditorDraft) => CardEditorDraft) {
+    setEditorTabs((current) =>
+      current.map((tab) => {
+        if (tab.id !== tabId) {
+          return tab;
+        }
+        const nextDraft = updater(tab.draft);
+        return {
+          ...tab,
+          title: nextDraft.cardId || nextDraft.title || "New Card",
+          draft: nextDraft,
+        };
+      }),
+    );
+  }
+
+  function upsertEditorTab(tab: CardEditorTab) {
+    setEditorTabs((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === tab.id);
+      if (existingIndex < 0) {
+        return [...current, tab];
+      }
+      return current.map((entry) => (entry.id === tab.id ? tab : entry));
+    });
+  }
+
+  function removeEditorTab(tabId: string) {
+    setEditorTabs((current) => current.filter((tab) => tab.id !== tabId));
+    setActiveTabId((current) => (current === tabId ? CANVAS_TAB_ID : current));
+  }
+
+  async function refreshCards() {
+    if (!selectedPackId) {
       return;
     }
     setIsCardsLoading(true);
     try {
-      const updated = await getDesignerCards(packId, {
-        keyword: nextKeyword?.trim() ? nextKeyword.trim() : undefined,
-      });
+      const updated = await getDesignerCards(selectedPackId);
       setCards(updated);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to refresh cards.");
@@ -335,153 +578,316 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     }
   }
 
-  function resetEditor(useCurrentDirectoryFolder: boolean = false) {
-    setEditingCardPath("");
-    setEditingCardId("");
-    setEditingFolderPath(
-      useCurrentDirectoryFolder
-        ? folderPathFromCurrentDirectory(normalizedCurrentDirectory)
-        : "",
-    );
-    setCustomCardType("");
-    setFrontmatterText("{}");
-    setBodyText("");
-    setEditingCardType(cardTypes[0] ?? "card");
-  }
-
-  async function handleLoadCard(path: string) {
+  async function openCardEditor(cardPath: string) {
+    const existing = editorTabs.find((tab) => tab.draft.originalPath === cardPath);
+    if (existing) {
+      setActiveTabId(existing.id);
+      return;
+    }
     if (!selectedPackId) {
       return;
     }
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
-      const payload = await loadDesignerCard(selectedPackId, path);
-      setEditingCardPath(payload.path);
-      setEditingCardType(payload.card_type);
-      setCustomCardType("");
-      setEditingCardId(payload.card_id);
-      setEditingFolderPath(payload.folder_path || "");
-      setCurrentDirectory(directoryOfCardPath(payload.path));
-      setFrontmatterText(stringifyFrontmatter(payload.frontmatter));
-      setBodyText(payload.body);
-      setSuccessMessage(`Loaded ${payload.path}`);
+      const payload = await loadDesignerCard(selectedPackId, cardPath);
+      const draft = buildInitialDraftFromPayload(payload);
+      const tab: CardEditorTab = {
+        id: payload.path,
+        title: payload.card_id,
+        draft: { ...draft, tabId: payload.path },
+      };
+      upsertEditorTab(tab);
+      setActiveTabId(tab.id);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load the card.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load card.");
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function handleGenerateTemplate() {
-    if (!selectedPackId) {
+  function openNewCardTab(fullFolderPath: string) {
+    const { category, nestedFolder } = splitTreeFolder(fullFolderPath);
+    const nextCardType = singularizeCategory(category || cardTypes[0] || "card");
+    const tab = createBlankCardDraft({
+      title: "New Card",
+      cardType: nextCardType,
+      folderPath: nestedFolder,
+    });
+    upsertEditorTab({
+      id: tab.tabId,
+      title: tab.title,
+      draft: tab,
+    });
+    setActiveTabId(tab.tabId);
+  }
+
+  function handleCreateFolder(parentPath: string) {
+    const folderName = window.prompt("New folder name");
+    const normalizedName = normalizePath(folderName ?? "");
+    if (!normalizedName) {
       return;
     }
+    const nextPath = normalizePath(parentPath ? `${parentPath}/${normalizedName}` : normalizedName);
+    setLocalFolders((current) => (current.includes(nextPath) ? current : [...current, nextPath]));
+    setExpandedFolders((current) => ({ ...current, [parentPath]: true, [nextPath]: true }));
+    setSuccessMessage(`Created local folder ${nextPath}.`);
+  }
+
+  function addCardToCanvas(card: DesignerCardSummary) {
+    const existing = canvasNodes.find((node) => node.cardPath === card.path);
+    if (existing) {
+      setSelectedNodeId(existing.id);
+      setActiveTabId(CANVAS_TAB_ID);
+      return;
+    }
+    const viewport = viewportRef.current?.getBoundingClientRect();
+    const baseX = viewport ? (viewport.width / 2 - canvasOffset.x) / canvasScale - 110 : 120;
+    const baseY = viewport ? (viewport.height / 2 - canvasOffset.y) / canvasScale - 70 : 120;
+    const indexOffset = canvasNodes.length * 28;
+    const node: CanvasNode = {
+      id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      cardPath: card.path,
+      title: card.title,
+      cardType: card.card_type,
+      x: baseX + indexOffset,
+      y: baseY + indexOffset * 0.5,
+    };
+    setCanvasNodes((current) => [...current, node]);
+    setSelectedNodeId(node.id);
+    setActiveTabId(CANVAS_TAB_ID);
+  }
+
+  function handleCanvasNodeClick(nodeId: string) {
+    if (connectSourceId && connectSourceId !== nodeId) {
+      const label = window.prompt("Connection label", "") ?? "";
+      setCanvasEdges((current) => [
+        ...current,
+        {
+          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          fromId: connectSourceId,
+          toId: nodeId,
+          label: label.trim(),
+        },
+      ]);
+      setConnectSourceId(null);
+      setSelectedEdgeId(null);
+      return;
+    }
+    if (connectSourceId === nodeId) {
+      setConnectSourceId(null);
+    }
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(null);
+  }
+
+  function handleCanvasNodeDragStart(node: CanvasNode, event: ReactMouseEvent<HTMLDivElement>) {
+    event.stopPropagation();
+    dragStateRef.current = {
+      type: "node",
+      nodeId: node.id,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      originX: node.x,
+      originY: node.y,
+    };
+    setSelectedNodeId(node.id);
+  }
+
+  function handleCanvasPanStart(event: ReactMouseEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest(".designer-canvas-node, .designer-edge-label")) {
+      return;
+    }
+    dragStateRef.current = {
+      type: "pan",
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      originX: canvasOffset.x,
+      originY: canvasOffset.y,
+    };
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setConnectSourceId(null);
+  }
+
+  function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const nextScale = Math.min(1.8, Math.max(0.5, canvasScale - event.deltaY * 0.001));
+      setCanvasScale(Number(nextScale.toFixed(2)));
+      return;
+    }
+    setCanvasOffset((current) => ({
+      x: current.x - event.deltaX,
+      y: current.y - event.deltaY,
+    }));
+  }
+
+  function startConnection() {
+    if (!selectedNodeId) {
+      setErrorMessage("Select a card node before starting a connection.");
+      return;
+    }
+    setConnectSourceId(selectedNodeId);
+    setSelectedEdgeId(null);
+  }
+
+  function removeSelectedCanvasItem() {
+    if (selectedEdgeId) {
+      setCanvasEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId));
+      setSelectedEdgeId(null);
+      return;
+    }
+    if (selectedNodeId) {
+      setCanvasNodes((current) => current.filter((node) => node.id !== selectedNodeId));
+      setCanvasEdges((current) =>
+        current.filter((edge) => edge.fromId !== selectedNodeId && edge.toId !== selectedNodeId),
+      );
+      if (connectSourceId === selectedNodeId) {
+        setConnectSourceId(null);
+      }
+      setSelectedNodeId(null);
+    }
+  }
+
+  function resetCanvasView() {
+    setCanvasOffset({ x: 0, y: 0 });
+    setCanvasScale(1);
+  }
+
+  async function handleGenerateTemplate() {
+    if (!activeEditorTab || !selectedPackId) {
+      return;
+    }
+    const draft = activeEditorTab.draft;
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
-      const payload = await getDesignerCardTemplate(selectedPackId, currentCardType || "card");
-      setFrontmatterText(stringifyFrontmatter(payload));
-      setSuccessMessage(`Generated template for ${currentCardType || "card"}.`);
+      const template = await getDesignerCardTemplate(selectedPackId, draft.customCardType.trim() || draft.cardType);
+      updateEditorTab(activeEditorTab.id, (current) => ({
+        ...current,
+        frontmatterText: stringifyFrontmatter(template),
+      }));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to generate the template.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to generate template.");
     } finally {
       setIsBusy(false);
     }
   }
 
   async function handleSaveCard() {
-    if (!selectedPackId || !editingCardId.trim()) {
-      setErrorMessage("Pack and card id are required.");
+    if (!activeEditorTab || !selectedPackId) {
       return;
     }
+    const draft = activeEditorTab.draft;
+    const currentCardType = draft.customCardType.trim() || draft.cardType.trim() || "card";
     setIsBusy(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    const submittedFrontmatterText = frontmatterText;
-    const submittedBodyText = bodyText;
     try {
       const payload = await saveDesignerCard(selectedPackId, {
-        card_type: currentCardType || "card",
-        card_id: editingCardId.trim(),
-        folder_path: editingFolderPath.trim() || undefined,
-        frontmatter_text: submittedFrontmatterText,
-        body: submittedBodyText,
-        original_path: editingCardPath || undefined,
+        card_type: currentCardType,
+        card_id: draft.cardId.trim(),
+        folder_path: normalizePath(draft.folderPath) || undefined,
+        frontmatter_text: draft.frontmatterText,
+        body: draft.body,
+        original_path: draft.originalPath || undefined,
       });
-      setEditingCardPath(payload.path);
-      setEditingCardType(payload.card_type);
-      setEditingCardId(payload.card_id);
-      setEditingFolderPath(payload.folder_path || "");
-      setCurrentDirectory(directoryOfCardPath(payload.path));
-      await refreshCards(selectedPackId, keyword);
-      setSuccessMessage(`Saved ${payload.path}`);
+      const nextTabId = payload.path;
+      const nextDraft = buildInitialDraftFromPayload(payload);
+      setEditorTabs((current) =>
+        current.map((tab) =>
+          tab.id === activeEditorTab.id
+            ? {
+                id: nextTabId,
+                title: payload.card_id,
+                draft: { ...nextDraft, tabId: nextTabId },
+              }
+            : tab,
+        ),
+      );
+      setCanvasNodes((current) =>
+        current.map((node) =>
+          node.cardPath === draft.originalPath || node.cardPath === payload.path
+            ? {
+                ...node,
+                cardPath: payload.path,
+                title: payload.card_id,
+                cardType: payload.card_type,
+              }
+            : node,
+        ),
+      );
+      setActiveTabId(nextTabId);
+      await refreshCards();
+      setSuccessMessage(`Saved ${payload.card_id} to ${formatFolderTarget(payload.card_type, payload.folder_path)}.`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to save the card.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to save card.");
     } finally {
       setIsBusy(false);
     }
   }
 
   async function handleValidateCard() {
+    if (!activeEditorTab) {
+      return;
+    }
+    const draft = activeEditorTab.draft;
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
-      await validateDesignerCard({ frontmatter_text: frontmatterText, body: bodyText });
-      setSuccessMessage("Card content is valid.");
+      await validateDesignerCard({
+        frontmatter_text: draft.frontmatterText,
+        body: draft.body,
+      });
+      setSuccessMessage("Card validation passed.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Card validation failed.");
+      setErrorMessage(error instanceof Error ? error.message : "Validation failed.");
     } finally {
       setIsBusy(false);
     }
   }
 
   async function handleDeleteCard() {
-    if (!selectedPackId || !editingCardPath) {
-      setErrorMessage("Load a card before deleting it.");
+    if (!activeEditorTab || !activeEditorTab.draft.originalPath || !selectedPackId) {
+      setErrorMessage("Load an existing card before deleting it.");
       return;
     }
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
-      await deleteDesignerCard(selectedPackId, editingCardPath);
-      resetEditor();
-      await refreshCards(selectedPackId, keyword);
+      const deletedNodeIds = canvasNodes
+        .filter((node) => node.cardPath === activeEditorTab.draft.originalPath)
+        .map((node) => node.id);
+      await deleteDesignerCard(selectedPackId, activeEditorTab.draft.originalPath);
+      setCanvasNodes((current) => current.filter((node) => node.cardPath !== activeEditorTab.draft.originalPath));
+      setCanvasEdges((current) =>
+        current.filter((edge) => !deletedNodeIds.includes(edge.fromId) && !deletedNodeIds.includes(edge.toId)),
+      );
+      removeEditorTab(activeEditorTab.id);
+      await refreshCards();
       setSuccessMessage("Card deleted.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete the card.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to delete card.");
     } finally {
       setIsBusy(false);
     }
   }
 
   async function handleCreatePack() {
-    if (!createPackDraft.pack_id.trim() || !createPackDraft.name.trim() || !createPackDraft.author.trim()) {
-      setErrorMessage("pack_id, name, and author are required.");
-      return;
-    }
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
-      await createDesignerPack(createPackDraft);
-      const nextPack: PackRecord = {
-        ...createPackDraft,
-        cards_root: "cards",
-        enabled: false,
-        source: "local",
-      };
-      setRuntimePacks((current) => [nextPack, ...current.filter((pack) => pack.pack_id !== nextPack.pack_id)]);
-      setSelectedPackId(createPackDraft.pack_id);
+      const payload = await createDesignerPack(createPackDraft);
+      const nextPacks = [...runtimePacks, { ...payload, cards_root: "cards", enabled: false, source: "local" }];
+      setRuntimePacks(nextPacks);
+      setCreatePackDraft(createEmptyPackDraft());
       setAgentSession(null);
       setToolLogs([]);
-      setMode("edit");
-      setCreatePackDraft(createEmptyPackDraft());
-      setSuccessMessage(`Created pack ${nextPack.pack_id}`);
+      setSelectedPackId(payload.pack_id);
+      setActiveTabId(CANVAS_TAB_ID);
+      setSuccessMessage(`Created pack ${payload.name}.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to create pack.");
     } finally {
@@ -490,12 +896,11 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }
 
   async function handleSendAgentMessage() {
-    if (!agentInput.trim() || !agentSession) {
+    if (!agentSession || !agentInput.trim()) {
       return;
     }
     setIsBusy(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
       const response = await sendDesignerAgentMessage(agentSession.session_id, agentInput.trim());
       setAgentSession((current) =>
@@ -508,17 +913,350 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
           : null,
       );
       setToolLogs(response.tool_logs);
-      if (response.selected_pack_id && response.selected_pack_id !== selectedPackId) {
-        setSelectedPackId(response.selected_pack_id);
-      } else if (selectedPackId) {
-        await refreshCards(selectedPackId, keyword);
-      }
       setAgentInput("");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to send the designer prompt.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to send message to agent.");
     } finally {
       setIsBusy(false);
     }
+  }
+
+  const renderedTabs = [
+    { id: CANVAS_TAB_ID, label: "Canvas", closable: false },
+    ...editorTabs.map((tab) => ({ id: tab.id, label: tab.title || "Card", closable: true })),
+    { id: CREATE_PACK_TAB_ID, label: "New Pack", closable: false },
+  ];
+
+  function renderFolder(folder: TreeFolder) {
+    if (!visibleFolderPaths.has(folder.path)) {
+      return null;
+    }
+    const isExpanded = expandedFolders[folder.path] ?? folder.depth < 1;
+    const childFolders = folderChildren.get(folder.path) ?? [];
+    const childCards = (cardsByFolder.get(folder.path) ?? []).filter((card) => {
+      if (!keywordLower) {
+        return true;
+      }
+      const haystack = [card.title, card.card_id, card.path, card.card_type].join(" ").toLowerCase();
+      return haystack.includes(keywordLower);
+    });
+    return (
+      <div className="designer-tree-node" key={folder.path}>
+        <div className="designer-tree-row">
+          <button
+            className="designer-tree-label folder"
+            onClick={() => setExpandedFolders((current) => ({ ...current, [folder.path]: !isExpanded }))}
+            type="button"
+          >
+            <span className="designer-tree-caret">{isExpanded ? "▾" : "▸"}</span>
+            <span>{folder.name}</span>
+          </button>
+          <div className="designer-tree-actions">
+            <button onClick={() => openNewCardTab(folder.path)} type="button">
+              New Card
+            </button>
+            <button onClick={() => handleCreateFolder(folder.path)} type="button">
+              New Folder
+            </button>
+          </div>
+        </div>
+        {isExpanded ? (
+          <div className="designer-tree-children">
+            {childFolders.map((child) => renderFolder(child))}
+            {childCards.map((card) => (
+              <div className="designer-tree-card-row" key={card.path}>
+                <div className="designer-tree-card-copy">
+                  <div className="designer-tree-card-title">{card.title}</div>
+                  <div className="designer-tree-card-meta">
+                    {card.card_type} · {card.path}
+                  </div>
+                </div>
+                <div className="designer-tree-actions">
+                  <button onClick={() => addCardToCanvas(card)} type="button">
+                    Add
+                  </button>
+                  <button onClick={() => void openCardEditor(card.path)} type="button">
+                    Edit
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderCanvas() {
+    const nodeLookup = new Map(canvasNodes.map((node) => [node.id, node]));
+    return (
+      <section className="designer-workspace-panel">
+        <div className="designer-workspace-toolbar">
+          <div className="designer-toolbar-group">
+            <button
+              className={`designer-toolbar-button ${connectSourceId ? "active" : ""}`}
+              onClick={startConnection}
+              type="button"
+            >
+              {connectSourceId ? "Pick target node" : "Connect"}
+            </button>
+            <button className="designer-toolbar-button" onClick={removeSelectedCanvasItem} type="button">
+              Remove Selected
+            </button>
+          </div>
+          <div className="designer-toolbar-group">
+            <button className="designer-toolbar-button" onClick={resetCanvasView} type="button">
+              Reset View
+            </button>
+            <button
+              className="designer-toolbar-button"
+              onClick={() => {
+                setCanvasNodes([]);
+                setCanvasEdges([]);
+              }}
+              type="button"
+            >
+              Clear Nodes
+            </button>
+          </div>
+        </div>
+
+        <div className="designer-infinite-viewport" onMouseDown={handleCanvasPanStart} onWheel={handleCanvasWheel} ref={viewportRef}>
+          <div
+            className="designer-infinite-surface"
+            style={{
+              backgroundPosition: `${canvasOffset.x}px ${canvasOffset.y}px`,
+              backgroundSize: `${28 * canvasScale}px ${28 * canvasScale}px`,
+            }}
+          >
+            <svg className="designer-canvas-svg">
+              {canvasEdges.map((edge) => {
+                const fromNode = nodeLookup.get(edge.fromId);
+                const toNode = nodeLookup.get(edge.toId);
+                if (!fromNode || !toNode) {
+                  return null;
+                }
+                const fromX = fromNode.x * canvasScale + canvasOffset.x + 112;
+                const fromY = fromNode.y * canvasScale + canvasOffset.y + 60;
+                const toX = toNode.x * canvasScale + canvasOffset.x + 112;
+                const toY = toNode.y * canvasScale + canvasOffset.y + 60;
+                const midX = (fromX + toX) / 2;
+                const midY = (fromY + toY) / 2;
+                return (
+                  <g key={edge.id}>
+                    <line
+                      className={selectedEdgeId === edge.id ? "selected" : ""}
+                      onClick={() => {
+                        setSelectedEdgeId(edge.id);
+                        setSelectedNodeId(null);
+                      }}
+                      x1={fromX}
+                      x2={toX}
+                      y1={fromY}
+                      y2={toY}
+                    />
+                    <foreignObject height="28" width="120" x={midX - 60} y={midY - 14}>
+                      <button
+                        className={`designer-edge-label ${selectedEdgeId === edge.id ? "active" : ""}`}
+                        onClick={() => {
+                          const nextLabel = window.prompt("Connection label", edge.label) ?? edge.label;
+                          setCanvasEdges((current) =>
+                            current.map((item) => (item.id === edge.id ? { ...item, label: nextLabel.trim() } : item)),
+                          );
+                          setSelectedEdgeId(edge.id);
+                        }}
+                        type="button"
+                      >
+                        {edge.label || "label"}
+                      </button>
+                    </foreignObject>
+                  </g>
+                );
+              })}
+            </svg>
+
+            {canvasNodes.map((node) => (
+              <button
+                className={`designer-canvas-node ${selectedNodeId === node.id ? "selected" : ""} ${connectSourceId === node.id ? "source" : ""}`}
+                key={node.id}
+                onClick={() => handleCanvasNodeClick(node.id)}
+                onDoubleClick={() => void openCardEditor(node.cardPath)}
+                style={{
+                  transform: `translate(${node.x * canvasScale + canvasOffset.x}px, ${node.y * canvasScale + canvasOffset.y}px) scale(${canvasScale})`,
+                  transformOrigin: "top left",
+                }}
+                type="button"
+              >
+                <div className="designer-canvas-node-grip" onMouseDown={(event) => handleCanvasNodeDragStart(node, event)}>
+                  Drag
+                </div>
+                <div className="designer-canvas-node-type">{node.cardType}</div>
+                <div className="designer-canvas-node-title">{node.title}</div>
+                <div className="designer-canvas-node-path">{node.cardPath}</div>
+              </button>
+            ))}
+
+            <div className="designer-canvas-hint">
+              Infinite canvas: drag background to pan, use Ctrl/Command + wheel to zoom, double click a card node to open its editor.
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  function renderEditor() {
+    if (!activeEditorTab) {
+      return (
+        <section className="designer-workspace-panel empty">
+          <div className="designer-empty-state">
+            Pick a card from the file tree, or click New Card on a folder to open an editor tab here.
+          </div>
+        </section>
+      );
+    }
+    const draft = activeEditorTab.draft;
+    const currentCardType = draft.customCardType.trim() || draft.cardType.trim() || "card";
+    return (
+      <section className="designer-workspace-panel">
+        <div className="designer-editor-header">
+          <div>
+            <h2>{draft.cardId || "New Card"}</h2>
+            <p>Canvas stays pinned; editor tabs can be opened and closed as needed.</p>
+          </div>
+          <div className="designer-inline-actions">
+            <button onClick={() => void handleGenerateTemplate()} type="button">
+              Generate Template
+            </button>
+            <button onClick={() => void handleValidateCard()} type="button">
+              Validate
+            </button>
+            <button disabled={!draft.originalPath} onClick={() => void handleDeleteCard()} type="button">
+              Delete
+            </button>
+            <button className="primary" onClick={() => void handleSaveCard()} type="button">
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="designer-editor-grid">
+          <label className="designer-field">
+            <span>Type</span>
+            <select
+              onChange={(event) =>
+                updateEditorTab(activeEditorTab.id, (current) => ({ ...current, cardType: event.target.value }))
+              }
+              value={draft.cardType}
+            >
+              {cardTypes.map((cardType) => (
+                <option key={cardType} value={cardType}>
+                  {cardType}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="designer-field">
+            <span>Custom Type</span>
+            <input
+              onChange={(event) =>
+                updateEditorTab(activeEditorTab.id, (current) => ({ ...current, customCardType: event.target.value }))
+              }
+              placeholder="Optional type override"
+              value={draft.customCardType}
+            />
+          </label>
+
+          <label className="designer-field">
+            <span>Card ID</span>
+            <input
+              onChange={(event) =>
+                updateEditorTab(activeEditorTab.id, (current) => ({ ...current, cardId: event.target.value, title: event.target.value || "New Card" }))
+              }
+              placeholder="card_id"
+              value={draft.cardId}
+            />
+          </label>
+
+          <label className="designer-field">
+            <span>Nested Folder</span>
+            <input
+              onChange={(event) =>
+                updateEditorTab(activeEditorTab.id, (current) => ({ ...current, folderPath: event.target.value }))
+              }
+              placeholder="chapter_02/scene_01"
+              value={draft.folderPath}
+            />
+          </label>
+        </div>
+
+        <div className="designer-field helper">
+          <span>Target Folder</span>
+          <div className="designer-helper-copy">{formatFolderTarget(currentCardType, draft.folderPath)}</div>
+        </div>
+
+        <label className="designer-field stacked">
+          <span>Frontmatter (JSON)</span>
+          <textarea
+            onChange={(event) =>
+              updateEditorTab(activeEditorTab.id, (current) => ({ ...current, frontmatterText: event.target.value }))
+            }
+            value={draft.frontmatterText}
+          />
+        </label>
+
+        <label className="designer-field stacked grow">
+          <span>Body (Markdown)</span>
+          <textarea
+            className="body"
+            onChange={(event) =>
+              updateEditorTab(activeEditorTab.id, (current) => ({ ...current, body: event.target.value }))
+            }
+            value={draft.body}
+          />
+        </label>
+      </section>
+    );
+  }
+
+  function renderCreatePack() {
+    return (
+      <section className="designer-workspace-panel">
+        <div className="designer-editor-header">
+          <div>
+            <h2>Create Pack</h2>
+            <p>Create a new pack, then continue working in the file tree and canvas view.</p>
+          </div>
+          <div className="designer-inline-actions">
+            <button className="primary" onClick={() => void handleCreatePack()} type="button">
+              Save Pack
+            </button>
+          </div>
+        </div>
+
+        <div className="designer-editor-grid">
+          {(["pack_id", "name", "version", "author"] as const).map((field) => (
+            <label className="designer-field" key={field}>
+              <span>{field}</span>
+              <input
+                onChange={(event) => setCreatePackDraft((current) => ({ ...current, [field]: event.target.value }))}
+                value={createPackDraft[field]}
+              />
+            </label>
+          ))}
+        </div>
+
+        <label className="designer-field stacked grow">
+          <span>Description</span>
+          <textarea
+            className="body"
+            onChange={(event) => setCreatePackDraft((current) => ({ ...current, description: event.target.value }))}
+            value={createPackDraft.description}
+          />
+        </label>
+      </section>
+    );
   }
 
   return (
@@ -526,420 +1264,169 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       <div className="light-app-frame">
         <AppSidebar activePath="/card-designer" currentUser={currentUser} />
 
-        <section className="light-main">
-          <header className="light-topbar">
-            <h1 className="light-page-title">Card Designer</h1>
+        <section className="light-main designer-v2-shell">
+          <header className="designer-v2-topbar">
+            <div>
+              <h1 className="light-page-title">Card Designer</h1>
+              <p className="designer-v2-subtitle">File tree on the left, infinite canvas in the center, pack build agent on the right.</p>
+            </div>
+
+            <div className="designer-v2-topbar-actions">
+              <select
+                className="designer-topbar-select"
+                disabled={runtimePacks.length === 0}
+                onChange={(event) => setActivePack(event.target.value)}
+                value={selectedPackId}
+              >
+                {runtimePacks.length === 0 ? (
+                  <option value="">No packs yet</option>
+                ) : (
+                  runtimePacks.map((pack) => (
+                    <option key={pack.pack_id} value={pack.pack_id}>
+                      {pack.name} ({pack.pack_id})
+                    </option>
+                  ))
+                )}
+              </select>
+              <button className="designer-topbar-button" onClick={() => setActiveTabId(CREATE_PACK_TAB_ID)} type="button">
+                Create Pack
+              </button>
+              <button className="designer-topbar-button" onClick={() => setActiveTabId(CANVAS_TAB_ID)} type="button">
+                Open Canvas
+              </button>
+            </div>
           </header>
 
-          <div className="designer-grid">
-            <section className="light-card designer-panel designer-editor-panel">
-              <div className="designer-panel-header">
-                <h2 className="light-card-title">{mode === "edit" ? "Create / Edit Card" : "New Pack Manifest"}</h2>
-                <div className="designer-mode-switch">
-                  <button
-                    className={`light-action-button ${mode === "edit" ? "load" : "disabled"}`}
-                    onClick={() => setMode("edit")}
-                    type="button"
-                  >
-                    Edit Pack
-                  </button>
-                  <button
-                    className={`light-action-button ${mode === "create-pack" ? "new" : "archive"}`}
-                    onClick={() => setMode("create-pack")}
-                    type="button"
-                  >
-                    Create Pack
-                  </button>
+          <div className="designer-v2-grid">
+            <section className="light-card designer-v2-panel designer-tree-panel">
+              <div className="designer-panel-head">
+                <div>
+                  <h2>File Structure</h2>
+                  <p>Folders can spawn cards or child folders. Cards can be added to the canvas or opened in an editor tab.</p>
                 </div>
+                <button className="designer-minor-button" onClick={() => handleCreateFolder("")} type="button">
+                  Root Folder
+                </button>
               </div>
 
-              {mode === "edit" ? (
-                <div className="designer-editor-scroll">
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-pack-id">
-                      Pack
-                    </label>
-                    <select
-                      className="light-input"
-                      id="designer-pack-id"
-                      onChange={(event) => {
-                        setSelectedPackId(event.target.value);
-                        setKeyword("");
-                        setCurrentDirectory("");
-                        setAgentSession(null);
-                        setToolLogs([]);
-                        resetEditor();
-                      }}
-                      value={selectedPackId}
-                    >
-                      {runtimePacks.map((pack) => (
-                        <option key={pack.pack_id} value={pack.pack_id}>
-                          {pack.name} ({pack.pack_id})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <input
+                className="designer-tree-search"
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="Filter folders and cards"
+                value={keyword}
+              />
 
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-card-type">
-                      Type
-                    </label>
-                    <select
-                      className="light-input"
-                      id="designer-card-type"
-                      onChange={(event) => setEditingCardType(event.target.value)}
-                      value={editingCardType}
-                    >
-                      {cardTypes.map((cardType) => (
-                        <option key={cardType} value={cardType}>
-                          {cardType}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="designer-tree-meta">
+                {isCardsLoading ? "Loading pack files..." : `${folderList.length} folders · ${cards.length} cards`}
+              </div>
 
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-custom-card-type">
-                      Custom Type
-                    </label>
-                    <input
-                      className="light-input"
-                      id="designer-custom-card-type"
-                      onChange={(event) => setCustomCardType(event.target.value)}
-                      placeholder="e.g. faction, clue, chapter"
-                      value={customCardType}
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-card-id">
-                      Card ID
-                    </label>
-                    <input
-                      className="light-input"
-                      id="designer-card-id"
-                      onChange={(event) => setEditingCardId(event.target.value)}
-                      placeholder="card id"
-                      value={editingCardId}
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-folder-path">
-                      Folder Path (optional)
-                    </label>
-                    <input
-                      className="light-input"
-                      id="designer-folder-path"
-                      onChange={(event) => setEditingFolderPath(event.target.value)}
-                      placeholder="e.g. main_story/chapter_01"
-                      value={editingFolderPath}
-                    />
-                  </div>
-
-                  <div className="designer-inline-actions">
-                    <button className="light-action-button load" onClick={handleGenerateTemplate} type="button">
-                      Generate Template
-                    </button>
-                    <button className="light-action-button archive" onClick={() => resetEditor(true)} type="button">
-                      New Card
-                    </button>
-                  </div>
-
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-frontmatter">
-                      Frontmatter (YAML / JSON)
-                    </label>
-                    <textarea
-                      className="designer-textarea designer-frontmatter"
-                      id="designer-frontmatter"
-                      onChange={(event) => setFrontmatterText(event.target.value)}
-                      value={frontmatterText}
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label className="settings-label" htmlFor="designer-body">
-                      Body (Markdown)
-                    </label>
-                    <textarea
-                      className="designer-textarea designer-body"
-                      id="designer-body"
-                      onChange={(event) => setBodyText(event.target.value)}
-                      value={bodyText}
-                    />
-                  </div>
-
-                  <div className="designer-inline-actions designer-footer-actions">
-                    <button className="light-action-button new" disabled={isBusy} onClick={handleSaveCard} type="button">
-                      Save
-                    </button>
-                    <button className="light-action-button load" disabled={isBusy} onClick={handleValidateCard} type="button">
-                      Validate
-                    </button>
-                    <button
-                      className="light-action-button archive"
-                      disabled={isBusy || !editingCardPath}
-                      onClick={handleDeleteCard}
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="designer-editor-scroll">
-                  {(["pack_id", "name", "version", "author", "description"] as const).map((field) => (
-                    <div className="settings-field" key={field}>
-                      <label className="settings-label" htmlFor={`create-pack-${field}`}>
-                        {field}
-                      </label>
-                      {field === "description" ? (
-                        <textarea
-                          className="designer-textarea designer-frontmatter"
-                          id={`create-pack-${field}`}
-                          onChange={(event) =>
-                            setCreatePackDraft((current) => ({
-                              ...current,
-                              [field]: event.target.value,
-                            }))
-                          }
-                          value={createPackDraft[field]}
-                        />
-                      ) : (
-                        <input
-                          className="light-input"
-                          id={`create-pack-${field}`}
-                          onChange={(event) =>
-                            setCreatePackDraft((current) => ({
-                              ...current,
-                              [field]: event.target.value,
-                            }))
-                          }
-                          value={createPackDraft[field]}
-                        />
-                      )}
-                    </div>
-                  ))}
-
-                  <button className="light-action-button new designer-create-pack-button" onClick={handleCreatePack} type="button">
-                    Save Pack
-                  </button>
-                </div>
-              )}
+              <div className="designer-tree-scroll">
+                {(folderChildren.get("") ?? []).map((folder) => renderFolder(folder))}
+                {folderList.length === 0 && !isCardsLoading ? (
+                  <div className="designer-empty-state">Create a pack or add cards to start building the tree.</div>
+                ) : null}
+              </div>
             </section>
 
-            <section className="light-card designer-panel designer-library-panel">
-              <h2 className="light-card-title">{mode === "edit" ? "Existing Cards" : "Planned Card Mix"}</h2>
-              {mode === "edit" ? (
-                <>
-                  <div className="designer-filter-row">
-                    <input
-                      className="light-input"
-                      onChange={(event) => {
-                        const nextKeyword = event.target.value;
-                        setKeyword(nextKeyword);
-                        void refreshCards(selectedPackId, nextKeyword);
-                      }}
-                      placeholder="Search cards"
-                      value={keyword}
-                    />
-                    <button
-                      className="light-action-button load"
-                      disabled={isCardsLoading || !selectedPackId}
-                      onClick={() => void refreshCards(selectedPackId, keyword)}
-                      type="button"
-                    >
-                      {isCardsLoading ? "Loading..." : "Reload"}
+            <section className="light-card designer-v2-panel designer-workspace-shell">
+              <div className="designer-workspace-tabs">
+                {renderedTabs.map((tab) => (
+                  <div className={`designer-workspace-tab ${activeTabId === tab.id ? "active" : ""}`} key={tab.id}>
+                    <button onClick={() => setActiveTabId(tab.id)} type="button">
+                      {tab.label}
                     </button>
-                    <button
-                      className="light-action-button archive"
-                      disabled={isCardsLoading || (!keyword && !currentDirectory)}
-                      onClick={() => {
-                        setKeyword("");
-                        setCurrentDirectory("");
-                        void refreshCards(selectedPackId, "");
-                      }}
-                      type="button"
-                    >
-                      Reset View
-                    </button>
-                  </div>
-
-                  <div className="designer-filter-row">
-                    <button
-                      className="light-action-button archive"
-                      disabled={!normalizedCurrentDirectory}
-                      onClick={() => {
-                        const parts = normalizedCurrentDirectory.split("/").filter(Boolean);
-                        parts.pop();
-                        setCurrentDirectory(parts.join("/"));
-                      }}
-                      type="button"
-                    >
-                      Up
-                    </button>
-                    <div className="light-inline-note" style={{ flex: 1 }}>
-                      {breadcrumbItems.map((crumb, index) => (
-                        <span key={crumb.path || "root"}>
-                          {index > 0 ? " / " : ""}
-                          <button
-                            className="light-action-button load"
-                            onClick={() => setCurrentDirectory(crumb.path)}
-                            style={{ padding: "2px 8px", minHeight: "auto" }}
-                            type="button"
-                          >
-                            {crumb.label}
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="light-inline-note">
-                    {isCardsLoading
-                      ? "Loading existing cards..."
-                      : `Showing ${visibleFolders.length} folder${visibleFolders.length === 1 ? "" : "s"} and ${visibleCards.length} card${visibleCards.length === 1 ? "" : "s"} in ${normalizedCurrentDirectory || "root"}.`}
-                  </div>
-
-                  <div className="designer-card-list">
-                    {visibleFolders.map((folder) => {
-                      const nextPath = normalizedCurrentDirectory ? `${normalizedCurrentDirectory}/${folder}` : folder;
-                      return (
-                        <button
-                          className="designer-card-row"
-                          key={`folder:${nextPath}`}
-                          onClick={() => setCurrentDirectory(nextPath)}
-                          type="button"
-                        >
-                          <div className="designer-card-title">[Folder] {folder}</div>
-                          <div className="designer-card-meta">{nextPath}</div>
-                        </button>
-                      );
-                    })}
-
-                    {visibleCards.map((card) => (
-                      <button
-                        className={`designer-card-row ${card.path === editingCardPath ? "active" : ""}`}
-                        key={card.path}
-                        onClick={() => void handleLoadCard(card.path)}
-                        type="button"
-                      >
-                        <div className="designer-card-title">{card.title}</div>
-                        <div className="designer-card-meta">
-                          {card.category} / {card.card_type}
-                        </div>
-                        <div className="designer-card-path">{card.path}</div>
+                    {tab.closable ? (
+                      <button className="close" onClick={() => removeEditorTab(tab.id)} type="button">
+                        x
                       </button>
-                    ))}
-                    {visibleFolders.length === 0 && visibleCards.length === 0 ? (
-                      <div className="light-inline-note">No folders or cards in current directory.</div>
                     ) : null}
                   </div>
-                </>
-              ) : (
-                <div className="designer-plan-stack">
-                  <div className="light-copy">Pack ID: {createPackDraft.pack_id || "pending"}</div>
-                  <div className="light-copy">Name: {createPackDraft.name || "pending"}</div>
-                  <div className="light-copy">Version: {createPackDraft.version || "0.1.0"}</div>
-                  <div className="light-inline-note">
-                    This area will later host a richer structural preview. For the MVP it reflects the current pack draft summary.
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
+
+              <div className="designer-workspace-body">
+                {activeTabId === CANVAS_TAB_ID ? renderCanvas() : null}
+                {activeTabId === CREATE_PACK_TAB_ID ? renderCreatePack() : null}
+                {activeTabId !== CANVAS_TAB_ID && activeTabId !== CREATE_PACK_TAB_ID ? renderEditor() : null}
+              </div>
             </section>
 
-            <section className="light-card designer-panel designer-agent-panel">
-              <div className="designer-panel-header">
-                <h2 className="light-card-title">Pack Builder Agent</h2>
-                <div className="designer-agent-target" title="Agent current write target">
-                  <div className="designer-agent-target-label">Write Target</div>
-                  <div className="designer-agent-target-value">{agentTargetPackId || "(none)"}</div>
-                  <div className="designer-agent-target-name">{agentTargetPackName}</div>
+            <section className="light-card designer-v2-panel designer-agent-panel-v2">
+              <div className="designer-panel-head">
+                <div>
+                  <h2>Pack Build Agent</h2>
+                  <p>Keep the agent visible while editing or arranging the graph.</p>
+                </div>
+                <div className="designer-agent-target">
+                  <span>Write Target</span>
+                  <strong>{agentTargetPackId || "(none)"}</strong>
+                  <small>{agentTargetPackName}</small>
                 </div>
               </div>
-              <div className="designer-agent-history">
+
+              <div className="designer-agent-history-v2">
                 {agentHistory.length === 0 ? (
-                  <div className="light-inline-note">No designer chat yet. Describe the pack or card changes you want.</div>
+                  <div className="designer-empty-state">No designer chat yet. Ask the agent to plan card batches, fill missing event links, or draft content.</div>
                 ) : (
                   agentHistory.map((entry, index) => {
-                    const role = typeof entry === "object" && entry && "role" in entry ? String((entry as { role?: unknown }).role ?? "assistant") : "assistant";
+                    const role =
+                      typeof entry === "object" && entry && "role" in entry
+                        ? String((entry as { role?: unknown }).role ?? "assistant")
+                        : "assistant";
                     const content =
                       typeof entry === "object" && entry && "content" in entry
                         ? String((entry as { content?: unknown }).content ?? "")
                         : "";
+                    const preview = role === "assistant" ? parsePendingBatchSavePreview(content) : null;
                     return (
-                      <div className={`designer-chat-row ${role === "user" ? "user" : "assistant"}`} key={`${role}-${index}`}>
-                        <div className="designer-chat-role">{role.toUpperCase()}</div>
-                        <div className="designer-chat-content">
-                          {(() => {
-                            const preview = role === "assistant" ? parsePendingBatchSavePreview(content) : null;
-                            if (!preview) {
-                              return content;
-                            }
-                            return (
-                              <div className="designer-pending-plan">
-                                <div className="designer-pending-plan-head">
-                                  待确认写入：pack_id={preview.pack_id || "(unknown)"}，共 {preview.cards.length} 张卡
-                                </div>
-                                <div className="designer-pending-plan-list">
-                                  {preview.cards.map((card) => (
-                                    <details className="designer-pending-item" key={`${card.card_type}-${card.card_id}`}>
-                                      <summary className="designer-pending-summary">
-                                        {card.title} ({card.card_type})
-                                      </summary>
-                                      <div className="designer-pending-body">
-                                        <div>card_id: {card.card_id}</div>
-                                        {card.tags.length > 0 ? <div>tags: {card.tags.join(", ")}</div> : null}
-                                        <div className="designer-pending-text">{card.body || "(empty body)"}</div>
-                                      </div>
-                                    </details>
-                                  ))}
-                                </div>
-                                <div className="light-inline-note">回复“确认执行”后才会真正写入。</div>
+                      <div className={`designer-chat-row-v2 ${role === "user" ? "user" : "assistant"}`} key={`${role}-${index}`}>
+                        <div className="designer-chat-role-v2">{role.toUpperCase()}</div>
+                        {!preview ? (
+                          <div className="designer-chat-content-v2">{content}</div>
+                        ) : (
+                          <div className="designer-pending-plan-v2">
+                            <div className="designer-pending-plan-head-v2">
+                              Pending write: {preview.pack_id || "(unknown)"} · {preview.cards.length} cards
+                            </div>
+                            {preview.cards.map((card) => (
+                              <div className="designer-pending-card-v2" key={`${card.card_type}-${card.card_id}`}>
+                                <strong>
+                                  {card.title} ({card.card_type})
+                                </strong>
+                                <span>{card.card_id}</span>
                               </div>
-                            );
-                          })()}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })
                 )}
               </div>
 
-              <div className="settings-field">
-                <label className="settings-label" htmlFor="designer-agent-input">
-                  Designer Prompt
-                </label>
+              <label className="designer-field stacked">
+                <span>Designer Prompt</span>
                 <textarea
-                  className="designer-textarea designer-agent-input"
-                  id="designer-agent-input"
+                  className="designer-agent-input-v2"
                   onChange={(event) => setAgentInput(event.target.value)}
-                  placeholder="Describe the pack, cards, or edits you want the agent to perform."
+                  placeholder="Describe missing event cards, card relationships, or edits you want the agent to draft."
                   value={agentInput}
                 />
-              </div>
+              </label>
 
               <button
-                className="light-action-button new"
+                className="designer-send-button"
                 disabled={isBusy || !agentSession || !agentInput.trim()}
-                onClick={handleSendAgentMessage}
+                onClick={() => void handleSendAgentMessage()}
                 type="button"
               >
-                {isBusy ? "Working..." : "Send to Agent"}
+                {isBusy ? "Working..." : "Send To Agent"}
               </button>
 
-              {!agentSession ? (
-                <div className="light-inline-note">Agent session is initializing. If it does not recover, switch packs or refresh the page.</div>
-              ) : null}
-
               {toolLogs.length > 0 ? (
-                <div className="designer-tool-log">
-                  <div className="light-section-title">Last Tool Activity</div>
+                <div className="designer-tool-log-v2">
                   {toolLogs.map((line) => (
-                    <div className="designer-tool-line" key={line}>
-                      {line}
-                    </div>
+                    <div key={line}>{line}</div>
                   ))}
                 </div>
               ) : null}

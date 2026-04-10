@@ -18,6 +18,9 @@ class GameState(BaseModel):
     narration: str = ''
     allowed_actions: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
+    active_events: List[Dict[str, Any]] = Field(default_factory=list)
+    event_conditions: List[Dict[str, Any]] = Field(default_factory=list)
+    promoted_events: List[Dict[str, Any]] = Field(default_factory=list)
     save_slot: str = 'slot_001'
     snapshot_dir: str = ''
     enabled_packs: List[str] = Field(default_factory=list)

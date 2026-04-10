@@ -31,6 +31,7 @@ from ..config import (
 from ..core.card_repository import CardRepository
 from ..core.rule_engine import RuleEngine
 from ..core.graph import build_turn_graphs, retrieve_context, should_run_ops
+from ..core.story_graph import seed_story_runtime
 from ..infrastructure.contracts import (
     ChatHistoryStoreProtocol,
     KGStoreProtocol,
@@ -376,6 +377,8 @@ class GameService:
             "chat_history": state.get("chat_history", []),
             "narration": state.get("narration", ""),
             "world_facts": state.get("world_facts", {}),
+            "active_events": state.get("active_events", []),
+            "event_conditions": state.get("event_conditions", []),
             "allowed_actions": state.get("allowed_actions", []),
             "retrieved_cards": [c.get("id") for c in state.get("retrieved_cards", [])],
             "validated_ops": state.get("validated_ops", []),
@@ -742,7 +745,18 @@ class GameService:
             ops_app=graphs.ops_app,
             state=state,
         )
+        seed_story_runtime(repo, world, kg, turn=0)
         self._refresh_world_facts(session)
+        session.state.update(
+            retrieve_context(
+                session.state,
+                session.repo,
+                session.rag,
+                session.world,
+                session.kg,
+                session.rules,
+            )
+        )
         self._refresh_custom_ui_panels(session)
         return session
 
@@ -1339,6 +1353,13 @@ class GameService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return ARCHIVES_DIR / f"{save_slot}_{timestamp}"
 
+    def _ensure_llm_call_allowed(self) -> None:
+        if not self._settings_repository:
+            return
+        balance = float(self._settings_repository.get_user_coin_balance(self.user_id) or 0.0)
+        if balance < 0:
+            raise ValueError("当前代币余额已为负数，请先充值后再继续调用。")
+
     def _on_llm_usage(self, scene: str, input_tokens: int, output_tokens: int) -> None:
         if not self._settings_repository:
             return
@@ -1360,6 +1381,7 @@ class GameService:
     @contextmanager
     def _llm_settings_scope(self):
         with ExitStack() as stack:
+            self._ensure_llm_call_allowed()
             stack.enter_context(activate_runtime_llm_settings(self._runtime_llm_settings))
             stack.enter_context(
                 activate_runtime_billing_context(
