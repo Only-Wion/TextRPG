@@ -508,7 +508,9 @@ class PostgresAuthRepository(
                     (coins, user_id),
                 )
                 balance_row = cursor.fetchone()
-                balance_after = Decimal(str(balance_row["coin_balance"] if balance_row else 0))
+                balance_after = Decimal(
+                    str(balance_row["coin_balance"] if balance_row else 0)
+                )
                 cursor.execute(
                     """
                     update coin_redeem_keys
@@ -660,7 +662,9 @@ class PostgresAuthRepository(
                     (total_cost, user_id),
                 )
                 after_row = cursor.fetchone()
-                balance_after = Decimal(str(after_row["coin_balance"] if after_row else 0))
+                balance_after = Decimal(
+                    str(after_row["coin_balance"] if after_row else 0)
+                )
                 cursor.execute(
                     """
                     insert into user_coin_ledger (
@@ -777,7 +781,9 @@ class PostgresAuthRepository(
                 )
             conn.commit()
 
-    def admin_set_llm_plan_active(self, plan_id: str, is_active: bool) -> dict[str, Any]:
+    def admin_set_llm_plan_active(
+        self, plan_id: str, is_active: bool
+    ) -> dict[str, Any]:
         normalized_plan_id = str(plan_id).strip()
         if not normalized_plan_id:
             raise ValueError("plan_id is required")
@@ -795,7 +801,11 @@ class PostgresAuthRepository(
                     raise ValueError("llm plan not found")
             conn.commit()
         selected = next(
-            (item for item in self.list_all_llm_plans() if item.get("plan_id") == normalized_plan_id),
+            (
+                item
+                for item in self.list_all_llm_plans()
+                if item.get("plan_id") == normalized_plan_id
+            ),
             None,
         )
         if selected is None:

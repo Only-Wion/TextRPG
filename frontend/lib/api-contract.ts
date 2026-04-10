@@ -243,6 +243,18 @@ export type DesignerCardPayload = {
   body: string;
 };
 
+export type CanvasWorkspaceState = {
+  canvas_nodes: Array<Record<string, unknown>>;
+  canvas_edges: Array<Record<string, unknown>>;
+  canvas_offset: { x: number; y: number };
+  canvas_scale: number;
+  selected_node_id: string | null;
+  selected_edge_id: string | null;
+  connect_source_id: string | null;
+};
+
+export type SaveCanvasWorkspaceRequest = CanvasWorkspaceState;
+
 export type CreateDesignerPackRequest = {
   pack_id: string;
   name: string;

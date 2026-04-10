@@ -60,6 +60,26 @@ class DesignerCardPayloadResponse(BaseModel):
     body: str
 
 
+class CanvasWorkspaceResponse(BaseModel):
+    canvas_nodes: list[dict[str, Any]] = Field(default_factory=list)
+    canvas_edges: list[dict[str, Any]] = Field(default_factory=list)
+    canvas_offset: dict[str, float] = Field(default_factory=lambda: {"x": 0, "y": 0})
+    canvas_scale: float = 1
+    selected_node_id: str | None = None
+    selected_edge_id: str | None = None
+    connect_source_id: str | None = None
+
+
+class SaveCanvasWorkspaceRequest(BaseModel):
+    canvas_nodes: list[dict[str, Any]] = Field(default_factory=list)
+    canvas_edges: list[dict[str, Any]] = Field(default_factory=list)
+    canvas_offset: dict[str, float] = Field(default_factory=lambda: {"x": 0, "y": 0})
+    canvas_scale: float = 1
+    selected_node_id: str | None = None
+    selected_edge_id: str | None = None
+    connect_source_id: str | None = None
+
+
 class CardValidationResponse(BaseModel):
     ok: bool
 

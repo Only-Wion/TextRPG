@@ -8,6 +8,8 @@ import type {
   DesignerAgentSession,
   DesignerCardPayload,
   DesignerCardSummary,
+  CanvasWorkspaceState,
+  SaveCanvasWorkspaceRequest,
   DuplicateSessionRequest,
   CoinBalanceResponse,
   CoinConsumptionRecord,
@@ -444,6 +446,21 @@ export async function createPackUiTemplate(
 
 export async function deletePackUiTemplate(packId: string, templateId: string): Promise<OkResponse> {
   return jsonRequest<OkResponse, Record<string, never>>(`/packs/${packId}/ui-templates/${templateId}`, "DELETE", {});
+}
+
+export async function getDesignerCanvasState(packId: string): Promise<CanvasWorkspaceState> {
+  return requiredJsonFetch<CanvasWorkspaceState>(`/card-designer/packs/${packId}/canvas-state`);
+}
+
+export async function saveDesignerCanvasState(
+  packId: string,
+  payload: SaveCanvasWorkspaceRequest,
+): Promise<CanvasWorkspaceState> {
+  return jsonRequest<CanvasWorkspaceState, SaveCanvasWorkspaceRequest>(
+    `/card-designer/packs/${packId}/canvas-state`,
+    "PUT",
+    payload,
+  );
 }
 
 export async function updateLLMSettings(payload: LLMSettingsUpdateRequest): Promise<LLMSettingsPublic> {
