@@ -184,12 +184,14 @@ def build_plan_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     """构建仅输出 JSON ops 的规划提示词。"""
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
-        ('system', 'You are a game planner. Output ONLY JSON that matches the schema: {{"ops": [ ... ]}}. No story. Use {language} only for any natural-language strings inside JSON. Use Recent messages for continuity.'),
-        ('human', 'Player input: {player_input}\nAllowed actions: {allowed_actions}\nRetrieved cards: {retrieved_cards}\nRetrieved memories: {retrieved_memories}\nRecent messages:\n{recent_messages}')
+        ('system', 'You are a game planner. Output ONLY JSON that matches the schema: {{"ops": [ ... ]}}. No story. Use {language} only for any natural-language strings inside JSON. Use Recent messages for continuity. If active event condition keys are provided, prefer SetAttr on the active event entity with keys like condition::<key> or event status flags when the latest turn clearly satisfies them.'),
+        ('human', 'Player input: {player_input}\nActive events: {active_events}\nEvent conditions: {event_conditions}\nAllowed actions: {allowed_actions}\nRetrieved cards: {retrieved_cards}\nRetrieved memories: {retrieved_memories}\nRecent messages:\n{recent_messages}')
     ])
     return prompt.format_messages(
         language=language,
         player_input=_get(state, 'player_input', ''),
+        active_events=_get(state, 'active_events', []),
+        event_conditions=_get(state, 'event_conditions', []),
         allowed_actions=_get(state, 'allowed_actions', []),
         retrieved_cards=_get(state, 'retrieved_cards', []),
         retrieved_memories=_get(state, 'retrieved_memories', []),
@@ -202,11 +204,13 @@ def build_narrate_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
         ('system', 'You are a game narrator. Write immersive narration only in {language}. No JSON, no ops. Use Recent messages for continuity.'),
-        ('human', 'Player input: {player_input}\nWorld facts: {world_facts}\nRecent messages:\n{recent_messages}')
+        ('human', 'Player input: {player_input}\nActive events: {active_events}\nRetrieved cards: {retrieved_cards}\nWorld facts: {world_facts}\nRecent messages:\n{recent_messages}')
     ])
     return prompt.format_messages(
         language=language,
         player_input=_get(state, 'player_input', ''),
+        active_events=_get(state, 'active_events', []),
+        retrieved_cards=_get(state, 'retrieved_cards', []),
         world_facts=_get(state, 'world_facts', {}),
         recent_messages=_format_history(_get(state, 'recent_messages', [])),
     )

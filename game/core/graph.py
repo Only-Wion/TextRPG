@@ -18,6 +18,13 @@ from .rule_engine import RuleEngine
 from .snapshot import write_snapshot
 from .admin import parse_admin_command
 from ..config import SETTINGS
+from .story_graph import (
+    EVENT_ACTIVE_KEY,
+    EVENT_COMPLETED_KEY,
+    advance_active_events,
+    active_event_ids_from_world,
+    event_condition_rows,
+)
 
 
 @dataclass(frozen=True)
@@ -52,20 +59,78 @@ def retrieve_context(
     rules: RuleEngine,
 ) -> Dict[str, Any]:
     """收集卡牌、记忆、世界状态与允许的动作。"""
-    cards = [
-        {"id": c.id, "type": c.type, "tags": c.tags, "content": c.content}
-        for c in repo.search(_get(state, "player_input", ""), k=SETTINGS.top_k_cards)
-    ]
-    memories = rag.search(_get(state, "player_input", ""), k=SETTINGS.top_k_memories)
     attrs = world.all_attrs()
+    active_event_ids = active_event_ids_from_world(repo, attrs)
+    active_cards = [repo.get(event_id) for event_id in active_event_ids]
+    active_cards = [card for card in active_cards if card is not None]
+
+    retrieved: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    active_event_rows: list[dict[str, Any]] = []
+    event_conditions: list[dict[str, Any]] = []
+
+    for event_card in active_cards:
+        active_event_rows.append(
+            {
+                "id": event_card.id,
+                "title": event_card.title,
+                "active": attrs.get(event_card.id, {}).get(EVENT_ACTIVE_KEY, "false"),
+                "completed": attrs.get(event_card.id, {}).get(EVENT_COMPLETED_KEY, "false"),
+            }
+        )
+        event_conditions.extend(event_condition_rows(repo, attrs, event_card.id))
+        for card in [event_card, *repo.related_cards_for_event(event_card.id)]:
+            if card.id in seen:
+                continue
+            seen.add(card.id)
+            retrieved.append(
+                {
+                    "id": card.id,
+                    "type": card.type,
+                    "title": card.title,
+                    "tags": card.tags,
+                    "content": card.content,
+                }
+            )
+
+    if not retrieved:
+        retrieved = [
+            {
+                "id": c.id,
+                "type": c.type,
+                "title": c.title,
+                "tags": c.tags,
+                "content": c.content,
+            }
+            for c in repo.search(_get(state, "player_input", ""), k=SETTINGS.top_k_cards)
+        ]
+
+    memory_query = " ".join(
+        part
+        for part in [
+            _get(state, "player_input", ""),
+            " ".join(row["title"] for row in active_event_rows),
+            " ".join(row.get("condition_label", "") for row in event_conditions),
+        ]
+        if str(part).strip()
+    )
+    cards = retrieved
+    memories = rag.search(memory_query, k=SETTINGS.top_k_memories)
     edges = kg.all_edges()
-    world_facts = {"attrs": attrs, "edges": edges}
+    world_facts = {
+        "attrs": attrs,
+        "edges": edges,
+        "active_events": active_event_rows,
+        "event_conditions": event_conditions,
+    }
     allowed_actions = rules.allowed_actions(world_facts)
     return {
         "retrieved_cards": cards,
         "retrieved_memories": memories,
         "world_facts": world_facts,
         "allowed_actions": allowed_actions,
+        "active_events": active_event_rows,
+        "event_conditions": event_conditions,
     }
 
 
@@ -93,6 +158,7 @@ def validate_ops(state: Dict[str, Any], rules: RuleEngine) -> Dict[str, Any]:
 
 def apply_updates(
     state: Dict[str, Any],
+    repo: CardRepository,
     world: WorldStoreProtocol,
     kg: KGStoreProtocol,
     rag: RAGStoreProtocol,
@@ -116,7 +182,8 @@ def apply_updates(
             kg.remove_edge(op["subject_id"], op["relation"], op["object_id"])
         elif op["type"] == "LogMemory":
             rag.add_memory(op["text"], op.get("tags", []))
-    return {}
+    promoted_events = advance_active_events(repo, world, turn=turn)
+    return {"promoted_events": promoted_events}
 
 
 def narrate(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,7 +262,7 @@ def build_ops_graph(
     )
     graph.add_node("plan_ops", plan_ops)
     graph.add_node("validate_ops", lambda s: validate_ops(s, rules))
-    graph.add_node("apply_updates", lambda s: apply_updates(s, world, kg, rag))
+    graph.add_node("apply_updates", lambda s: apply_updates(s, repo, world, kg, rag))
     graph.add_node("checkpoint", lambda s: checkpoint(s, world, kg, rag))
 
     graph.set_entry_point("ingest_input")
