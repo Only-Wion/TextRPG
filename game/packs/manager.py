@@ -274,6 +274,30 @@ class PackManager:
             raise ValueError("pack not found")
         self.storage.sync_pack(pack_id, record.version)
 
+    def read_pack_json(
+        self,
+        pack_id: str,
+        relative_path: str | Path,
+        default: dict[str, Any] | list[Any] | None = None,
+    ) -> dict[str, Any] | list[Any] | None:
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        return self.storage.read_pack_json(
+            pack_id, record.version, relative_path, default
+        )
+
+    def write_pack_json(
+        self,
+        pack_id: str,
+        relative_path: str | Path,
+        payload: dict[str, Any] | list[Any],
+    ) -> None:
+        record = self.registry.get(pack_id)
+        if not record:
+            raise ValueError("pack not found")
+        self.storage.write_pack_json(pack_id, record.version, relative_path, payload)
+
     def _download(self, url: str, dest: Path) -> None:
         """流式下载 zip，并限制大小。"""
         with requests.get(url, stream=True, timeout=30) as resp:

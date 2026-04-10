@@ -55,6 +55,22 @@ class PackStorageProtocol(Protocol):
 
     def sync_pack(self, pack_id: str, version: str) -> None: ...
 
+    def read_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        default: dict | list | None = None,
+    ) -> dict | list | None: ...
+
+    def write_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        payload: dict | list,
+    ) -> None: ...
+
 
 def _resolve_card_type_dir(pack_root: Path, card_type: str) -> str:
     normalized = str(card_type).strip()
@@ -77,6 +93,20 @@ def _normalize_nested_folder(folder_path: str | None) -> str:
     if any((not segment) or segment in {".", ".."} for segment in parts):
         raise ValueError("folder path is invalid")
     return "/".join(parts)
+
+
+def _normalize_pack_relative_path(relative_path: str | Path) -> Path:
+    raw = str(relative_path).replace("\\", "/").strip().strip("/")
+    if not raw:
+        raise ValueError("relative path is required")
+    path = Path(raw)
+    if path.is_absolute():
+        raise ValueError("relative path must be relative")
+    if any(
+        segment in {".", ".."} or not str(segment).strip() for segment in path.parts
+    ):
+        raise ValueError("relative path is invalid")
+    return path
 
 
 class LocalPackStorage:
@@ -185,6 +215,38 @@ class LocalPackStorage:
         pack_dir = self.get_pack_dir(pack_id, version)
         if not pack_dir.exists():
             raise ValueError("pack files missing")
+
+    def read_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        default: dict | list | None = None,
+    ) -> dict | list | None:
+        target = self.get_pack_dir(pack_id, version) / _normalize_pack_relative_path(
+            relative_path
+        )
+        if not target.exists():
+            return default
+        try:
+            return json.loads(target.read_text(encoding="utf-8"))
+        except Exception:
+            return default
+
+    def write_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        payload: dict | list,
+    ) -> None:
+        target = self.get_pack_dir(pack_id, version) / _normalize_pack_relative_path(
+            relative_path
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 class OssPackStorage(LocalPackStorage):
@@ -320,6 +382,42 @@ class OssPackStorage(LocalPackStorage):
             True for _ in self._oss2.ObjectIterator(self._bucket, prefix=prefix)
         ):
             raise ValueError("pack files missing")
+
+    def read_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        default: dict | list | None = None,
+    ) -> dict | list | None:
+        key = self._object_key(
+            pack_id, version, _normalize_pack_relative_path(relative_path)
+        )
+        try:
+            if not self._bucket.object_exists(key):
+                return default
+            raw = self._bucket.get_object(key).read()
+            text = (
+                raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+            )
+            return json.loads(text)
+        except Exception:
+            return default
+
+    def write_pack_json(
+        self,
+        pack_id: str,
+        version: str,
+        relative_path: str | Path,
+        payload: dict | list,
+    ) -> None:
+        key = self._object_key(
+            pack_id, version, _normalize_pack_relative_path(relative_path)
+        )
+        self._bucket.put_object(
+            key,
+            json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"),
+        )
 
     def list_card_paths(
         self, pack_id: str, version: str, cards_root: str

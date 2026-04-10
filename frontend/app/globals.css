@@ -322,6 +322,20 @@ button:disabled {
   gap: 18px;
 }
 
+.designer-page-shell {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.designer-page-frame {
+  height: calc(100vh - 48px);
+}
+
+.light-main.designer-v2-shell {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .designer-v2-topbar {
   display: flex;
   justify-content: space-between;
@@ -378,6 +392,7 @@ button:disabled {
   gap: 18px;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .designer-v2-panel {
@@ -394,6 +409,7 @@ button:disabled {
 .designer-workspace-shell {
   padding: 18px;
   gap: 14px;
+  overflow: hidden;
 }
 
 .designer-panel-head {
@@ -577,6 +593,7 @@ button:disabled {
 .designer-workspace-body {
   min-height: 0;
   flex: 1;
+  overflow: auto;
 }
 
 .designer-workspace-panel {
@@ -644,7 +661,8 @@ button:disabled {
 .designer-infinite-viewport {
   position: relative;
   flex: 1;
-  min-height: 560px;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
   border: 1px solid var(--stroke-light);
   border-radius: 18px;
@@ -670,13 +688,14 @@ button:disabled {
 }
 
 .designer-canvas-svg line {
-  stroke: #8da2b7;
-  stroke-width: 2px;
+  stroke: #2f4c69;
+  stroke-width: 2.5px;
+  opacity: 0.95;
 }
 
 .designer-canvas-svg line.selected {
   stroke: #17324a;
-  stroke-width: 3px;
+  stroke-width: 3.5px;
 }
 
 .designer-canvas-node {
@@ -909,6 +928,20 @@ button:disabled {
 }
 
 @media (max-width: 960px) {
+  .designer-page-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .designer-page-frame {
+    height: auto;
+  }
+
+  .light-main.designer-v2-shell,
+  .designer-v2-grid {
+    overflow: visible;
+  }
+
   .designer-v2-topbar,
   .designer-workspace-toolbar,
   .designer-editor-header {
