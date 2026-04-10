@@ -36,7 +36,9 @@ class GameServiceRegistry:
     def for_user(self, user_id: str) -> GameService:
         service = self._services.get(user_id)
         if service is None:
-            service = GameService(user_id, settings_repository=self._settings_repository)
+            service = GameService(
+                user_id, settings_repository=self._settings_repository
+            )
             self._services[user_id] = service
         service.set_runtime_llm_settings(
             self._settings_repository.get_llm_settings(user_id)
@@ -785,7 +787,9 @@ class SettingsService:
         }
 
     def set_selected_llm_plan(self, user_id: str, plan_id: str) -> dict[str, Any]:
-        selected = self._settings_repository.set_user_selected_llm_plan(user_id, plan_id)
+        selected = self._settings_repository.set_user_selected_llm_plan(
+            user_id, plan_id
+        )
         self._registry.for_user(user_id)
         return {
             "selected_plan_id": str(selected.get("plan_id", "")),
@@ -796,7 +800,11 @@ class SettingsService:
         }
 
     def get_coin_balance(self, user_id: str) -> dict[str, Any]:
-        return {"coin_balance": float(self._settings_repository.get_user_coin_balance(user_id))}
+        return {
+            "coin_balance": float(
+                self._settings_repository.get_user_coin_balance(user_id)
+            )
+        }
 
     def redeem_coin_key(self, user_id: str, redeem_key: str) -> dict[str, Any]:
         payload = self._settings_repository.redeem_coin_key(user_id, redeem_key)
@@ -805,7 +813,9 @@ class SettingsService:
             "balance_after": float(payload.get("balance_after", 0.0)),
         }
 
-    def list_coin_consumptions(self, user_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    def list_coin_consumptions(
+        self, user_id: str, limit: int = 100
+    ) -> list[dict[str, Any]]:
         rows = self._settings_repository.list_user_coin_ledger(
             user_id,
             reason_type="llm_usage",
@@ -863,6 +873,8 @@ class SettingsService:
 
 class CardDesignerService:
     """Application contract for the Card Designer workbench."""
+
+    _CANVAS_STATE_PATH = "canvas_state.json"
 
     def __init__(
         self,
@@ -963,6 +975,92 @@ class CardDesignerService:
     def get_card_template(self, user_id: str, card_type: str) -> dict[str, Any]:
         return self._service(user_id).get_card_template(card_type)
 
+    @staticmethod
+    def _canvas_state_fallback() -> dict[str, Any]:
+        return {
+            "canvas_nodes": [],
+            "canvas_edges": [],
+            "canvas_offset": {"x": 0, "y": 0},
+            "canvas_scale": 1,
+            "selected_node_id": None,
+            "selected_edge_id": None,
+            "connect_source_id": None,
+        }
+
+    def get_canvas_state(self, user_id: str, pack_id: str) -> dict[str, Any]:
+        service = self._service(user_id)
+        payload = service.pack_manager.read_pack_json(
+            pack_id,
+            self._CANVAS_STATE_PATH,
+            default=self._canvas_state_fallback(),
+        )
+        state = payload if isinstance(payload, dict) else {}
+        fallback = self._canvas_state_fallback()
+        canvas_nodes = state.get("canvas_nodes")
+        canvas_edges = state.get("canvas_edges")
+        canvas_offset = state.get("canvas_offset")
+        if not isinstance(canvas_nodes, list):
+            canvas_nodes = fallback["canvas_nodes"]
+        if not isinstance(canvas_edges, list):
+            canvas_edges = fallback["canvas_edges"]
+        if not isinstance(canvas_offset, dict):
+            canvas_offset = fallback["canvas_offset"]
+        return {
+            "canvas_nodes": canvas_nodes,
+            "canvas_edges": canvas_edges,
+            "canvas_offset": {
+                "x": float(canvas_offset.get("x", 0) or 0),
+                "y": float(canvas_offset.get("y", 0) or 0),
+            },
+            "canvas_scale": float(
+                state.get("canvas_scale") or fallback["canvas_scale"]
+            ),
+            "selected_node_id": state.get(
+                "selected_node_id", fallback["selected_node_id"]
+            ),
+            "selected_edge_id": state.get(
+                "selected_edge_id", fallback["selected_edge_id"]
+            ),
+            "connect_source_id": state.get(
+                "connect_source_id", fallback["connect_source_id"]
+            ),
+        }
+
+    def save_canvas_state(
+        self, user_id: str, pack_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        service = self._service(user_id)
+        normalized = self._canvas_state_fallback()
+        raw_offset = payload.get("canvas_offset")
+        if not isinstance(raw_offset, dict):
+            raw_offset = {}
+        normalized.update(
+            {
+                "canvas_nodes": (
+                    payload.get("canvas_nodes")
+                    if isinstance(payload.get("canvas_nodes"), list)
+                    else []
+                ),
+                "canvas_edges": (
+                    payload.get("canvas_edges")
+                    if isinstance(payload.get("canvas_edges"), list)
+                    else []
+                ),
+                "canvas_offset": {
+                    "x": float(raw_offset.get("x", 0) or 0),
+                    "y": float(raw_offset.get("y", 0) or 0),
+                },
+                "canvas_scale": float(payload.get("canvas_scale") or 1),
+                "selected_node_id": payload.get("selected_node_id"),
+                "selected_edge_id": payload.get("selected_edge_id"),
+                "connect_source_id": payload.get("connect_source_id"),
+            }
+        )
+        service.pack_manager.write_pack_json(
+            pack_id, self._CANVAS_STATE_PATH, normalized
+        )
+        return normalized
+
     def save_card(
         self,
         user_id: str,
@@ -1034,23 +1132,33 @@ class CardDesignerService:
             load_runtime_llm_settings(),
         )
         state = dict(session.get("state", {}) or {})
-        with activate_runtime_llm_settings(runtime_settings), activate_runtime_billing_context(
+        with activate_runtime_llm_settings(
+            runtime_settings
+        ), activate_runtime_billing_context(
             {
                 "user_id": user_id,
                 "plan_id": str(getattr(runtime_settings, "plan_id", "") or ""),
-                "on_usage": lambda scene, in_tokens, out_tokens: self._settings_repository.charge_llm_usage(
-                    user_id=user_id,
-                    plan_id=str(getattr(runtime_settings, "plan_id", "") or ""),
-                    scene=f"designer:{scene}",
-                    input_tokens=int(in_tokens or 0),
-                    output_tokens=int(out_tokens or 0),
-                    input_tokens_per_coin=int(getattr(runtime_settings, "input_tokens_per_coin", 0) or 0),
-                    output_tokens_per_coin=int(getattr(runtime_settings, "output_tokens_per_coin", 0) or 0),
-                )
-                if str(getattr(runtime_settings, "plan_id", "") or "").strip()
-                and int(getattr(runtime_settings, "input_tokens_per_coin", 0) or 0) > 0
-                and int(getattr(runtime_settings, "output_tokens_per_coin", 0) or 0) > 0
-                else None,
+                "on_usage": lambda scene, in_tokens, out_tokens: (
+                    self._settings_repository.charge_llm_usage(
+                        user_id=user_id,
+                        plan_id=str(getattr(runtime_settings, "plan_id", "") or ""),
+                        scene=f"designer:{scene}",
+                        input_tokens=int(in_tokens or 0),
+                        output_tokens=int(out_tokens or 0),
+                        input_tokens_per_coin=int(
+                            getattr(runtime_settings, "input_tokens_per_coin", 0) or 0
+                        ),
+                        output_tokens_per_coin=int(
+                            getattr(runtime_settings, "output_tokens_per_coin", 0) or 0
+                        ),
+                    )
+                    if str(getattr(runtime_settings, "plan_id", "") or "").strip()
+                    and int(getattr(runtime_settings, "input_tokens_per_coin", 0) or 0)
+                    > 0
+                    and int(getattr(runtime_settings, "output_tokens_per_coin", 0) or 0)
+                    > 0
+                    else None
+                ),
             }
         ):
             result = self._agent_for_user(user_id).process(message, state)

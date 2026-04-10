@@ -7,6 +7,7 @@ import yaml
 
 from ...deps import get_card_designer_service, get_current_user
 from ...schemas.card_designer import (
+    CanvasWorkspaceResponse,
     CardValidationResponse,
     CreateCardTemplateRequest,
     CreateDesignerPackRequest,
@@ -17,6 +18,7 @@ from ...schemas.card_designer import (
     DesignerCardPayloadResponse,
     DesignerCardSummaryResponse,
     SaveDesignerCardRequest,
+    SaveCanvasWorkspaceRequest,
     ValidateDesignerCardRequest,
 )
 from game.application.services import CardDesignerService
@@ -147,6 +149,29 @@ def delete_pack_card(
 ) -> CardValidationResponse:
     service.delete_card(current_user["id"], pack_id, card_path)
     return CardValidationResponse(ok=True)
+
+
+@router.get("/packs/{pack_id}/canvas-state", response_model=CanvasWorkspaceResponse)
+def get_pack_canvas_state(
+    pack_id: str,
+    service: CardDesignerService = Depends(get_card_designer_service),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CanvasWorkspaceResponse:
+    return CanvasWorkspaceResponse(
+        **service.get_canvas_state(current_user["id"], pack_id)
+    )
+
+
+@router.put("/packs/{pack_id}/canvas-state", response_model=CanvasWorkspaceResponse)
+def save_pack_canvas_state(
+    pack_id: str,
+    payload: SaveCanvasWorkspaceRequest,
+    service: CardDesignerService = Depends(get_card_designer_service),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> CanvasWorkspaceResponse:
+    return CanvasWorkspaceResponse(
+        **service.save_canvas_state(current_user["id"], pack_id, payload.model_dump())
+    )
 
 
 @router.post("/agent/sessions", response_model=DesignerAgentSessionResponse)

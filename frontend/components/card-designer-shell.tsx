@@ -10,13 +10,16 @@ import {
   getDesignerCards,
   getDesignerCardTemplate,
   getDesignerCardTypes,
+  getDesignerCanvasState,
   loadDesignerCard,
   saveDesignerCard,
+  saveDesignerCanvasState,
   sendDesignerAgentMessage,
   validateDesignerCard,
 } from "../lib/api";
 import type {
   AuthUser,
+  CanvasWorkspaceState,
   DesignerAgentSession,
   DesignerCardPayload,
   DesignerCardSummary,
@@ -98,6 +101,42 @@ type DragState =
 
 const CANVAS_TAB_ID = "canvas";
 const CREATE_PACK_TAB_ID = "create-pack";
+const CONNECT_PICK_SOURCE_ID = "__pick_source__";
+
+function normalizeCanvasState(payload: Partial<CanvasWorkspaceState> | null): CanvasWorkspaceState {
+  return {
+    canvas_nodes: Array.isArray(payload?.canvas_nodes) ? payload!.canvas_nodes : [],
+    canvas_edges: Array.isArray(payload?.canvas_edges) ? payload!.canvas_edges : [],
+    canvas_offset: {
+      x: Number(payload?.canvas_offset?.x ?? 0),
+      y: Number(payload?.canvas_offset?.y ?? 0),
+    },
+    canvas_scale: Number(payload?.canvas_scale ?? 1) || 1,
+    selected_node_id: typeof payload?.selected_node_id === "string" ? payload.selected_node_id : null,
+    selected_edge_id: typeof payload?.selected_edge_id === "string" ? payload.selected_edge_id : null,
+    connect_source_id: typeof payload?.connect_source_id === "string" ? payload.connect_source_id : null,
+  };
+}
+
+function canvasStateFromRuntime(
+  canvasNodes: CanvasNode[],
+  canvasEdges: CanvasEdge[],
+  canvasOffset: { x: number; y: number },
+  canvasScale: number,
+  selectedNodeId: string | null,
+  selectedEdgeId: string | null,
+  connectSourceId: string | null,
+): CanvasWorkspaceState {
+  return {
+    canvas_nodes: canvasNodes as Array<Record<string, unknown>>,
+    canvas_edges: canvasEdges as Array<Record<string, unknown>>,
+    canvas_offset: canvasOffset,
+    canvas_scale: canvasScale,
+    selected_node_id: selectedNodeId,
+    selected_edge_id: selectedEdgeId,
+    connect_source_id: connectSourceId,
+  };
+}
 
 function stringifyFrontmatter(payload: Record<string, unknown>): string {
   return JSON.stringify(payload, null, 2);
@@ -311,9 +350,12 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasHydrated, setCanvasHydrated] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState>(null);
+  const canvasSaveTimerRef = useRef<number | null>(null);
+  const hydratedPackIdRef = useRef<string>("");
 
   const agentHistory = useMemo(() => {
     const history = agentSession?.state?.history;
@@ -413,6 +455,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
 
   useEffect(() => {
     if (!selectedPackId) {
+      hydratedPackIdRef.current = "";
+      setCanvasHydrated(true);
       setCards([]);
       setCardTypes([]);
       return;
@@ -437,13 +481,17 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
           ),
         );
         setEditorTabs([]);
-        setCanvasNodes([]);
-        setCanvasEdges([]);
-        setSelectedNodeId(null);
-        setSelectedEdgeId(null);
-        setConnectSourceId(null);
-        setCanvasOffset({ x: 0, y: 0 });
-        setCanvasScale(1);
+        setCanvasHydrated(false);
+        const savedSnapshot = normalizeCanvasState(await getDesignerCanvasState(selectedPackId));
+        setCanvasNodes(savedSnapshot.canvas_nodes as CanvasNode[]);
+        setCanvasEdges(savedSnapshot.canvas_edges as CanvasEdge[]);
+        setSelectedNodeId(savedSnapshot.selected_node_id);
+        setSelectedEdgeId(savedSnapshot.selected_edge_id);
+        setConnectSourceId(savedSnapshot.connect_source_id);
+        setCanvasOffset(savedSnapshot.canvas_offset);
+        setCanvasScale(savedSnapshot.canvas_scale);
+        hydratedPackIdRef.current = selectedPackId;
+        setCanvasHydrated(true);
         setActiveTabId(CANVAS_TAB_ID);
       } catch (error) {
         if (!cancelled) {
@@ -459,7 +507,47 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     return () => {
       cancelled = true;
     };
-  }, [selectedPackId]);
+  }, [currentUser.id, selectedPackId]);
+
+  useEffect(() => {
+    if (!canvasHydrated || !selectedPackId || hydratedPackIdRef.current !== selectedPackId) {
+      return;
+    }
+    if (canvasSaveTimerRef.current) {
+      window.clearTimeout(canvasSaveTimerRef.current);
+    }
+    canvasSaveTimerRef.current = window.setTimeout(() => {
+      void saveDesignerCanvasState(
+        selectedPackId,
+        canvasStateFromRuntime(
+          canvasNodes,
+          canvasEdges,
+          canvasOffset,
+          canvasScale,
+          selectedNodeId,
+          selectedEdgeId,
+          connectSourceId,
+        ),
+      ).catch((error) => {
+        setErrorMessage(error instanceof Error ? error.message : "Failed to save canvas state.");
+      });
+    }, 250);
+    return () => {
+      if (canvasSaveTimerRef.current) {
+        window.clearTimeout(canvasSaveTimerRef.current);
+      }
+    };
+  }, [
+    canvasEdges,
+    canvasHydrated,
+    canvasNodes,
+    canvasOffset,
+    canvasScale,
+    connectSourceId,
+    selectedEdgeId,
+    selectedNodeId,
+    selectedPackId,
+  ]);
 
   useEffect(() => {
     if (!selectedPackId || agentSession) {
@@ -644,14 +732,18 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     const viewport = viewportRef.current?.getBoundingClientRect();
     const baseX = viewport ? (viewport.width / 2 - canvasOffset.x) / canvasScale - 110 : 120;
     const baseY = viewport ? (viewport.height / 2 - canvasOffset.y) / canvasScale - 70 : 120;
-    const indexOffset = canvasNodes.length * 28;
+    const nextIndex = canvasNodes.length;
+    const col = nextIndex % 3;
+    const row = Math.floor(nextIndex / 3);
+    const gridOffsetX = col * 280;
+    const gridOffsetY = row * 180;
     const node: CanvasNode = {
       id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       cardPath: card.path,
       title: card.title,
       cardType: card.card_type,
-      x: baseX + indexOffset,
-      y: baseY + indexOffset * 0.5,
+      x: baseX + gridOffsetX,
+      y: baseY + gridOffsetY,
     };
     setCanvasNodes((current) => [...current, node]);
     setSelectedNodeId(node.id);
@@ -659,6 +751,13 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }
 
   function handleCanvasNodeClick(nodeId: string) {
+    if (connectSourceId === CONNECT_PICK_SOURCE_ID) {
+      setConnectSourceId(nodeId);
+      setSelectedNodeId(nodeId);
+      setSelectedEdgeId(null);
+      return;
+    }
+
     if (connectSourceId && connectSourceId !== nodeId) {
       const label = window.prompt("Connection label", "") ?? "";
       setCanvasEdges((current) => [
@@ -725,11 +824,17 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }
 
   function startConnection() {
-    if (!selectedNodeId) {
-      setErrorMessage("Select a card node before starting a connection.");
+    if (connectSourceId) {
+      setConnectSourceId(null);
       return;
     }
-    setConnectSourceId(selectedNodeId);
+    if (selectedNodeId) {
+      setConnectSourceId(selectedNodeId);
+      setSelectedEdgeId(null);
+      return;
+    }
+    setConnectSourceId(CONNECT_PICK_SOURCE_ID);
+    setErrorMessage("Click a source node, then click a target node to create a connection.");
     setSelectedEdgeId(null);
   }
 
@@ -998,7 +1103,11 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               onClick={startConnection}
               type="button"
             >
-              {connectSourceId ? "Pick target node" : "Connect"}
+              {connectSourceId === CONNECT_PICK_SOURCE_ID
+                ? "Pick source node"
+                : connectSourceId
+                  ? "Pick target node"
+                  : "Connect"}
             </button>
             <button className="designer-toolbar-button" onClick={removeSelectedCanvasItem} type="button">
               Remove Selected
@@ -1030,6 +1139,19 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
             }}
           >
             <svg className="designer-canvas-svg">
+              <defs>
+                <marker
+                  id="designer-edge-arrow"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="8"
+                  refY="3"
+                  orient="auto"
+                  markerUnits="strokeWidth"
+                >
+                  <path d="M0,0 L0,6 L9,3 z" fill="#17324a" />
+                </marker>
+              </defs>
               {canvasEdges.map((edge) => {
                 const fromNode = nodeLookup.get(edge.fromId);
                 const toNode = nodeLookup.get(edge.toId);
@@ -1046,6 +1168,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                   <g key={edge.id}>
                     <line
                       className={selectedEdgeId === edge.id ? "selected" : ""}
+                      markerEnd="url(#designer-edge-arrow)"
                       onClick={() => {
                         setSelectedEdgeId(edge.id);
                         setSelectedNodeId(null);
@@ -1260,8 +1383,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }
 
   return (
-    <main className="light-app-shell">
-      <div className="light-app-frame">
+    <main className="light-app-shell designer-page-shell">
+      <div className="light-app-frame designer-page-frame">
         <AppSidebar activePath="/card-designer" currentUser={currentUser} />
 
         <section className="light-main designer-v2-shell">
