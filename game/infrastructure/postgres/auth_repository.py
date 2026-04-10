@@ -624,7 +624,8 @@ class PostgresAuthRepository(
                 )
                 row = cursor.fetchone()
                 current_balance = Decimal(str(row["coin_balance"] if row else 0))
-                if current_balance < total_cost:
+                # Allow this call to overdraft. Reject only if the account is already negative.
+                if current_balance < Decimal("0"):
                     raise ValueError("insufficient coin balance")
 
                 cursor.execute(

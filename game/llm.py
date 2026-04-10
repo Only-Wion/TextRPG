@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
@@ -10,20 +11,61 @@ from langchain_openai import OpenAIEmbeddings
 from .config import load_runtime_billing_context, load_runtime_llm_settings
 
 
-def _extract_usage_tokens(message: Any) -> tuple[int, int]:
-    usage = getattr(message, "usage_metadata", None)
-    if isinstance(usage, dict):
-        in_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
-        out_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
-        return (max(0, in_tokens), max(0, out_tokens))
+def _to_non_negative_int(value: Any) -> int:
+    try:
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return 0
+            value = re.sub(r"[^0-9-]", "", value)
+        return max(0, int(value or 0))
+    except Exception:
+        return 0
 
+
+def _pick_usage_tokens(payload: Any) -> tuple[int, int]:
+    if not isinstance(payload, dict):
+        return (0, 0)
+    in_tokens = _to_non_negative_int(
+        payload.get("input_tokens")
+        or payload.get("prompt_tokens")
+        or payload.get("promptTokens")
+    )
+    out_tokens = _to_non_negative_int(
+        payload.get("output_tokens")
+        or payload.get("completion_tokens")
+        or payload.get("completionTokens")
+    )
+    return (in_tokens, out_tokens)
+
+
+def _extract_usage_tokens(message: Any) -> tuple[int, int]:
+    # Standard LangChain usage payload.
+    usage = getattr(message, "usage_metadata", None)
+    in_tokens, out_tokens = _pick_usage_tokens(usage)
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
+    # OpenAI-compatible providers may put usage in different metadata keys.
     metadata = getattr(message, "response_metadata", None)
     if isinstance(metadata, dict):
-        token_usage = metadata.get("token_usage")
-        if isinstance(token_usage, dict):
-            in_tokens = int(token_usage.get("prompt_tokens") or token_usage.get("input_tokens") or 0)
-            out_tokens = int(token_usage.get("completion_tokens") or token_usage.get("output_tokens") or 0)
-            return (max(0, in_tokens), max(0, out_tokens))
+        for key in ("token_usage", "usage"):
+            in_tokens, out_tokens = _pick_usage_tokens(metadata.get(key))
+            if in_tokens > 0 or out_tokens > 0:
+                return (in_tokens, out_tokens)
+
+    # Qwen/DashScope-like final stream chunk may place usage here.
+    additional = getattr(message, "additional_kwargs", None)
+    in_tokens, out_tokens = _pick_usage_tokens(
+        additional.get("usage") if isinstance(additional, dict) else None
+    )
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
+    in_tokens, out_tokens = _pick_usage_tokens(getattr(message, "usage", None))
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
     return (0, 0)
 
 
@@ -125,7 +167,7 @@ class MockLLM:
         }
 
 
-def get_llm() -> ChatOpenAI | MockLLM:
+def get_llm(*, include_stream_usage: bool = False) -> ChatOpenAI | MockLLM:
     """根据配置返回聊天模型或 MockLLM。"""
     runtime = load_runtime_llm_settings()
     if runtime.use_mock_llm:
@@ -135,6 +177,9 @@ def get_llm() -> ChatOpenAI | MockLLM:
         kwargs['base_url'] = runtime.base_url
     if runtime.api_key:
         kwargs['api_key'] = runtime.api_key
+    if include_stream_usage:
+        # Stream usage should only be requested for streaming calls.
+        kwargs['stream_options'] = {'include_usage': True}
     return ChatOpenAI(**kwargs)
 
 
@@ -291,7 +336,7 @@ def llm_narrate(state: Dict[str, Any]) -> str:
 
 def llm_narrate_stream(state: Dict[str, Any]):
     """调用 LLM 流式生成叙事文本增量。"""
-    llm = get_llm()
+    llm = get_llm(include_stream_usage=True)
     if isinstance(llm, MockLLM):
         yield llm.narrate(state)
         return
