@@ -688,14 +688,16 @@ button:disabled {
 }
 
 .designer-canvas-svg line {
-  stroke: #2f4c69;
-  stroke-width: 2.5px;
-  opacity: 0.95;
+  stroke: #ff2d55;
+  stroke-width: 6px;
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(255, 45, 85, 0.55));
 }
 
 .designer-canvas-svg line.selected {
-  stroke: #17324a;
-  stroke-width: 3.5px;
+  stroke: #00bcd4;
+  stroke-width: 8px;
+  filter: drop-shadow(0 0 6px rgba(0, 188, 212, 0.65));
 }
 
 .designer-canvas-node {
