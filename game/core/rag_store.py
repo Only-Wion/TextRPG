@@ -36,3 +36,17 @@ class RAGStore:
             return []
         docs = self.vs.similarity_search(query, k=k)
         return [{'text': d.page_content, 'metadata': d.metadata} for d in docs]
+
+    def close(self) -> None:
+        """Best-effort release of local Chroma resources for Windows file operations."""
+        try:
+            self.vs.persist()
+        except Exception:
+            pass
+        client = getattr(self.vs, "_client", None)
+        system = getattr(client, "_system", None) if client is not None else None
+        if system is not None and hasattr(system, "stop"):
+            try:
+                system.stop()
+            except Exception:
+                pass

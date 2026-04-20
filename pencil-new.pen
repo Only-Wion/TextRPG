@@ -1,0 +1,6137 @@
+{
+  "version": "2.9",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "W5yF8",
+      "x": 80,
+      "y": 80,
+      "name": "TextRPG Game View",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#1F2937"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "5i07G",
+          "x": 0,
+          "y": 0,
+          "name": "playSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "BipmQ",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "r2t9M",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "qr4sG",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "blOyH",
+              "x": 34,
+              "y": 121,
+              "fill": "#425B7B",
+              "content": "Sessions",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "JWLo6",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "wvS8R",
+              "x": 34,
+              "y": 167,
+              "fill": "#2F6FED",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "W7cTz",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "agUsm",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "H1Wry",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "KpmNl",
+              "x": 34,
+              "y": 259,
+              "fill": "#425B7B",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "pcUJU",
+              "x": 24,
+              "y": 320,
+              "fill": "#2E4466",
+              "content": "Inspector",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "FTB1c",
+              "x": 20,
+              "y": 346,
+              "width": 232,
+              "height": 178,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FrLxm",
+                  "fill": "#4B5F7E",
+                  "content": "World Facts  ▾\nLocation: 旅店大厅\nWeather: cloudy\nQuest: 问清失窃货箱\nTrust: cautious",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "B8nvB",
+              "x": 20,
+              "y": 534,
+              "width": 232,
+              "height": 126,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ABvJx",
+                  "fill": "#4B5F7E",
+                  "content": "UI Agent  ▾\nMode: manual\nGenerate: ready\nUpdate: idle",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EkTSH",
+              "x": 20,
+              "y": 670,
+              "width": 232,
+              "height": 116,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "bIhW7",
+                  "fill": "#4B5F7E",
+                  "content": "Debug Info  ▸\nsession_id: slot_001\nllm: custom\nturn_ms: 842",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "er0EZ",
+              "x": 260,
+              "y": 110,
+              "name": "sidebarScrollTrack",
+              "width": 5,
+              "height": 732,
+              "fill": "#E3EBF7",
+              "cornerRadius": 999
+            },
+            {
+              "type": "frame",
+              "id": "egkhe",
+              "x": 260,
+              "y": 506,
+              "name": "sidebarScrollThumb",
+              "width": 5,
+              "height": 132,
+              "fill": "#9FB3D1",
+              "cornerRadius": 999
+            },
+            {
+              "type": "frame",
+              "id": "Tql83",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "5E0BK",
+                  "x": 9,
+                  "y": 39,
+                  "name": "playLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "SGsdC",
+                  "x": 9,
+                  "y": 69,
+                  "name": "playRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xom13",
+          "x": 273,
+          "y": 0,
+          "name": "PlayMain",
+          "clip": true,
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "r91Hb",
+              "x": 24,
+              "y": 24,
+              "name": "controlBar",
+              "width": 1119,
+              "height": 104,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZV9AE",
+                  "x": 16,
+                  "y": 16,
+                  "fill": "#60748F",
+                  "content": "Save Slot     Enabled Packs     Language",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "mayqC",
+                  "x": 16,
+                  "y": 42,
+                  "width": 180,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "6dwPj",
+                  "x": 212,
+                  "y": 42,
+                  "width": 380,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "GJYXv",
+                  "x": 608,
+                  "y": 42,
+                  "width": 128,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "xrgOL",
+                  "x": 864,
+                  "y": 42,
+                  "width": 96,
+                  "height": 42,
+                  "fill": "#EAF1FF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "NZSps",
+                  "x": 896,
+                  "y": 54,
+                  "fill": "#2F6FED",
+                  "content": "Start",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "l0kZl",
+                  "x": 972,
+                  "y": 42,
+                  "width": 96,
+                  "height": 42,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "EX2Qs",
+                  "x": 1008,
+                  "y": 54,
+                  "fill": "#2D8A4E",
+                  "content": "Load",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "J4a2R",
+                  "x": 968,
+                  "y": 42,
+                  "enabled": false,
+                  "width": 120,
+                  "height": 42,
+                  "fill": "#FFF5E8",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "wvQny",
+                  "x": 992,
+                  "y": 54,
+                  "enabled": false,
+                  "fill": "#B46A12",
+                  "content": "Hide Panels",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "8alVg",
+              "x": 24,
+              "y": 164,
+              "name": "chatCard",
+              "width": 1119,
+              "height": 578,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "d54Tr",
+                  "x": 18,
+                  "y": 18,
+                  "name": "transcriptViewport",
+                  "clip": true,
+                  "width": 1083,
+                  "height": 534,
+                  "fill": "#F7FAFF",
+                  "cornerRadius": 12,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#DCE6F2"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "fhZmO",
+                      "x": 14,
+                      "y": 14,
+                      "name": "msg1",
+                      "width": 1031,
+                      "height": 74,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#DCE6F2"
+                      },
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "nm0X8",
+                          "x": 20,
+                          "y": 16,
+                          "name": "msg1role",
+                          "fill": "#23816B",
+                          "content": "USER",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "vhKlP",
+                          "x": 20,
+                          "y": 42,
+                          "name": "msg1body",
+                          "fill": "#30445F",
+                          "textGrowth": "fixed-width",
+                          "width": 979,
+                          "content": "问布拉姆，冒险者工会是否还在招募新人。",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "iUZBK",
+                      "x": 14,
+                      "y": 102,
+                      "name": "msg2",
+                      "width": 1031,
+                      "height": 188,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#DCE6F2"
+                      },
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "q26P8",
+                          "x": 20,
+                          "y": 16,
+                          "name": "msg2role",
+                          "fill": "#2F6FED",
+                          "content": "SYSTEM",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "IWMoP",
+                          "x": 20,
+                          "y": 42,
+                          "name": "msg2body",
+                          "fill": "#30445F",
+                          "textGrowth": "fixed-width",
+                          "width": 979,
+                          "content": "布拉姆把厚重名册推向你，火光映在羊皮纸边缘。\n\n工会缺的从来不是名字，缺的是能背着责任走下去的人。他抬眼看向你，等待你说明真正想加入的理由。",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wDVrt",
+                      "x": 14,
+                      "y": 304,
+                      "name": "msg3",
+                      "width": 1031,
+                      "height": 92,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#DCE6F2"
+                      },
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "D20Tn",
+                          "x": 20,
+                          "y": 16,
+                          "name": "msg3role",
+                          "fill": "#23816B",
+                          "content": "USER",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "XnawV",
+                          "x": 20,
+                          "y": 42,
+                          "name": "msg3body",
+                          "fill": "#30445F",
+                          "textGrowth": "fixed-width",
+                          "width": 979,
+                          "content": "我想守住那些没有人愿意守住的人。",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "apoAJ",
+                      "x": 1053,
+                      "y": 12,
+                      "name": "scrollTrack",
+                      "width": 8,
+                      "height": 454,
+                      "fill": "#E6EDF7",
+                      "cornerRadius": 999
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KUYlp",
+                      "x": 1053,
+                      "y": 132,
+                      "name": "scrollThumb",
+                      "width": 8,
+                      "height": 122,
+                      "fill": "#9FB3D1",
+                      "cornerRadius": 999
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "UcaOS",
+                  "x": 18,
+                  "y": 560,
+                  "name": "scrollHint",
+                  "fill": "#7B8DA8",
+                  "content": "Transcript fills the main workspace and scrolls internally.",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "9sLwD",
+              "x": 31,
+              "y": 752,
+              "name": "chatPrompt",
+              "width": 1119,
+              "height": 88,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#A8B8D433",
+                "offset": {
+                  "x": 0,
+                  "y": -8
+                },
+                "blur": 24
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Bu2OL",
+                  "x": 18,
+                  "y": 34,
+                  "fill": "#94A3B8",
+                  "content": "Input your next action, say, or command...",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Fzc80",
+              "x": 545,
+              "y": 120,
+              "name": "controlDrawerHandle",
+              "width": 122,
+              "height": 28,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9jZWr",
+                  "x": 40,
+                  "y": 4,
+                  "name": "upArrow",
+                  "fill": "#60748F",
+                  "content": "⌃",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "HJcMS",
+                  "x": 70,
+                  "y": 4,
+                  "name": "downArrow",
+                  "fill": "#22324A",
+                  "content": "⌄",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "W6j31",
+      "x": 1600,
+      "y": 80,
+      "name": "TextRPG Session Setup",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#CBD5E1"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "uslKl",
+          "x": 0,
+          "y": 0,
+          "name": "setupSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "zzqQE",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "iNiFr",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "7oUAk",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "C6xaQ",
+              "x": 34,
+              "y": 121,
+              "fill": "#425B7B",
+              "content": "Sessions",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "woS9A",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "dobzH",
+              "x": 34,
+              "y": 167,
+              "fill": "#425B7B",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "cHDjU",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "CNoq5",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "mlr2V",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "j3Bn0",
+              "x": 34,
+              "y": 259,
+              "fill": "#425B7B",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "BenRs",
+              "x": 20,
+              "y": 294,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "2i4Jd",
+              "x": 34,
+              "y": 305,
+              "fill": "#2F6FED",
+              "content": "Setup",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "UQRuF",
+              "x": 24,
+              "y": 360,
+              "fill": "#2E4466",
+              "content": "Session Health",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "9aAvQ",
+              "x": 20,
+              "y": 386,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vGqCa",
+                  "fill": "#4B5F7E",
+                  "content": "Backend: online",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FnsqE",
+              "x": 20,
+              "y": 426,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "IOr7b",
+                  "fill": "#4B5F7E",
+                  "content": "Storage: local",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RSCPS",
+              "x": 20,
+              "y": 466,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9GzTE",
+                  "fill": "#4B5F7E",
+                  "content": "Runtime: manual",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WI5Wv",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "SIbvW",
+                  "x": 9,
+                  "y": 39,
+                  "name": "setupLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "8gkog",
+                  "x": 9,
+                  "y": 69,
+                  "name": "setupRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "7vHPJ",
+          "x": 273,
+          "y": 0,
+          "name": "SetupMain",
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "NAL5t",
+              "x": 0,
+              "y": 13,
+              "name": "setupTop",
+              "width": 1167,
+              "height": 132,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "qNWge",
+                  "x": 24,
+                  "y": 24,
+                  "fill": "#2F7D60",
+                  "content": "SESSION PREFLIGHT",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ZZBt7",
+                  "x": 24,
+                  "y": 46,
+                  "fill": "#0F172A",
+                  "content": "Review the chosen slot, world profile, and runtime before you launch.",
+                  "fontFamily": "Space Grotesk",
+                  "fontSize": 34,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "ZkCwo",
+                  "x": 24,
+                  "y": 92,
+                  "fill": "#526277",
+                  "content": "Setup summarizes the current configuration. Edit details in Sessions, Pack Manager, or Settings.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "yMPXP",
+                  "x": 929,
+                  "y": 32,
+                  "width": 102,
+                  "height": 40,
+                  "fill": "#0F172A",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "APTf8",
+                  "x": 953,
+                  "y": 45,
+                  "fill": "#F8FAFC",
+                  "content": "Open Play",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "TSVEw",
+                  "x": 1043,
+                  "y": 32,
+                  "width": 100,
+                  "height": 40,
+                  "fill": "#E8EEF6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#CBD5E1"
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "sEeMw",
+                  "x": 1070,
+                  "y": 45,
+                  "fill": "#0F172A",
+                  "content": "Sync API",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GBsBh",
+              "x": 24,
+              "y": 152,
+              "name": "step1",
+              "width": 358,
+              "height": 86,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "eKoqI",
+                  "x": 14,
+                  "y": 14,
+                  "fill": "#2F7D60",
+                  "content": "01 // PICK IDENTITY",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "weQFO",
+                  "x": 14,
+                  "y": 34,
+                  "fill": "#1E293B",
+                  "content": "Choose slot and language.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ns0ds",
+              "x": 404,
+              "y": 152,
+              "name": "step2",
+              "width": 358,
+              "height": 86,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "n24OI",
+                  "x": 14,
+                  "y": 14,
+                  "fill": "#2459D1",
+                  "content": "02 // REVIEW CONFIG",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Xxz9M",
+                  "x": 14,
+                  "y": 34,
+                  "fill": "#1E293B",
+                  "content": "Confirm packs and runtime.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fGyXl",
+              "x": 784,
+              "y": 152,
+              "name": "step3",
+              "width": 359,
+              "height": 86,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "SyRgp",
+                  "x": 14,
+                  "y": 14,
+                  "fill": "#B45309",
+                  "content": "03 // LAUNCH",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "PkPD3",
+                  "x": 14,
+                  "y": 34,
+                  "fill": "#1E293B",
+                  "content": "Validate and start.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6YmlP",
+              "x": 24,
+              "y": 258,
+              "name": "slotCard",
+              "width": 330,
+              "height": 430,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TA87Q",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#2F7D60",
+                  "content": "Session Identity",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "DnhBb",
+                  "x": 18,
+                  "y": 52,
+                  "width": 294,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "RpobD",
+                  "x": 18,
+                  "y": 104,
+                  "width": 294,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "ocYJ6",
+                  "x": 18,
+                  "y": 170,
+                  "fill": "#0F172A",
+                  "content": "Create new slot",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "CO83A",
+                  "x": 18,
+                  "y": 194,
+                  "width": 294,
+                  "height": 44,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "1PZX7",
+              "x": 24,
+              "y": 708,
+              "name": "langCard",
+              "width": 330,
+              "height": 152,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aploL",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#2F7D60",
+                  "content": "Launch Rules",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "nYyhZ",
+                  "x": 18,
+                  "y": 52,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "b0V5e",
+                  "x": 18,
+                  "y": 112,
+                  "fill": "#60748F",
+                  "content": "Language: zh. Uses selected runtime profile.",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Mf7c8",
+              "x": 374,
+              "y": 258,
+              "name": "packCard",
+              "width": 380,
+              "height": 430,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lYW8F",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#2459D1",
+                  "content": "World Modules Summary",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Cw5Ws",
+                  "x": 18,
+                  "y": 224,
+                  "fill": "#60748F",
+                  "content": "install from url / upload zip / export pack",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "LATSi",
+                  "x": 18,
+                  "y": 52,
+                  "fill": "#425B7B",
+                  "content": "Enabled packs: starter_kingdom",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "hQGHb",
+                  "x": 18,
+                  "y": 76,
+                  "fill": "#425B7B",
+                  "content": "Expansion packs: none",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "9uEXH",
+                  "x": 18,
+                  "y": 100,
+                  "fill": "#425B7B",
+                  "content": "Pack source mix: builtin + local",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "1jotD",
+                  "x": 18,
+                  "y": 138,
+                  "fill": "#60748F",
+                  "content": "Summary only. Edit details in Pack Manager.",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "loCBA",
+                  "x": 18,
+                  "y": 196,
+                  "name": "openPacks",
+                  "width": 150,
+                  "height": 40,
+                  "fill": "#EAF1FF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "tHzTl",
+                      "x": 20,
+                      "y": 12,
+                      "fill": "#2459D1",
+                      "content": "Open Pack Manager",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "y1vzA",
+              "x": 774,
+              "y": 258,
+              "name": "settingsCard",
+              "width": 369,
+              "height": 188,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nOIp8",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#7C3AED",
+                  "content": "Runtime Profile",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "I1ML5",
+                  "x": 18,
+                  "y": 48,
+                  "fill": "#425B7B",
+                  "content": "provider: custom",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "fKcHp",
+                  "x": 18,
+                  "y": 72,
+                  "fill": "#425B7B",
+                  "content": "chat model: gpt-4o-mini",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "3sDpd",
+                  "x": 18,
+                  "y": 96,
+                  "fill": "#425B7B",
+                  "content": "embedding: text-embedding-3-small",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "hBdxx",
+                  "x": 18,
+                  "y": 120,
+                  "fill": "#425B7B",
+                  "content": "mock llm: off",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "JayOz",
+                  "x": 18,
+                  "y": 144,
+                  "fill": "#60748F",
+                  "content": "Summary only. Edit details in Settings.",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "IaVZS",
+                  "x": 18,
+                  "y": 118,
+                  "name": "openSettings",
+                  "width": 132,
+                  "height": 40,
+                  "fill": "#F3E8FF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JtSLy",
+                      "x": 24,
+                      "y": 12,
+                      "fill": "#7C3AED",
+                      "content": "Open Settings",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mL6ES",
+              "x": 774,
+              "y": 462,
+              "name": "previewCard",
+              "width": 369,
+              "height": 188,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OPEIp",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#B45309",
+                  "content": "Launch Preview",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "73pXq",
+                  "x": 18,
+                  "y": 48,
+                  "fill": "#425B7B",
+                  "content": "POST /game/start",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ICaly",
+                  "x": 18,
+                  "y": 72,
+                  "fill": "#425B7B",
+                  "content": "save_slot: slot_001",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "4BijZ",
+                  "x": 18,
+                  "y": 96,
+                  "fill": "#425B7B",
+                  "content": "pack_ids: [starter_kingdom]",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "JdhVt",
+                  "x": 18,
+                  "y": 120,
+                  "fill": "#425B7B",
+                  "content": "language: zh",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qp0ug",
+              "x": 774,
+              "y": 674,
+              "name": "healthCard",
+              "width": 369,
+              "height": 186,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YvSII",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#2F7D60",
+                  "content": "Launch Checklist",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "qbDEi",
+                  "x": 18,
+                  "y": 48,
+                  "fill": "#425B7B",
+                  "content": "Backend reachable",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "YMxd7",
+                  "x": 18,
+                  "y": 72,
+                  "fill": "#425B7B",
+                  "content": "Storage backend detected",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "PW1kl",
+                  "x": 18,
+                  "y": 96,
+                  "fill": "#425B7B",
+                  "content": "Pack summary available",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "7GoRe",
+                  "x": 18,
+                  "y": 120,
+                  "fill": "#425B7B",
+                  "content": "Runtime summary available",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "YQ2Vk",
+                  "x": 18,
+                  "y": 146,
+                  "name": "startBtn",
+                  "width": 144,
+                  "height": 40,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gtJku",
+                      "x": 28,
+                      "y": 12,
+                      "fill": "#2D8A4E",
+                      "content": "Start Session",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "N1uXS",
+      "x": 3120,
+      "y": 80,
+      "name": "TextRPG Sessions",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#CBD5E1"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "zBxxX",
+          "x": 0,
+          "y": 0,
+          "name": "sessionSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "JyUNO",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "nHI9P",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "xK2Vw",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "ZDgzb",
+              "x": 34,
+              "y": 121,
+              "fill": "#2F6FED",
+              "content": "Sessions",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "6JvnO",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "Nr0v7",
+              "x": 34,
+              "y": 167,
+              "fill": "#425B7B",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "yrUT1",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "dZ4Hd",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "80IB3",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "nHtXe",
+              "x": 34,
+              "y": 259,
+              "fill": "#425B7B",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "2vxNM",
+              "x": 24,
+              "y": 320,
+              "fill": "#2E4466",
+              "content": "Session Health",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "UAHAd",
+              "x": 20,
+              "y": 346,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9ohg0",
+                  "fill": "#4B5F7E",
+                  "content": "Backend: online",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "QgtkQ",
+              "x": 20,
+              "y": 386,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "8EWxp",
+                  "fill": "#4B5F7E",
+                  "content": "Storage: local",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nTP9y",
+              "x": 20,
+              "y": 426,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "qQaVb",
+                  "fill": "#4B5F7E",
+                  "content": "Last sync: just now",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wYklF",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "m3aFy",
+                  "x": 9,
+                  "y": 39,
+                  "name": "sessionsLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "w1a4O",
+                  "x": 9,
+                  "y": 69,
+                  "name": "sessionsRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "VyQoE",
+          "x": 273,
+          "y": 0,
+          "name": "SessionsMain",
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "VXjBE",
+              "x": 0,
+              "y": 0,
+              "width": 1167,
+              "height": 78,
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lOJjU",
+                  "fill": "#22324A",
+                  "content": "Sessions",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dikNQ",
+              "x": 24,
+              "y": 98,
+              "name": "slotList",
+              "width": 720,
+              "height": 760,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "H3Htc",
+                  "x": 18,
+                  "y": 16,
+                  "name": "slotTitle",
+                  "fill": "#22324A",
+                  "content": "Save Slots",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "FcWs6",
+                  "x": 18,
+                  "y": 46,
+                  "name": "slotCopy",
+                  "fill": "#60748F",
+                  "content": "Choose a session to continue, duplicate, or archive.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "nRLP7",
+                  "x": 18,
+                  "y": 84,
+                  "name": "slotA",
+                  "width": 684,
+                  "height": 110,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Sks9r",
+                      "x": 24,
+                      "y": 20,
+                      "name": "slotATitle",
+                      "fill": "#22324A",
+                      "content": "slot_contract_test",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "htrXX",
+                      "x": 24,
+                      "y": 52,
+                      "name": "slotAMeta",
+                      "fill": "#425B7B",
+                      "content": "Unknown | 1 turns | packs: starter_kingdom",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lRIew",
+                      "x": 24,
+                      "y": 84,
+                      "name": "slotATime",
+                      "fill": "#60748F",
+                      "content": "2026-03-25 14:35",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Clfl6",
+                  "x": 18,
+                  "y": 208,
+                  "name": "slotB",
+                  "width": 684,
+                  "height": 110,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yW1DA",
+                      "x": 24,
+                      "y": 20,
+                      "name": "slotBTitle",
+                      "fill": "#22324A",
+                      "content": "slot_001",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pY2yQ",
+                      "x": 24,
+                      "y": 52,
+                      "name": "slotBMeta",
+                      "fill": "#425B7B",
+                      "content": "Unknown | 1 turns | packs: starter_kingdom",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "A1HjG",
+                      "x": 24,
+                      "y": 84,
+                      "name": "slotBTime",
+                      "fill": "#60748F",
+                      "content": "2026-03-25 15:22",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "joeJM",
+                  "x": 18,
+                  "y": 332,
+                  "name": "slotC",
+                  "width": 684,
+                  "height": 110,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "3iEbp",
+                      "x": 24,
+                      "y": 20,
+                      "name": "slotCTitle",
+                      "fill": "#22324A",
+                      "content": "slot_002",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZdVI0",
+                      "x": 24,
+                      "y": 52,
+                      "name": "slotCMeta",
+                      "fill": "#425B7B",
+                      "content": "Unknown | 0 turns | packs:",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rbThR",
+                      "x": 24,
+                      "y": 84,
+                      "name": "slotCTime",
+                      "fill": "#60748F",
+                      "content": "2026-03-05 11:24",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hgbks",
+              "x": 760,
+              "y": 98,
+              "name": "summary",
+              "width": 383,
+              "height": 250,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "fv4k0",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Current Selection",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "6SnxM",
+                  "x": 18,
+                  "y": 52,
+                  "fill": "#22324A",
+                  "content": "slot_001",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "WdSKL",
+                  "x": 18,
+                  "y": 84,
+                  "fill": "#425B7B",
+                  "content": "Language: zh",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "sySDf",
+                  "x": 18,
+                  "y": 108,
+                  "fill": "#425B7B",
+                  "content": "Enabled packs: starter_kingdom",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "7Uh5V",
+                  "x": 18,
+                  "y": 132,
+                  "fill": "#425B7B",
+                  "content": "Last location: Unknown",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "D1exp",
+                  "x": 18,
+                  "y": 156,
+                  "fill": "#425B7B",
+                  "content": "Last played: 2026-03-25 15:22",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "o0RVR",
+              "x": 760,
+              "y": 364,
+              "name": "actions",
+              "width": 383,
+              "height": 214,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "z96CM",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Quick Actions",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "bloGb",
+                  "x": 18,
+                  "y": 56,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#EAF1FF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "JiPPQ",
+                  "x": 52,
+                  "y": 68,
+                  "fill": "#2F6FED",
+                  "content": "Load Session",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "Yq12w",
+                  "x": 196,
+                  "y": 56,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "kprON",
+                  "x": 229,
+                  "y": 68,
+                  "fill": "#2D8A4E",
+                  "content": "New Session",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "iWlpc",
+                  "x": 18,
+                  "y": 112,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#FFF5E8",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "VIk17",
+                  "x": 66,
+                  "y": 124,
+                  "fill": "#B46A12",
+                  "content": "Duplicate",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "pKPki",
+                  "x": 196,
+                  "y": 112,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#FFF1F2",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "RglRp",
+                  "x": 250,
+                  "y": 124,
+                  "fill": "#B42318",
+                  "content": "Archive",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kgRVn",
+              "x": 760,
+              "y": 594,
+              "name": "notes",
+              "width": 383,
+              "height": 264,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "3YxKy",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Session Notes",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "RVZEQ",
+                  "x": 18,
+                  "y": 52,
+                  "fill": "#60748F",
+                  "content": "Manage save slots here before entering Play.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "EEz3B",
+                  "x": 18,
+                  "y": 118,
+                  "fill": "#425B7B",
+                  "content": "Next: load slot_001 and continue the current thread.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IMHVG",
+      "x": 4640,
+      "y": 80,
+      "name": "TextRPG Pack Manager",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#CBD5E1"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "kLbuO",
+          "x": 0,
+          "y": 0,
+          "name": "packSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "3wRU3",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "sG0o6",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "Rccp9",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "JyOoA",
+              "x": 34,
+              "y": 121,
+              "fill": "#425B7B",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ycI4M",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "sldDS",
+              "x": 34,
+              "y": 167,
+              "fill": "#2F6FED",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "38IW7",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "uuT9W",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Card Designer",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "irtZh",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "VqnmA",
+              "x": 34,
+              "y": 259,
+              "fill": "#425B7B",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "8R668",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "6Zx0F",
+                  "x": 9,
+                  "y": 39,
+                  "name": "packsLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "54vHu",
+                  "x": 9,
+                  "y": 69,
+                  "name": "packsRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "M9vp9",
+          "x": 273,
+          "y": 0,
+          "name": "PackMain",
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "zKFab",
+              "x": 0,
+              "y": 0,
+              "name": "packTop",
+              "width": 1167,
+              "height": 78,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "LJZVc",
+                  "x": 24,
+                  "y": 27,
+                  "fill": "#22324A",
+                  "content": "Pack Manager",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RmyBV",
+              "x": 24,
+              "y": 98,
+              "name": "installed",
+              "width": 1119,
+              "height": 250,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "t3gqp",
+                  "x": 16,
+                  "y": 14,
+                  "fill": "#22324A",
+                  "content": "Installed Packs",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "iB86V",
+                  "x": 16,
+                  "y": 48,
+                  "fill": "#60748F",
+                  "content": "Name(ID)      Version/Author      Enabled      Action",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "lFVbF",
+                  "x": 16,
+                  "y": 74,
+                  "name": "row1",
+                  "width": 1087,
+                  "height": 62,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UOuDt",
+                      "x": 12,
+                      "y": 22,
+                      "fill": "#334A6B",
+                      "content": "starter_kingdom  v1.0.0 by TextRPG Team   [x] Enabled   Remove",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fYN6s",
+                  "x": 16,
+                  "y": 146,
+                  "name": "row2",
+                  "width": 1087,
+                  "height": 62,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "7kf63",
+                      "x": 12,
+                      "y": 22,
+                      "fill": "#334A6B",
+                      "content": "smugglers_wharf  v0.1.0 by admin   [ ] Enabled   Remove",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JqXGN",
+              "x": 24,
+              "y": 366,
+              "name": "urlCard",
+              "width": 1119,
+              "height": 118,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VledL",
+                  "x": 16,
+                  "y": 14,
+                  "fill": "#22324A",
+                  "content": "Install from URL",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "wbqFs",
+                  "x": 16,
+                  "y": 46,
+                  "width": 900,
+                  "height": 44,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "7uNTA",
+                  "x": 932,
+                  "y": 46,
+                  "name": "urlBtn",
+                  "width": 171,
+                  "height": 44,
+                  "fill": "#EAF1FF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LnN9D",
+                      "x": 24,
+                      "y": 13,
+                      "fill": "#2F6FED",
+                      "content": "Download & Install",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lgGf5",
+              "x": 24,
+              "y": 496,
+              "name": "zipCard",
+              "width": 1119,
+              "height": 118,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mib8Z",
+                  "x": 16,
+                  "y": 14,
+                  "fill": "#22324A",
+                  "content": "Install from ZIP",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "fmF9U",
+                  "x": 16,
+                  "y": 46,
+                  "name": "zipDrop",
+                  "width": 1087,
+                  "height": 52,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wIMZT",
+                      "x": 14,
+                      "y": 16,
+                      "fill": "#60748F",
+                      "content": "Upload pack zip",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZveUE",
+              "x": 24,
+              "y": 626,
+              "name": "expCard",
+              "width": 1119,
+              "height": 160,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TEfBr",
+                  "x": 16,
+                  "y": 14,
+                  "fill": "#22324A",
+                  "content": "Export Pack",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "v3L4f",
+                  "x": 16,
+                  "y": 48,
+                  "width": 840,
+                  "height": 44,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "nYSAx",
+                  "x": 872,
+                  "y": 48,
+                  "name": "expBtn",
+                  "width": 231,
+                  "height": 44,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "D6JmX",
+                      "x": 85,
+                      "y": 13,
+                      "fill": "#2D8A4E",
+                      "content": "Export",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "I3lOR",
+      "x": 6160,
+      "y": 80,
+      "name": "TextRPG Settings",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#CBD5E1"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "srA6P",
+          "x": 0,
+          "y": 0,
+          "name": "settingsSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "KNVpd",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "51UNg",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "XJyBP",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "O3DBM",
+              "x": 34,
+              "y": 121,
+              "fill": "#425B7B",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "SLV17",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "Gu8lU",
+              "x": 34,
+              "y": 167,
+              "fill": "#425B7B",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ZNLLG",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "RXXlh",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Card Designer",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "k6Eiv",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "JGhR7",
+              "x": 34,
+              "y": 259,
+              "fill": "#2F6FED",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "oyx2H",
+              "x": 24,
+              "y": 308,
+              "fill": "#2E4466",
+              "content": "Custom UI Panels",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "eox2V",
+              "x": 20,
+              "y": 334,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IHMrx",
+                  "width": 16,
+                  "height": 16,
+                  "fill": "#2F6FED",
+                  "cornerRadius": 3
+                },
+                {
+                  "type": "text",
+                  "id": "vSO2M",
+                  "fill": "#334A6B",
+                  "content": "主界面 - 客厅",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pFHU8",
+              "x": 20,
+              "y": 374,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Gtg8p",
+                  "width": 16,
+                  "height": 16,
+                  "fill": "#2F6FED",
+                  "cornerRadius": 3
+                },
+                {
+                  "type": "text",
+                  "id": "evDaJ",
+                  "fill": "#334A6B",
+                  "content": "初始引导 - 角色创建",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GzmsZ",
+              "x": 20,
+              "y": 414,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ygngJ",
+                  "width": 16,
+                  "height": 16,
+                  "fill": "#2F6FED",
+                  "cornerRadius": 3
+                },
+                {
+                  "type": "text",
+                  "id": "cNauB",
+                  "fill": "#334A6B",
+                  "content": "初始引导 - 状态面板",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "lEpu6",
+              "x": 24,
+              "y": 470,
+              "fill": "#2E4466",
+              "content": "UI Agent",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "L5Wa5",
+              "x": 20,
+              "y": 494,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YyLMI",
+                  "fill": "#4B5F7E",
+                  "content": "Update Mode: manual",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uanAq",
+              "x": 20,
+              "y": 536,
+              "width": 112,
+              "height": 36,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pJLLD",
+                  "fill": "#2F6FED",
+                  "content": "Generate UI",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jx6FP",
+              "x": 140,
+              "y": 536,
+              "width": 112,
+              "height": 36,
+              "fill": "#EAF8F0",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OSogj",
+                  "fill": "#2D8A4E",
+                  "content": "Update UI",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fuGLm",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "p5wuw",
+                  "x": 9,
+                  "y": 39,
+                  "name": "settingsLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "GXoXh",
+                  "x": 9,
+                  "y": 69,
+                  "name": "settingsRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f30IN",
+          "x": 273,
+          "y": 0,
+          "name": "SettingsMain",
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "8eF8L",
+              "x": 0,
+              "y": 0,
+              "name": "top",
+              "width": 1167,
+              "height": 78,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tmca0",
+                  "x": 24,
+                  "y": 27,
+                  "fill": "#22324A",
+                  "content": "Settings",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "lmHMH",
+              "x": 24,
+              "y": 92,
+              "fill": "#60748F",
+              "content": "Settings apply to subsequent chat and pack-builder tasks.",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "Wpc38",
+              "x": 24,
+              "y": 120,
+              "name": "form",
+              "width": 1119,
+              "height": 470,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PGdDt",
+                  "x": 16,
+                  "y": 18,
+                  "width": 1087,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "TMMIY",
+                  "x": 16,
+                  "y": 70,
+                  "width": 1087,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "hVtGq",
+                  "x": 18,
+                  "y": 122,
+                  "fill": "#425B7B",
+                  "content": "[x] Keep existing key",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "2agV4",
+                  "x": 16,
+                  "y": 150,
+                  "width": 1087,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "pntiD",
+                  "x": 16,
+                  "y": 202,
+                  "width": 1087,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "frame",
+                  "id": "a6OUS",
+                  "x": 16,
+                  "y": 254,
+                  "width": 1087,
+                  "height": 42,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "S6udz",
+                  "x": 18,
+                  "y": 18,
+                  "fill": "#425B7B",
+                  "content": "LLM Platform",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "PHPBn",
+                  "x": 32,
+                  "y": 31,
+                  "fill": "#22324A",
+                  "content": "custom",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "O2i9s",
+                  "x": 18,
+                  "y": 70,
+                  "fill": "#425B7B",
+                  "content": "API Key",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "QXtPN",
+                  "x": 32,
+                  "y": 83,
+                  "fill": "#22324A",
+                  "content": "api key stored",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "G5Vx1",
+                  "x": 18,
+                  "y": 150,
+                  "fill": "#425B7B",
+                  "content": "Base URL",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "bFp6K",
+                  "x": 32,
+                  "y": 163,
+                  "fill": "#22324A",
+                  "content": "api endpoint",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "m6tK2",
+                  "x": 18,
+                  "y": 202,
+                  "fill": "#425B7B",
+                  "content": "Chat Model",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "6I18e",
+                  "x": 32,
+                  "y": 215,
+                  "fill": "#22324A",
+                  "content": "gpt-4o-mini",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Su2qK",
+                  "x": 18,
+                  "y": 254,
+                  "fill": "#425B7B",
+                  "content": "Embedding Model",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "T4WaV",
+                  "x": 32,
+                  "y": 267,
+                  "fill": "#22324A",
+                  "content": "text-embedding-3-small",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "rwZT9",
+                  "x": 18,
+                  "y": 312,
+                  "fill": "#425B7B",
+                  "content": "[ ] Use Mock LLM",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "RFXVQ",
+                  "x": 18,
+                  "y": 338,
+                  "fill": "#425B7B",
+                  "content": "[ ] Force Fake Embeddings",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "OYgdG",
+                  "x": 16,
+                  "y": 376,
+                  "name": "saveBtn",
+                  "width": 200,
+                  "height": 40,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "iLDiN",
+                      "x": 52,
+                      "y": 12,
+                      "fill": "#2D8A4E",
+                      "content": "Save Settings",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "j0zzb",
+              "x": 24,
+              "y": 614,
+              "fill": "#22324A",
+              "content": "Current Settings",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "hSuh3",
+              "x": 24,
+              "y": 644,
+              "name": "jsonCard",
+              "width": 1119,
+              "height": 230,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MaRr9",
+                  "x": 14,
+                  "y": 14,
+                  "fill": "#334A6B",
+                  "content": "provider: custom",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "qexOb",
+                  "x": 14,
+                  "y": 38,
+                  "fill": "#334A6B",
+                  "content": "base_url: configured",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "yUBSJ",
+                  "x": 14,
+                  "y": 62,
+                  "fill": "#334A6B",
+                  "content": "model_name: gpt-4o-mini",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ny8x2",
+      "x": 7720,
+      "y": 80,
+      "name": "TextRPG Sessions Create State",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "stroke": {
+        "thickness": 1,
+        "fill": "#CBD5E1"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "KH0lU",
+          "x": 0,
+          "y": 0,
+          "name": "sessionSidebar",
+          "clip": true,
+          "width": 273,
+          "height": 900,
+          "fill": "#F6FAFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "6SZQS",
+              "x": 24,
+              "y": 24,
+              "fill": "#22324A",
+              "content": "TextRPG UI",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "pCGSD",
+              "x": 24,
+              "y": 86,
+              "fill": "#60748F",
+              "content": "Pages",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "lUgfs",
+              "x": 20,
+              "y": 110,
+              "width": 232,
+              "height": 38,
+              "fill": "#EAF1FF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "xHUKZ",
+              "x": 34,
+              "y": 121,
+              "fill": "#2F6FED",
+              "content": "Sessions",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "eEnZl",
+              "x": 20,
+              "y": 156,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "k0qpV",
+              "x": 34,
+              "y": 167,
+              "fill": "#425B7B",
+              "content": "Play",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "cBAZX",
+              "x": 20,
+              "y": 202,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "AtABV",
+              "x": 34,
+              "y": 213,
+              "fill": "#425B7B",
+              "content": "Pack Manager",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "LGwQJ",
+              "x": 20,
+              "y": 248,
+              "width": 232,
+              "height": 38,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8
+            },
+            {
+              "type": "text",
+              "id": "lfRfO",
+              "x": 34,
+              "y": 259,
+              "fill": "#425B7B",
+              "content": "Settings",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "J4uBs",
+              "x": 24,
+              "y": 320,
+              "fill": "#2E4466",
+              "content": "Session Health",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "U3thR",
+              "x": 20,
+              "y": 346,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hLdgX",
+                  "fill": "#4B5F7E",
+                  "content": "Backend: online",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "eAlVl",
+              "x": 20,
+              "y": 386,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HyTSE",
+                  "fill": "#4B5F7E",
+                  "content": "Storage: local",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "5k4kS",
+              "x": 20,
+              "y": 426,
+              "width": 232,
+              "height": 34,
+              "fill": "#FFFFFF",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "4hTxK",
+                  "fill": "#4B5F7E",
+                  "content": "Last sync: just now",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mlWoM",
+              "x": 258,
+              "y": 390,
+              "name": "sidebarToggleHandle",
+              "width": 28,
+              "height": 122,
+              "fill": "#FFFFFF",
+              "cornerRadius": 999,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D5DFEA"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hhUZz",
+                  "x": 9,
+                  "y": 39,
+                  "name": "sessionsLeft",
+                  "fill": "#60748F",
+                  "content": "<",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "mwsPM",
+                  "x": 9,
+                  "y": 69,
+                  "name": "sessionsRight",
+                  "fill": "#22324A",
+                  "content": ">",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ipw5i",
+          "x": 273,
+          "y": 0,
+          "name": "SessionsMain",
+          "width": 1167,
+          "height": 900,
+          "fill": "#EEF4FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "H7YXl",
+              "x": 0,
+              "y": 0,
+              "width": 1167,
+              "height": 78,
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ahcHi",
+                  "fill": "#22324A",
+                  "content": "Sessions",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IWCuH",
+              "x": 0,
+              "y": 0,
+              "name": "sessionCreateForm",
+              "clip": true,
+              "width": 720,
+              "height": 760,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "21KUO",
+                  "x": 18,
+                  "y": 18,
+                  "name": "backBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "cbyAI",
+                      "x": 11,
+                      "y": 6,
+                      "name": "backArrow",
+                      "fill": "#2F6FED",
+                      "content": "<",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "JcOoa",
+                  "x": 62,
+                  "y": 20,
+                  "name": "createTitle",
+                  "fill": "#22324A",
+                  "content": "Create Session",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "TYY5i",
+                  "x": 62,
+                  "y": 48,
+                  "name": "createCopy",
+                  "fill": "#60748F",
+                  "content": "Fill the session profile, save the draft, then return to the session list.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "OcFjd",
+                  "x": 24,
+                  "y": 104,
+                  "name": "labelName",
+                  "fill": "#2E4466",
+                  "content": "Session Name",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "dJguB",
+                  "x": 24,
+                  "y": 128,
+                  "name": "fieldName",
+                  "width": 654,
+                  "height": 52,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "I6pBh",
+                      "x": 14,
+                      "y": 16,
+                      "name": "fieldNameText",
+                      "fill": "#425B7B",
+                      "content": "The Brass Key Rumor",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "5Lr1e",
+                  "x": 24,
+                  "y": 198,
+                  "name": "labelSlot",
+                  "fill": "#2E4466",
+                  "content": "Save Slot ID",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "LiTyd",
+                  "x": 24,
+                  "y": 222,
+                  "name": "fieldSlot",
+                  "width": 654,
+                  "height": 52,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xYj4p",
+                      "x": 14,
+                      "y": 16,
+                      "name": "fieldSlotText",
+                      "fill": "#425B7B",
+                      "content": "slot_brass_key_001",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "cLmkh",
+                  "x": 24,
+                  "y": 292,
+                  "name": "labelLang",
+                  "fill": "#2E4466",
+                  "content": "Language",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "wUnia",
+                  "x": 24,
+                  "y": 316,
+                  "name": "fieldLang",
+                  "width": 654,
+                  "height": 52,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "i4P44",
+                      "x": 14,
+                      "y": 16,
+                      "name": "fieldLangText",
+                      "fill": "#425B7B",
+                      "content": "zh",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "5V5Uk",
+                  "x": 24,
+                  "y": 386,
+                  "name": "labelPacks",
+                  "fill": "#2E4466",
+                  "content": "Enabled Packs",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "nKJLQ",
+                  "x": 24,
+                  "y": 410,
+                  "name": "packSummary",
+                  "width": 654,
+                  "height": 82,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WrEC7",
+                      "x": 14,
+                      "y": 14,
+                      "name": "packSummaryText",
+                      "fill": "#425B7B",
+                      "content": "starter_kingdom + tavern_intrigue\nReview or edit world modules before saving this session.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "slsfV",
+                      "x": 14,
+                      "y": 52,
+                      "name": "packLink",
+                      "fill": "#2F6FED",
+                      "content": "Open Pack Manager / configure packs",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "8Ybpf",
+                  "x": 24,
+                  "y": 510,
+                  "name": "labelNotes",
+                  "fill": "#2E4466",
+                  "content": "Opening Notes",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "egxJP",
+                  "x": 24,
+                  "y": 534,
+                  "name": "fieldNotes",
+                  "width": 654,
+                  "height": 132,
+                  "fill": "#F8FBFF",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D5DFEA"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nUDj3",
+                      "x": 14,
+                      "y": 14,
+                      "name": "fieldNotesText",
+                      "fill": "#425B7B",
+                      "content": "Goal: question Mira about the sealed upstairs room, then follow the brass key rumor into the cellar.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JmTea",
+                  "x": 24,
+                  "y": 692,
+                  "name": "saveBtn",
+                  "width": 654,
+                  "height": 44,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DF76q",
+                      "x": 274,
+                      "y": 13,
+                      "name": "saveBtnText",
+                      "fill": "#2D8A4E",
+                      "content": "Save Session",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tCFEc",
+                  "x": 690,
+                  "y": 110,
+                  "name": "scrollTrack",
+                  "width": 8,
+                  "height": 598,
+                  "fill": "#E6EDF7",
+                  "cornerRadius": 999,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "zvOw4",
+                      "x": 0,
+                      "y": 164,
+                      "name": "scrollThumb",
+                      "width": 8,
+                      "height": 176,
+                      "fill": "#9FB3D1",
+                      "cornerRadius": 999
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ohL8D",
+              "x": 760,
+              "y": 98,
+              "name": "summary",
+              "width": 383,
+              "height": 250,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "LKM3M",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Draft Summary",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "9ppSH",
+                  "x": 18,
+                  "y": 52,
+                  "fill": "#22324A",
+                  "content": "slot_brass_key_001",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "AGHTw",
+                  "x": 18,
+                  "y": 84,
+                  "fill": "#425B7B",
+                  "content": "Language: zh",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "a79ui",
+                  "x": 18,
+                  "y": 108,
+                  "fill": "#425B7B",
+                  "content": "Enabled packs: starter_kingdom, tavern_intrigue",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "xbDVq",
+                  "x": 18,
+                  "y": 132,
+                  "fill": "#425B7B",
+                  "content": "Start point: inn common room",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "DMBjI",
+                  "x": 18,
+                  "y": 156,
+                  "fill": "#425B7B",
+                  "content": "Status: unsaved draft",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "np3np",
+              "x": 760,
+              "y": 364,
+              "name": "actions",
+              "width": 383,
+              "height": 214,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "p7qgQ",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Quick Actions",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "QJ2rw",
+                  "x": 18,
+                  "y": 56,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#EAF1FF",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "FdMVq",
+                  "x": 52,
+                  "y": 68,
+                  "fill": "#2F6FED",
+                  "content": "Load Session",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "YTsRg",
+                  "x": 196,
+                  "y": 56,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#EAF8F0",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "rZeOP",
+                  "x": 229,
+                  "y": 68,
+                  "fill": "#2D8A4E",
+                  "content": "New Session",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "F76Ly",
+                  "x": 18,
+                  "y": 112,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#FFF5E8",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "wfa4v",
+                  "x": 66,
+                  "y": 124,
+                  "fill": "#B46A12",
+                  "content": "Duplicate",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "esmfM",
+                  "x": 196,
+                  "y": 112,
+                  "width": 160,
+                  "height": 42,
+                  "fill": "#FFF1F2",
+                  "cornerRadius": 8
+                },
+                {
+                  "type": "text",
+                  "id": "G2G6F",
+                  "x": 250,
+                  "y": 124,
+                  "fill": "#B42318",
+                  "content": "Archive",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "3LuPA",
+              "x": 760,
+              "y": 594,
+              "name": "notes",
+              "width": 383,
+              "height": 264,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VT0eU",
+                  "x": 18,
+                  "y": 16,
+                  "fill": "#22324A",
+                  "content": "Session Notes",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "UrkjU",
+                  "x": 18,
+                  "y": 52,
+                  "fill": "#60748F",
+                  "content": "Create and save a new session here, then return to the session list.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "8HXew",
+                  "x": 18,
+                  "y": 118,
+                  "fill": "#425B7B",
+                  "content": "Return arrow exits the draft view without leaving the Sessions page.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "A8Gcg",
+      "x": 9280,
+      "y": 80,
+      "name": "TextRPG Login",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "QXSYj",
+          "x": 420,
+          "y": 180,
+          "name": "loginCard",
+          "width": 600,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#C7D6EE55",
+            "offset": {
+              "x": 0,
+              "y": 10
+            },
+            "blur": 24
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            40,
+            36,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "nz3mE",
+              "name": "loginHead",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "CrAPX",
+                  "fill": "#20365C",
+                  "content": "TextRPG",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 34,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "XiTA4",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Sign in to load your sessions and continue your current story.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LVKoK",
+              "name": "loginForm",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uS3YK",
+                  "fill": "#516684",
+                  "content": "Email or Username",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "gzgwd",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yFFr7",
+                      "fill": "#8B9AB4",
+                      "content": "traveler@example.com",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "QXw9G",
+                  "fill": "#516684",
+                  "content": "Password",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "hanSP",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hcdJv",
+                      "fill": "#8B9AB4",
+                      "content": "........",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 18,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yb6kX",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#DDE8FF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#C9D9F4"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "shd4x",
+                  "fill": "#3764FF",
+                  "content": "Sign In",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "1PBdg",
+              "fill": "#5F7393",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Need an account? Create one.",
+              "lineHeight": 1.4,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "UeuwT",
+      "x": 10800,
+      "y": 80,
+      "name": "TextRPG Register",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "EAAMa",
+          "x": 420,
+          "y": 150,
+          "name": "registerCard",
+          "width": 600,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#C7D6EE55",
+            "offset": {
+              "x": 0,
+              "y": 10
+            },
+            "blur": 24
+          },
+          "layout": "vertical",
+          "gap": 26,
+          "padding": [
+            40,
+            40,
+            36,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "xpTDL",
+              "name": "registerHead",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sT34h",
+                  "fill": "#20365C",
+                  "content": "TextRPG",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 34,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "vm64b",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Create an account to keep your sessions isolated and stored per user.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t9sAL",
+              "name": "registerForm",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "J32Qw",
+                  "fill": "#516684",
+                  "content": "Email",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "TB63q",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "og5x3",
+                      "fill": "#8B9AB4",
+                      "content": "traveler@example.com",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ZXBI6",
+                  "fill": "#516684",
+                  "content": "Username",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "gtXfx",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xq7y1",
+                      "fill": "#8B9AB4",
+                      "content": "moonlit_wayfarer",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Pb16g",
+                  "fill": "#516684",
+                  "content": "Password",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "9TheG",
+                  "width": "fill_container",
+                  "height": 56,
+                  "fill": "#F5F8FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#D8E2F3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zEnlk",
+                      "fill": "#8B9AB4",
+                      "content": "........",
+                      "fontFamily": "IBM Plex Sans",
+                      "fontSize": 18,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PcQb5",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#E3F5EB",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#CFE8DA"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "jCB54",
+                  "fill": "#2A9E5B",
+                  "content": "Create Account",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "EDC7H",
+              "fill": "#5F7393",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Already have an account? Sign in.",
+              "lineHeight": 1.4,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "QJyCT",
+      "x": 12360,
+      "y": 80,
+      "name": "TextRPG Card Designer",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "85Ged",
+          "x": 0,
+          "y": 0,
+          "name": "sidebar",
+          "width": 260,
+          "height": 960,
+          "fill": "#E9F1FF",
+          "stroke": {
+            "thickness": {
+              "right": 1
+            },
+            "fill": "#D7E3F5"
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            28,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "YHRFx",
+              "fill": "#20365C",
+              "content": "TextRPG UI",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "m0Kh4",
+              "fill": "#647A9B",
+              "content": "Pages",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "4IlFg",
+              "name": "nav",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JUkyl",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UkXfs",
+                      "fill": "#35507C",
+                      "content": "Sessions",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XxTOe",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2EB4x",
+                      "fill": "#35507C",
+                      "content": "Play",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "jxqQv",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8Eizd",
+                      "fill": "#35507C",
+                      "content": "Pack Manager",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VfrhU",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#DCE8FF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vAqzv",
+                      "fill": "#3764FF",
+                      "content": "Card Designer",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "T2z7H",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "EMFW1",
+                      "fill": "#35507C",
+                      "content": "Settings",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "6DTFc",
+              "fill": "#20365C",
+              "content": "Designer Context",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "6Le2K",
+              "width": "fill_container",
+              "height": 86,
+              "fill": "#FFFFFF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D6E1F2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "n0VkL",
+                  "fill": "#35507C",
+                  "content": "Current pack: starter_kingdom",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "n9RKC",
+                  "fill": "#5F7393",
+                  "content": "Mode: edit existing pack",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZFA7Z",
+                  "fill": "#5F7393",
+                  "content": "Cards indexed: 24",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bHxUd",
+              "width": "fill_container",
+              "height": 120,
+              "fill": "#FFFFFF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D6E1F2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nsGIb",
+                  "fill": "#20365C",
+                  "content": "Agent memory",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "HIJWn",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 182,
+                  "content": "The agent is drafting a tavern-centered quest pack with bartender, rumor, and contract cards.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "bw8bl",
+          "x": 292,
+          "y": 26,
+          "name": "header",
+          "width": 1112,
+          "height": 88,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "GPraE",
+              "x": 0,
+              "y": 0,
+              "fill": "#20365C",
+              "content": "Card Designer",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "y783j",
+              "x": 160,
+              "y": 0,
+              "fill": "#6A7EA0",
+              "content": "Create, inspect, and AI-assist pack cards inside the authenticated workspace.",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "u2qm2",
+          "x": 292,
+          "y": 146,
+          "name": "newEditor",
+          "width": 430,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "9dSXK",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Create / Edit Card",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "6Dqwu",
+              "x": 24,
+              "y": 66,
+              "fill": "#516684",
+              "content": "Type",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "2rUac",
+              "x": 24,
+              "y": 88,
+              "width": 382,
+              "height": 52,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "zWNy2",
+                  "fill": "#2F4770",
+                  "content": "quest",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "xI1g7",
+              "x": 24,
+              "y": 152,
+              "fill": "#516684",
+              "content": "Card ID",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "Q1kSj",
+              "x": 24,
+              "y": 174,
+              "width": 382,
+              "height": 52,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZuGcM",
+                  "fill": "#2F4770",
+                  "content": "guild_intro_contract",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "hF21e",
+              "x": 24,
+              "y": 238,
+              "fill": "#516684",
+              "content": "Frontmatter + Body",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "P6QNE",
+              "x": 24,
+              "y": 260,
+              "width": 382,
+              "height": 356,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MOxMV",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 344,
+                  "content": "id: guild_intro_contract\ntype: quest\ntags:\n- tavern\n- guild\n\nThe bartender points toward the sealed upstairs room and lowers his voice.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6fLzD",
+              "x": 24,
+              "y": 640,
+              "width": 382,
+              "height": 48,
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ljc3a",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#E8EEFF",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2DP7U",
+                      "fill": "#426BFF",
+                      "content": "New",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "i2aNL",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eaVjH",
+                      "fill": "#2A9E5B",
+                      "content": "Save",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NlZz3",
+                  "width": 96,
+                  "height": 40,
+                  "fill": "#FFF2E2",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "k3iOd",
+                      "fill": "#C6801A",
+                      "content": "Validate",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Vcbn6",
+                  "width": 88,
+                  "height": 40,
+                  "fill": "#FFE7E7",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pcG0g",
+                      "fill": "#CF4A4A",
+                      "content": "Delete",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XpXGC",
+          "x": 746,
+          "y": 146,
+          "name": "newLibrary",
+          "width": 278,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "DQ83T",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Existing Cards",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "rA078",
+              "x": 24,
+              "y": 76,
+              "width": 230,
+              "height": 46,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZfEnx",
+                  "fill": "#2F4770",
+                  "content": "All categories",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Velfn",
+              "x": 24,
+              "y": 136,
+              "width": 230,
+              "height": 46,
+              "fill": "#F5F8FF",
+              "cornerRadius": 14,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QW4hj",
+                  "fill": "#8B9AB4",
+                  "content": "Search filename or keyword",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "1xj3R",
+              "x": 24,
+              "y": 202,
+              "width": 230,
+              "height": 394,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sBzOp",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 188,
+                  "content": "Mindmap / indexed cards\n\ncharacters\n- bartender.md\n- player.md\n\nquests\n- guild_intro_contract.md\n- sealed_room_rumor.md",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LeugM",
+              "x": 24,
+              "y": 620,
+              "width": 230,
+              "height": 92,
+              "fill": "#F5F8FF",
+              "cornerRadius": 16,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Sa2y2",
+                  "fill": "#20365C",
+                  "content": "Quick Load",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "7Hca1",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 190,
+                  "content": "Load selected card into the editor and preview the parsed result.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gCUAQ",
+          "x": 1048,
+          "y": 146,
+          "name": "newAgent",
+          "width": 356,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "wL3YS",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Pack Builder Agent",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "uYaCR",
+              "x": 24,
+              "y": 68,
+              "width": 308,
+              "height": 506,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "irSZV",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 270,
+                  "content": "USER\nHelp me build a tavern guild pack with onboarding quests and rumor cards.\n\nASSISTANT\nI can start with a quest spine, create 2 location cards, and propose a bartender-driven rumor chain.\n\nTOOL EVENT\nsave_card -> starter_kingdom/quest/guild_intro_contract",
+                  "lineHeight": 1.6,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "n2Hws",
+              "x": 24,
+              "y": 596,
+              "width": 308,
+              "height": 94,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "wzHZH",
+                  "fill": "#8B9AB4",
+                  "content": "Describe the pack requirements, then run.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "RHmzb",
+                  "width": 68,
+                  "height": 32,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wf8hA",
+                      "fill": "#2A9E5B",
+                      "content": "Run",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "kifFi",
+      "x": 13920,
+      "y": 80,
+      "name": "TextRPG Card Designer Create Pack",
+      "width": 1440,
+      "height": 960,
+      "fill": "#EEF4FF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "qVBBs",
+          "x": 0,
+          "y": 0,
+          "name": "createSidebar",
+          "width": 260,
+          "height": 960,
+          "fill": "#E9F1FF",
+          "stroke": {
+            "thickness": {
+              "right": 1
+            },
+            "fill": "#D7E3F5"
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            28,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "48pI9",
+              "fill": "#20365C",
+              "content": "TextRPG UI",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "gR6u9",
+              "fill": "#647A9B",
+              "content": "Pages",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "buLrr",
+              "name": "createNav",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vTrKq",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Fo94V",
+                      "fill": "#35507C",
+                      "content": "Sessions",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XkXrk",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YSMEy",
+                      "fill": "#35507C",
+                      "content": "Play",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Nx20u",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A6Rxu",
+                      "fill": "#35507C",
+                      "content": "Pack Manager",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "yqKBx",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#DCE8FF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vPNhU",
+                      "fill": "#3764FF",
+                      "content": "Card Designer",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CzV8m",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "q7UA9",
+                      "fill": "#35507C",
+                      "content": "Settings",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DFsrd",
+          "x": 292,
+          "y": 26,
+          "name": "createHeader",
+          "width": 1112,
+          "height": 88,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "dGRxo",
+              "x": 28,
+              "y": 28,
+              "fill": "#20365C",
+              "content": "Card Designer / Create Pack",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "oLYcf",
+              "x": 388,
+              "y": 33,
+              "fill": "#6A7EA0",
+              "content": "Define the manifest, target card mix, and AI brief before writing cards.",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "yNavq",
+          "x": 292,
+          "y": 146,
+          "name": "createEditor",
+          "width": 430,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "2nrJn",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "New Pack Manifest",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "ArWCn",
+              "x": 24,
+              "y": 70,
+              "width": 382,
+              "height": 332,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kgBwh",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 336,
+                  "content": "pack_id: moonlit_guild\nname: Moonlit Guild\nversion: 0.1.0\nauthor: Only-Wion\ndescription: Tavern-centered onboarding quests and rumor chains\ncards_root: cards",
+                  "lineHeight": 1.55,
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jVtw1",
+              "x": 24,
+              "y": 430,
+              "width": 382,
+              "height": 96,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weyyy",
+                  "fill": "#20365C",
+                  "content": "Pack goals",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "CtmBO",
+                  "fill": "#5F7393",
+                  "textGrowth": "fixed-width",
+                  "width": 336,
+                  "content": "Create a strong opening tavern loop, 2 rumor cards, 1 bartender NPC, and 1 upstairs mystery quest chain.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mBnWW",
+              "x": 24,
+              "y": 560,
+              "width": 382,
+              "height": 48,
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yKnFh",
+                  "width": 118,
+                  "height": 40,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "1Q81H",
+                      "fill": "#2A9E5B",
+                      "content": "Save Pack",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uCQgw",
+                  "width": 118,
+                  "height": 40,
+                  "fill": "#E8EEFF",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "y5Fh6",
+                      "fill": "#426BFF",
+                      "content": "Back to Edit",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jscoL",
+          "x": 746,
+          "y": 146,
+          "name": "createLibrary",
+          "width": 278,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "X4fDH",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Planned Card Mix",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "9KDJc",
+              "x": 24,
+              "y": 76,
+              "width": 230,
+              "height": 296,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "6slfQ",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 188,
+                  "content": "characters\n- bartender\n- newcomer_player\n\nquests\n- guild_intro_contract\n- sealed_room_rumor\n\nlocations\n- tavern_main_hall\n- upstairs_corridor",
+                  "lineHeight": 1.5,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cQ3LK",
+          "x": 1048,
+          "y": 146,
+          "name": "createAgent",
+          "width": 356,
+          "height": 736,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#D6E1F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "cMEDD",
+              "x": 24,
+              "y": 24,
+              "fill": "#20365C",
+              "content": "Pack Builder Agent",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "3K1Lz",
+              "x": 24,
+              "y": 68,
+              "width": 308,
+              "height": 506,
+              "fill": "#FBFCFF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ifMUq",
+                  "fill": "#516684",
+                  "textGrowth": "fixed-width",
+                  "width": 270,
+                  "content": "USER\nI want a beginner-friendly guild pack built around one tavern and one mystery upstairs room.\n\nASSISTANT\nI can first create the manifest, then draft the first 4 cards and ask whether you want more combat or more social choices.",
+                  "lineHeight": 1.6,
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nWmr8",
+              "x": 24,
+              "y": 596,
+              "width": 308,
+              "height": 94,
+              "fill": "#F5F8FF",
+              "cornerRadius": 18,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#D8E2F3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AbMcQ",
+                  "fill": "#8B9AB4",
+                  "content": "Describe the new pack, then run.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "pnuf9",
+                  "width": 68,
+                  "height": 32,
+                  "fill": "#E3F5EB",
+                  "cornerRadius": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "NFa2S",
+                      "fill": "#2A9E5B",
+                      "content": "Run",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

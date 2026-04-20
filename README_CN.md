@@ -21,13 +21,54 @@ python -m game.main
 
 如果没有设置 `OPENAI_API_KEY`，会自动使用 mock LLM 模式，保证可运行。
 
-## 启动 UI（Streamlit）
+## 启动本地管理员控制台（Streamlit）
 
 ```
-streamlit run ui/app.py
+./scripts/run_admin_console.sh
 ```
 
-UI 提供三个页面：Play（游玩）、Pack Manager（资源包管理）、Card Designer（卡牌设计）。
+说明：历史 Streamlit 游玩/管理页面已弃用，仅保留本地管理员控制台用于维护模型方案与兑换密钥池。
+
+## 启动后端 API（FastAPI）
+
+```
+uvicorn backend.main:app --reload
+```
+
+接口文档契约见：
+
+- `docs/api/http-api.md`
+- `docs/api/frontend-contracts.md`
+- `docs/data-contracts/game-session.md`
+- `docs/data-contracts/pack-and-settings.md`
+- `docs/migration/cloud-handoff.md`
+
+存储后端相关环境变量：
+
+- `TEXTRPG_STORAGE_BACKEND=postgres`
+- `TEXTRPG_POSTGRES_DSN=...`
+- `TEXTRPG_PACK_STORAGE_BACKEND=local|oss`
+- `TEXTRPG_OSS_ENDPOINT=...`
+- `TEXTRPG_OSS_BUCKET=...`
+- `TEXTRPG_OSS_ACCESS_KEY_ID=...`
+- `TEXTRPG_OSS_ACCESS_KEY_SECRET=...`
+- `TEXTRPG_OSS_PREFIX=textrpg`（可选）
+- `TEXTRPG_OSS_REGION=...`（可选）
+
+说明：
+- 当前仅支持 `postgres`。
+- PostgreSQL 目标数据模型见 `docs/data-contracts/postgres-storage-model.md`
+- 切换到云服务器前后的交接说明见 `docs/migration/cloud-handoff.md`
+
+如需把已安装卡包一次性同步到 OSS：
+```
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id>
+```
+
+仅同步指定包：
+```
+PYTHONPATH=. python scripts/migrate_packs_to_oss.py --user-id <user_id> --pack-id starter_kingdom
+```
 
 ## 卡牌与规则
 
@@ -42,7 +83,7 @@ UI 提供三个页面：Play（游玩）、Pack Manager（资源包管理）、C
 game/cards_packs/<pack_id>/<version>/
 ```
 
-Zip 包内必须包含 `pack.json`（或 `pack.yaml`）与 `cards_root` 目录，目录结构需与内置卡牌一致。
+Zip 包内必须包含 `pack.json`（或 `pack.yaml`）与卡牌目录（默认 `cards`），目录结构需与内置卡牌一致；当未显式提供 `cards_root` 时后端默认使用 `cards`。
 
 冲突优先级：
 ```
@@ -206,6 +247,19 @@ scripts/run_ui.sh
 ```
 pytest
 ```
+
+## 接口文档与架构文档
+
+项目内的接口契约、分层规则、数据结构和运行时流程文档统一维护在 `docs/` 目录下。
+
+建议阅读顺序：
+
+1. `docs/README.md`
+2. `docs/architecture/layers.md`
+3. `docs/architecture/module-map.md`
+4. `docs/api/application-services.md`
+5. `docs/api/http-api.md`
+6. `docs/api/repositories.md`
 
 
 ## 自定义 UI 卡牌（新增）

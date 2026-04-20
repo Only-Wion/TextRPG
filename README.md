@@ -24,15 +24,17 @@ python -m game.main
 
 If `OPENAI_API_KEY` is not set, the game runs in mock-LLM mode.
 
-## UI (Streamlit)
+## Local Admin Console (Streamlit)
 
 ```
-streamlit run ui/app.py
+./scripts/run_admin_console.sh
 ```
+
+Legacy Streamlit gameplay pages are deprecated and no longer maintained.
 
 ## Card packs
 
-Packs are installed under `game/cards_packs/<pack_id>/<version>/`. Each pack zip must include `pack.json` (or `pack.yaml`) and a `cards_root` folder with the standard card layout.
+Packs are installed under `game/cards_packs/<pack_id>/<version>/`. Each pack zip must include `pack.json` (or `pack.yaml`) and a cards folder with the standard card layout (the backend defaults `cards_root` to `cards` when omitted).
 
 Conflict priority: overlay > save_slot dynamic state > enabled pack > built-in cards.
 

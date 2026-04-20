@@ -1,13 +1,82 @@
 ﻿from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from .config import load_runtime_llm_settings
+from .config import load_runtime_billing_context, load_runtime_llm_settings
+
+
+def _to_non_negative_int(value: Any) -> int:
+    try:
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return 0
+            value = re.sub(r"[^0-9-]", "", value)
+        return max(0, int(value or 0))
+    except Exception:
+        return 0
+
+
+def _pick_usage_tokens(payload: Any) -> tuple[int, int]:
+    if not isinstance(payload, dict):
+        return (0, 0)
+    in_tokens = _to_non_negative_int(
+        payload.get("input_tokens")
+        or payload.get("prompt_tokens")
+        or payload.get("promptTokens")
+    )
+    out_tokens = _to_non_negative_int(
+        payload.get("output_tokens")
+        or payload.get("completion_tokens")
+        or payload.get("completionTokens")
+    )
+    return (in_tokens, out_tokens)
+
+
+def _extract_usage_tokens(message: Any) -> tuple[int, int]:
+    # Standard LangChain usage payload.
+    usage = getattr(message, "usage_metadata", None)
+    in_tokens, out_tokens = _pick_usage_tokens(usage)
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
+    # OpenAI-compatible providers may put usage in different metadata keys.
+    metadata = getattr(message, "response_metadata", None)
+    if isinstance(metadata, dict):
+        for key in ("token_usage", "usage"):
+            in_tokens, out_tokens = _pick_usage_tokens(metadata.get(key))
+            if in_tokens > 0 or out_tokens > 0:
+                return (in_tokens, out_tokens)
+
+    # Qwen/DashScope-like final stream chunk may place usage here.
+    additional = getattr(message, "additional_kwargs", None)
+    in_tokens, out_tokens = _pick_usage_tokens(
+        additional.get("usage") if isinstance(additional, dict) else None
+    )
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
+    in_tokens, out_tokens = _pick_usage_tokens(getattr(message, "usage", None))
+    if in_tokens > 0 or out_tokens > 0:
+        return (in_tokens, out_tokens)
+
+    return (0, 0)
+
+
+def _record_usage(scene: str, input_tokens: int, output_tokens: int) -> None:
+    context = load_runtime_billing_context()
+    if not isinstance(context, dict):
+        return
+    callback = context.get("on_usage")
+    if not callable(callback):
+        return
+    callback(str(scene or "unknown"), int(input_tokens or 0), int(output_tokens or 0))
 
 class MockLLM:
     """无 API Key 时的确定性规划/叙事替代实现。"""
@@ -98,7 +167,7 @@ class MockLLM:
         }
 
 
-def get_llm() -> ChatOpenAI | MockLLM:
+def get_llm(*, include_stream_usage: bool = False) -> ChatOpenAI | MockLLM:
     """根据配置返回聊天模型或 MockLLM。"""
     runtime = load_runtime_llm_settings()
     if runtime.use_mock_llm:
@@ -108,6 +177,9 @@ def get_llm() -> ChatOpenAI | MockLLM:
         kwargs['base_url'] = runtime.base_url
     if runtime.api_key:
         kwargs['api_key'] = runtime.api_key
+    if include_stream_usage:
+        # Stream usage should only be requested for streaming calls.
+        kwargs['stream_options'] = {'include_usage': True}
     return ChatOpenAI(**kwargs)
 
 
@@ -157,12 +229,14 @@ def build_plan_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     """构建仅输出 JSON ops 的规划提示词。"""
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
-        ('system', 'You are a game planner. Output ONLY JSON that matches the schema: {{"ops": [ ... ]}}. No story. Use {language} only for any natural-language strings inside JSON. Use Recent messages for continuity.'),
-        ('human', 'Player input: {player_input}\nAllowed actions: {allowed_actions}\nRetrieved cards: {retrieved_cards}\nRetrieved memories: {retrieved_memories}\nRecent messages:\n{recent_messages}')
+        ('system', 'You are a game planner. Output ONLY JSON that matches the schema: {{"ops": [ ... ]}}. No story. Use {language} only for any natural-language strings inside JSON. Use Recent messages for continuity. If active event condition keys are provided, prefer SetAttr on the active event entity with keys like condition::<key> or event status flags when the latest turn clearly satisfies them.'),
+        ('human', 'Player input: {player_input}\nActive events: {active_events}\nEvent conditions: {event_conditions}\nAllowed actions: {allowed_actions}\nRetrieved cards: {retrieved_cards}\nRetrieved memories: {retrieved_memories}\nRecent messages:\n{recent_messages}')
     ])
     return prompt.format_messages(
         language=language,
         player_input=_get(state, 'player_input', ''),
+        active_events=_get(state, 'active_events', []),
+        event_conditions=_get(state, 'event_conditions', []),
         allowed_actions=_get(state, 'allowed_actions', []),
         retrieved_cards=_get(state, 'retrieved_cards', []),
         retrieved_memories=_get(state, 'retrieved_memories', []),
@@ -175,11 +249,13 @@ def build_narrate_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
         ('system', 'You are a game narrator. Write immersive narration only in {language}. No JSON, no ops. Use Recent messages for continuity.'),
-        ('human', 'Player input: {player_input}\nWorld facts: {world_facts}\nRecent messages:\n{recent_messages}')
+        ('human', 'Player input: {player_input}\nActive events: {active_events}\nRetrieved cards: {retrieved_cards}\nWorld facts: {world_facts}\nRecent messages:\n{recent_messages}')
     ])
     return prompt.format_messages(
         language=language,
         player_input=_get(state, 'player_input', ''),
+        active_events=_get(state, 'active_events', []),
+        retrieved_cards=_get(state, 'retrieved_cards', []),
         world_facts=_get(state, 'world_facts', {}),
         recent_messages=_format_history(_get(state, 'recent_messages', [])),
     )
@@ -227,6 +303,8 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
 
     messages = build_plan_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("turn_ops_plan", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -236,6 +314,8 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("turn_ops_plan_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:
@@ -249,7 +329,37 @@ def llm_narrate(state: Dict[str, Any]) -> str:
         return llm.narrate(state)
     messages = build_narrate_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("turn_narrate", in_tokens, out_tokens)
     return response.content
+
+
+def llm_narrate_stream(state: Dict[str, Any]):
+    """调用 LLM 流式生成叙事文本增量。"""
+    llm = get_llm(include_stream_usage=True)
+    if isinstance(llm, MockLLM):
+        yield llm.narrate(state)
+        return
+
+    messages = build_narrate_prompt(state)
+    total_in_tokens = 0
+    total_out_tokens = 0
+    try:
+        for chunk in llm.stream(messages):
+            delta = getattr(chunk, 'content', '')
+            if isinstance(delta, str) and delta:
+                yield delta
+            in_tokens, out_tokens = _extract_usage_tokens(chunk)
+            total_in_tokens = max(total_in_tokens, in_tokens)
+            total_out_tokens = max(total_out_tokens, out_tokens)
+        _record_usage("turn_narrate_stream", total_in_tokens, total_out_tokens)
+    except Exception:
+        # Stream 不可用时回退到单次调用，保证行为稳定。
+        response = llm.invoke(messages)
+        in_tokens, out_tokens = _extract_usage_tokens(response)
+        _record_usage("turn_narrate_stream_fallback", in_tokens, out_tokens)
+        if response.content:
+            yield response.content
 
 
 def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -259,6 +369,8 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
         return llm.ui_panels(state)
     messages = build_ui_panels_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("ui_generate_panels", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -267,6 +379,8 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("ui_generate_panels_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:
@@ -308,6 +422,8 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
         return {'update': False, 'html': ''}
     messages = build_ui_update_prompt(state)
     response = llm.invoke(messages)
+    in_tokens, out_tokens = _extract_usage_tokens(response)
+    _record_usage("ui_update_panel", in_tokens, out_tokens)
     try:
         return json.loads(response.content)
     except Exception:
@@ -316,6 +432,8 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
             ('human', '{text}')
         ]).format_messages(text=response.content)
         response2 = llm.invoke(retry)
+        in_tokens, out_tokens = _extract_usage_tokens(response2)
+        _record_usage("ui_update_panel_retry", in_tokens, out_tokens)
         try:
             return json.loads(response2.content)
         except Exception:

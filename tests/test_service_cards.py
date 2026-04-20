@@ -7,16 +7,17 @@ from game.packs.manager import PackManager
 
 
 def build_service(tmp_path: Path) -> GameService:
-    service = GameService(packs_root=tmp_path / 'packs')
-    service.pack_manager = PackManager(packs_root=tmp_path / 'packs', registry_path=tmp_path / 'registry.json')
+    service = GameService(packs_root=tmp_path / "packs")
+    service.pack_manager = PackManager(
+        packs_root=tmp_path / "packs", registry_path=tmp_path / "registry.json"
+    )
     service.create_pack(
         {
-            'pack_id': 'demo_pack',
-            'name': 'Demo',
-            'version': '0.1.0',
-            'author': 'tester',
-            'description': 'demo',
-            'cards_root': 'cards',
+            "pack_id": "demo_pack",
+            "name": "Demo",
+            "version": "0.1.0",
+            "author": "tester",
+            "description": "demo",
         }
     )
     return service
@@ -24,14 +25,16 @@ def build_service(tmp_path: Path) -> GameService:
 
 def test_save_card_rename_removes_original(tmp_path: Path) -> None:
     service = build_service(tmp_path)
-    old_path = service.create_card('demo_pack', 'location', 'old_room', {'tags': []}, 'Old')
+    old_path = service.create_card(
+        "demo_pack", "location", "old_room", {"tags": []}, "Old"
+    )
 
     new_path = service.save_card(
-        'demo_pack',
-        'location',
-        'new_room',
-        {'tags': []},
-        'New',
+        "demo_pack",
+        "location",
+        "new_room",
+        {"tags": []},
+        "New",
         original_path=old_path,
     )
 
@@ -41,9 +44,11 @@ def test_save_card_rename_removes_original(tmp_path: Path) -> None:
 
 def test_delete_card_removes_file(tmp_path: Path) -> None:
     service = build_service(tmp_path)
-    path = service.create_card('demo_pack', 'location', 'to_delete', {'tags': []}, 'Body')
+    path = service.create_card(
+        "demo_pack", "location", "to_delete", {"tags": []}, "Body"
+    )
     assert path.exists()
 
-    service.delete_card('demo_pack', path)
+    service.delete_card("demo_pack", path)
 
     assert not path.exists()
