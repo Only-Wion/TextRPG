@@ -190,6 +190,7 @@ function getRectangleAnchorPoint(source: CanvasNodeGeometry, target: CanvasNodeG
   };
 }
 
+
 function stringifyFrontmatter(payload: Record<string, unknown>): string {
   return JSON.stringify(payload, null, 2);
 }
@@ -405,6 +406,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [canvasHydrated, setCanvasHydrated] = useState(false);
   const [canvasNodeGeometry, setCanvasNodeGeometry] = useState<Record<string, CanvasNodeGeometry>>({});
   const [canvasViewportSize, setCanvasViewportSize] = useState({ width: 1, height: 1 });
+
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const canvasNodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
