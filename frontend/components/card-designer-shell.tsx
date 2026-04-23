@@ -404,6 +404,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [canvasScale, setCanvasScale] = useState(1);
   const [canvasHydrated, setCanvasHydrated] = useState(false);
   const [canvasNodeGeometry, setCanvasNodeGeometry] = useState<Record<string, CanvasNodeGeometry>>({});
+  const [canvasViewportSize, setCanvasViewportSize] = useState({ width: 1, height: 1 });
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const canvasNodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -667,7 +668,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   }, [canvasScale]);
 
   useLayoutEffect(() => {
-    if (!canvasHydrated || !viewportRef.current) {
+    if (!viewportRef.current) {
       return;
     }
 
@@ -677,6 +678,14 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         return;
       }
       const viewportRect = viewport.getBoundingClientRect();
+      const measuredWidth = Math.max(1, Math.round(viewportRect.width));
+      const measuredHeight = Math.max(1, Math.round(viewportRect.height));
+      setCanvasViewportSize((current) =>
+        current.width === measuredWidth && current.height === measuredHeight
+          ? current
+          : { width: measuredWidth, height: measuredHeight },
+      );
+
       const nextGeometry: Record<string, CanvasNodeGeometry> = {};
       for (const node of canvasNodes) {
         const element = canvasNodeRefs.current[node.id];
@@ -706,7 +715,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       resizeObserver.disconnect();
       window.removeEventListener("resize", measureCanvasNodeCenters);
     };
-  }, [canvasHydrated, canvasNodes, canvasOffset, canvasScale]);
+  }, [canvasNodes, canvasOffset, canvasScale]);
 
   function setActivePack(packId: string) {
     setSelectedPackId(packId);
@@ -1238,7 +1247,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               backgroundSize: `${28 * canvasScale}px ${28 * canvasScale}px`,
             }}
           >
-            <svg className="designer-canvas-svg">
+            <svg className="designer-canvas-svg" height={canvasViewportSize.height} width={canvasViewportSize.width}>
               <defs>
                 <marker
                   id="designer-edge-arrow"
@@ -1249,7 +1258,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                   orient="auto"
                   markerUnits="strokeWidth"
                 >
-                  <path d="M0,0 L0,6 L9,3 z" fill="#ff2d55" />
+                  <path d="M0,0 L0,6 L9,3 z" fill="#2f4c69" />
                 </marker>
               </defs>
               {canvasEdges.map((edge) => {
@@ -1268,15 +1277,22 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                 const toY = toPoint.y;
                 const midX = (fromX + toX) / 2;
                 const midY = (fromY + toY) / 2;
+                const isSelected = selectedEdgeId === edge.id;
                 return (
                   <g key={edge.id}>
                     <line
-                      className={selectedEdgeId === edge.id ? "selected" : ""}
+                      className={isSelected ? "selected" : ""}
+                      fill="none"
                       markerEnd="url(#designer-edge-arrow)"
                       onClick={() => {
                         setSelectedEdgeId(edge.id);
                         setSelectedNodeId(null);
                       }}
+                      shapeRendering="geometricPrecision"
+                      stroke={isSelected ? "#17324a" : "#2f4c69"}
+                      strokeLinecap="round"
+                      strokeOpacity={1}
+                      strokeWidth={isSelected ? 3.5 : 2.5}
                       x1={fromX}
                       x2={toX}
                       y1={fromY}
@@ -1532,7 +1548,6 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               <div className="designer-panel-head">
                 <div>
                   <h2>File Structure</h2>
-                  <p>Folders can spawn cards or child folders. Cards can be added to the canvas or opened in an editor tab.</p>
                 </div>
                 <button className="designer-minor-button" onClick={() => handleCreateFolder("")} type="button">
                   Root Folder
