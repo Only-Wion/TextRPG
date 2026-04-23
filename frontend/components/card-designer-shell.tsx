@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 
 import {
@@ -81,6 +81,18 @@ type CanvasEdge = {
   label: string;
 };
 
+type CanvasPoint = {
+  x: number;
+  y: number;
+};
+
+type CanvasNodeGeometry = {
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+};
+
 type DragState =
   | {
       type: "node";
@@ -137,6 +149,47 @@ function canvasStateFromRuntime(
     connect_source_id: connectSourceId,
   };
 }
+
+function canvasNodeFallbackCenter(node: CanvasNode, canvasOffset: { x: number; y: number }, canvasScale: number): CanvasPoint {
+  return {
+    x: node.x * canvasScale + canvasOffset.x + 112,
+    y: node.y * canvasScale + canvasOffset.y + 60,
+  };
+}
+
+function canvasNodeFallbackGeometry(
+  node: CanvasNode,
+  canvasOffset: { x: number; y: number },
+  canvasScale: number,
+): CanvasNodeGeometry {
+  const center = canvasNodeFallbackCenter(node, canvasOffset, canvasScale);
+  return {
+    cx: center.x,
+    cy: center.y,
+    width: 224 * canvasScale,
+    height: 120 * canvasScale,
+  };
+}
+
+function getRectangleAnchorPoint(source: CanvasNodeGeometry, target: CanvasNodeGeometry): CanvasPoint {
+  const dx = target.cx - source.cx;
+  const dy = target.cy - source.cy;
+  if (dx === 0 && dy === 0) {
+    return { x: source.cx, y: source.cy };
+  }
+
+  const halfWidth = source.width / 2;
+  const halfHeight = source.height / 2;
+  const tx = Math.abs(dx) > 0 ? halfWidth / Math.abs(dx) : Number.POSITIVE_INFINITY;
+  const ty = Math.abs(dy) > 0 ? halfHeight / Math.abs(dy) : Number.POSITIVE_INFINITY;
+  const ratio = Math.min(tx, ty);
+
+  return {
+    x: source.cx + dx * ratio,
+    y: source.cy + dy * ratio,
+  };
+}
+
 
 function stringifyFrontmatter(payload: Record<string, unknown>): string {
   return JSON.stringify(payload, null, 2);
@@ -351,8 +404,12 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasScale, setCanvasScale] = useState(1);
   const [canvasHydrated, setCanvasHydrated] = useState(false);
+  const [canvasNodeGeometry, setCanvasNodeGeometry] = useState<Record<string, CanvasNodeGeometry>>({});
+  const [canvasViewportSize, setCanvasViewportSize] = useState({ width: 1, height: 1 });
+
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const canvasNodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const dragStateRef = useRef<DragState>(null);
   const canvasSaveTimerRef = useRef<number | null>(null);
   const hydratedPackIdRef = useRef<string>("");
@@ -612,6 +669,56 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     };
   }, [canvasScale]);
 
+  useLayoutEffect(() => {
+    if (!viewportRef.current) {
+      return;
+    }
+
+    function measureCanvasNodeCenters() {
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        return;
+      }
+      const viewportRect = viewport.getBoundingClientRect();
+      const measuredWidth = Math.max(1, Math.round(viewportRect.width));
+      const measuredHeight = Math.max(1, Math.round(viewportRect.height));
+      setCanvasViewportSize((current) =>
+        current.width === measuredWidth && current.height === measuredHeight
+          ? current
+          : { width: measuredWidth, height: measuredHeight },
+      );
+
+      const nextGeometry: Record<string, CanvasNodeGeometry> = {};
+      for (const node of canvasNodes) {
+        const element = canvasNodeRefs.current[node.id];
+        if (!element) {
+          continue;
+        }
+        const rect = element.getBoundingClientRect();
+        nextGeometry[node.id] = {
+          cx: rect.left - viewportRect.left + rect.width / 2,
+          cy: rect.top - viewportRect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+      setCanvasNodeGeometry(nextGeometry);
+    }
+
+    measureCanvasNodeCenters();
+
+    const viewport = viewportRef.current;
+    const resizeObserver = new ResizeObserver(() => {
+      measureCanvasNodeCenters();
+    });
+    resizeObserver.observe(viewport);
+    window.addEventListener("resize", measureCanvasNodeCenters);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", measureCanvasNodeCenters);
+    };
+  }, [canvasNodes, canvasOffset, canvasScale]);
+
   function setActivePack(packId: string) {
     setSelectedPackId(packId);
     setAgentSession(null);
@@ -762,12 +869,16 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       const label = window.prompt("Connection label", "") ?? "";
       setCanvasEdges((current) => [
         ...current,
-        {
-          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          fromId: connectSourceId,
-          toId: nodeId,
-          label: label.trim(),
-        },
+        ...(current.some((edge) => edge.fromId === connectSourceId && edge.toId === nodeId)
+          ? []
+          : [
+              {
+                id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                fromId: connectSourceId,
+                toId: nodeId,
+                label: label.trim(),
+              },
+            ]),
       ]);
       setConnectSourceId(null);
       setSelectedEdgeId(null);
@@ -1138,7 +1249,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               backgroundSize: `${28 * canvasScale}px ${28 * canvasScale}px`,
             }}
           >
-            <svg className="designer-canvas-svg">
+            <svg className="designer-canvas-svg" height={canvasViewportSize.height} width={canvasViewportSize.width}>
               <defs>
                 <marker
                   id="designer-edge-arrow"
@@ -1149,7 +1260,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                   orient="auto"
                   markerUnits="strokeWidth"
                 >
-                  <path d="M0,0 L0,6 L9,3 z" fill="#17324a" />
+                  <path d="M0,0 L0,6 L9,3 z" fill="#2f4c69" />
                 </marker>
               </defs>
               {canvasEdges.map((edge) => {
@@ -1158,21 +1269,32 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
                 if (!fromNode || !toNode) {
                   return null;
                 }
-                const fromX = fromNode.x * canvasScale + canvasOffset.x + 112;
-                const fromY = fromNode.y * canvasScale + canvasOffset.y + 60;
-                const toX = toNode.x * canvasScale + canvasOffset.x + 112;
-                const toY = toNode.y * canvasScale + canvasOffset.y + 60;
+                const fromNodeGeometry = canvasNodeGeometry[fromNode.id] ?? canvasNodeFallbackGeometry(fromNode, canvasOffset, canvasScale);
+                const toNodeGeometry = canvasNodeGeometry[toNode.id] ?? canvasNodeFallbackGeometry(toNode, canvasOffset, canvasScale);
+                const fromPoint = getRectangleAnchorPoint(fromNodeGeometry, toNodeGeometry);
+                const toPoint = getRectangleAnchorPoint(toNodeGeometry, fromNodeGeometry);
+                const fromX = fromPoint.x;
+                const fromY = fromPoint.y;
+                const toX = toPoint.x;
+                const toY = toPoint.y;
                 const midX = (fromX + toX) / 2;
                 const midY = (fromY + toY) / 2;
+                const isSelected = selectedEdgeId === edge.id;
                 return (
                   <g key={edge.id}>
                     <line
-                      className={selectedEdgeId === edge.id ? "selected" : ""}
+                      className={isSelected ? "selected" : ""}
+                      fill="none"
                       markerEnd="url(#designer-edge-arrow)"
                       onClick={() => {
                         setSelectedEdgeId(edge.id);
                         setSelectedNodeId(null);
                       }}
+                      shapeRendering="geometricPrecision"
+                      stroke={isSelected ? "#17324a" : "#2f4c69"}
+                      strokeLinecap="round"
+                      strokeOpacity={1}
+                      strokeWidth={isSelected ? 3.5 : 2.5}
                       x1={fromX}
                       x2={toX}
                       y1={fromY}
@@ -1202,6 +1324,9 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               <button
                 className={`designer-canvas-node ${selectedNodeId === node.id ? "selected" : ""} ${connectSourceId === node.id ? "source" : ""}`}
                 key={node.id}
+                ref={(element) => {
+                  canvasNodeRefs.current[node.id] = element;
+                }}
                 onClick={() => handleCanvasNodeClick(node.id)}
                 onDoubleClick={() => void openCardEditor(node.cardPath)}
                 style={{
@@ -1425,7 +1550,6 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
               <div className="designer-panel-head">
                 <div>
                   <h2>File Structure</h2>
-                  <p>Folders can spawn cards or child folders. Cards can be added to the canvas or opened in an editor tab.</p>
                 </div>
                 <button className="designer-minor-button" onClick={() => handleCreateFolder("")} type="button">
                   Root Folder

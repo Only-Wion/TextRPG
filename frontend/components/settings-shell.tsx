@@ -106,10 +106,6 @@ export function SettingsShell({ overview, currentUser }: SettingsShellProps) {
           </header>
 
           <div className="light-stack">
-            <div className="light-caption">
-              模型由网站统一托管，玩家仅需选择方案并使用代币。
-            </div>
-
             <section className="light-card settings-form-card">
               <div className="settings-field">
                 <label className="settings-label" htmlFor="coin-balance">
