@@ -1,0 +1,13 @@
+{
+  "packs": {
+    "00001": {
+      "name": "龙族",
+      "version": "0.1.0",
+      "author": "wion",
+      "description": "龙族世界观\n",
+      "cards_root": "cards",
+      "enabled": true,
+      "source": "local"
+    }
+  }
+}

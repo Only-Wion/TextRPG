@@ -44,6 +44,7 @@ type CardEditorDraft = {
   tabId: string;
   title: string;
   originalPath: string;
+  originalCardId: string;
   cardType: string;
   customCardType: string;
   cardId: string;
@@ -127,6 +128,9 @@ function normalizeCanvasState(payload: Partial<CanvasWorkspaceState> | null): Ca
     selected_node_id: typeof payload?.selected_node_id === "string" ? payload.selected_node_id : null,
     selected_edge_id: typeof payload?.selected_edge_id === "string" ? payload.selected_edge_id : null,
     connect_source_id: typeof payload?.connect_source_id === "string" ? payload.connect_source_id : null,
+    entry_events: Array.isArray(payload?.entry_events)
+      ? payload.entry_events.map((value) => String(value).trim()).filter(Boolean)
+      : [],
   };
 }
 
@@ -138,6 +142,7 @@ function canvasStateFromRuntime(
   selectedNodeId: string | null,
   selectedEdgeId: string | null,
   connectSourceId: string | null,
+  entryEventIds: string[],
 ): CanvasWorkspaceState {
   return {
     canvas_nodes: canvasNodes as Array<Record<string, unknown>>,
@@ -147,6 +152,7 @@ function canvasStateFromRuntime(
     selected_node_id: selectedNodeId,
     selected_edge_id: selectedEdgeId,
     connect_source_id: connectSourceId,
+    entry_events: entryEventIds,
   };
 }
 
@@ -210,6 +216,7 @@ function createBlankCardDraft(overrides: Partial<CardEditorDraft> = {}): CardEdi
     tabId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: "New Card",
     originalPath: "",
+    originalCardId: "",
     cardType: "card",
     customCardType: "",
     cardId: "",
@@ -370,6 +377,7 @@ function buildInitialDraftFromPayload(payload: DesignerCardPayload): CardEditorD
   return createBlankCardDraft({
     title: payload.card_id,
     originalPath: payload.path,
+    originalCardId: payload.card_id,
     cardType: payload.card_type,
     cardId: payload.card_id,
     folderPath: payload.folder_path || "",
@@ -401,6 +409,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
+  const [entryEventIds, setEntryEventIds] = useState<string[]>([]);
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasScale, setCanvasScale] = useState(1);
   const [canvasHydrated, setCanvasHydrated] = useState(false);
@@ -516,6 +525,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       setCanvasHydrated(true);
       setCards([]);
       setCardTypes([]);
+      setEntryEventIds([]);
       return;
     }
     let cancelled = false;
@@ -545,6 +555,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         setSelectedNodeId(savedSnapshot.selected_node_id);
         setSelectedEdgeId(savedSnapshot.selected_edge_id);
         setConnectSourceId(savedSnapshot.connect_source_id);
+        setEntryEventIds(savedSnapshot.entry_events);
         setCanvasOffset(savedSnapshot.canvas_offset);
         setCanvasScale(savedSnapshot.canvas_scale);
         hydratedPackIdRef.current = selectedPackId;
@@ -584,6 +595,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
           selectedNodeId,
           selectedEdgeId,
           connectSourceId,
+          entryEventIds,
         ),
       ).catch((error) => {
         setErrorMessage(error instanceof Error ? error.message : "Failed to save canvas state.");
@@ -601,6 +613,7 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     canvasOffset,
     canvasScale,
     connectSourceId,
+    entryEventIds,
     selectedEdgeId,
     selectedNodeId,
     selectedPackId,
@@ -998,6 +1011,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     }
     const draft = activeEditorTab.draft;
     const currentCardType = draft.customCardType.trim() || draft.cardType.trim() || "card";
+    const originalEntryCardId = draft.originalCardId.trim() || draft.cardId.trim();
+    const isEntryCard = originalEntryCardId ? entryEventIds.includes(originalEntryCardId) : false;
     setIsBusy(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -1010,8 +1025,10 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         body: draft.body,
         original_path: draft.originalPath || undefined,
       });
+      const nextEntryEventIds = isEntryCard ? [payload.card_id] : entryEventIds.filter((item) => item !== originalEntryCardId);
       const nextTabId = payload.path;
       const nextDraft = buildInitialDraftFromPayload(payload);
+      setEntryEventIds(nextEntryEventIds);
       setEditorTabs((current) =>
         current.map((tab) =>
           tab.id === activeEditorTab.id
@@ -1037,7 +1054,11 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       );
       setActiveTabId(nextTabId);
       await refreshCards();
-      setSuccessMessage(`Saved ${payload.card_id} to ${formatFolderTarget(payload.card_type, payload.folder_path)}.`);
+      setSuccessMessage(
+        isEntryCard
+          ? `Saved ${payload.card_id} and marked it as the entry card.`
+          : `Saved ${payload.card_id} to ${formatFolderTarget(payload.card_type, payload.folder_path)}.`,
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save card.");
     } finally {
@@ -1073,6 +1094,8 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     setIsBusy(true);
     setErrorMessage(null);
     try {
+      const originalEntryCardId = activeEditorTab.draft.originalCardId.trim() || activeEditorTab.draft.cardId.trim();
+      const wasEntryCard = originalEntryCardId ? entryEventIds.includes(originalEntryCardId) : false;
       const deletedNodeIds = canvasNodes
         .filter((node) => node.cardPath === activeEditorTab.draft.originalPath)
         .map((node) => node.id);
@@ -1081,6 +1104,9 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
       setCanvasEdges((current) =>
         current.filter((edge) => !deletedNodeIds.includes(edge.fromId) && !deletedNodeIds.includes(edge.toId)),
       );
+      if (wasEntryCard) {
+        setEntryEventIds((current) => current.filter((item) => item !== originalEntryCardId));
+      }
       removeEditorTab(activeEditorTab.id);
       await refreshCards();
       setSuccessMessage("Card deleted.");
@@ -1365,6 +1391,9 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
     }
     const draft = activeEditorTab.draft;
     const currentCardType = draft.customCardType.trim() || draft.cardType.trim() || "card";
+    const activeEntryCardId = entryEventIds[0] ?? "";
+    const currentEntryTargetId = draft.originalCardId.trim() || draft.cardId.trim();
+    const isEntryCard = Boolean(currentEntryTargetId && activeEntryCardId === currentEntryTargetId);
     return (
       <section className="designer-workspace-panel">
         <div className="designer-editor-header">
@@ -1440,8 +1469,23 @@ export function CardDesignerShell({ packs, currentUser }: CardDesignerShellProps
         </div>
 
         <div className="designer-field helper">
-          <span>Target Folder</span>
+          <div className="designer-inline-actions" style={{ justifyContent: "space-between" }}>
+            <span>Target Folder</span>
+            <button
+              className="designer-minor-button"
+              onClick={() => {
+                if (!currentEntryTargetId) {
+                  return;
+                }
+                setEntryEventIds(isEntryCard ? [] : [currentEntryTargetId]);
+              }}
+              type="button"
+            >
+              {isEntryCard ? "Entry Card ✓" : "Set as Entry Card"}
+            </button>
+          </div>
           <div className="designer-helper-copy">{formatFolderTarget(currentCardType, draft.folderPath)}</div>
+          <div className="designer-inline-note">Entry cards are stored in canvas_state.json as entry_events.</div>
         </div>
 
         <label className="designer-field stacked">

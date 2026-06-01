@@ -1,0 +1,8 @@
+{
+  "pack_id": "00003",
+  "name": "万象都",
+  "version": "0.1.0",
+  "author": "wion",
+  "description": "生活日复一日，人们似乎失去了生存的压力，直到一张卡牌的出现。",
+  "cards_root": "cards"
+}

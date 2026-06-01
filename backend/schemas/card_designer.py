@@ -68,6 +68,7 @@ class CanvasWorkspaceResponse(BaseModel):
     selected_node_id: str | None = None
     selected_edge_id: str | None = None
     connect_source_id: str | None = None
+    entry_events: list[str] = Field(default_factory=list)
 
 
 class SaveCanvasWorkspaceRequest(BaseModel):
@@ -78,6 +79,7 @@ class SaveCanvasWorkspaceRequest(BaseModel):
     selected_node_id: str | None = None
     selected_edge_id: str | None = None
     connect_source_id: str | None = None
+    entry_events: list[str] = Field(default_factory=list)
 
 
 class CardValidationResponse(BaseModel):

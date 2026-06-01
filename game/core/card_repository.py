@@ -8,11 +8,7 @@ import yaml
 
 from ..config import CARDS_DIR
 
-GRAPH_CANDIDATE_PATHS = (
-    ("story", "story_graph.json"),
-    ("meta", "story_graph.json"),
-    ("story_graph.json",),
-)
+CANVAS_STATE_CANDIDATE_PATHS = (("canvas_state.json",),)
 
 
 def _normalize_string_list(value: Any) -> list[str]:
@@ -106,7 +102,7 @@ def parse_frontmatter(text: str) -> tuple[Dict[str, Any], str]:
 
 
 class CardRepository:
-    """Load card content separately from pack-level story graph structure."""
+    """Load card content separately from pack-level canvas state structure."""
 
     def __init__(
         self, cards_dir: Path = CARDS_DIR, extra_roots: List[Path] | None = None
@@ -195,12 +191,12 @@ class CardRepository:
                 )
 
         for root in roots:
-            self._load_story_graph_for_root(root)
+            self._load_canvas_state_for_root(root)
 
-    def _load_story_graph_for_root(self, cards_root: Path) -> None:
+    def _load_canvas_state_for_root(self, cards_root: Path) -> None:
         pack_root = cards_root.parent
         graph_path: Path | None = None
-        for candidate in GRAPH_CANDIDATE_PATHS:
+        for candidate in CANVAS_STATE_CANDIDATE_PATHS:
             path = pack_root.joinpath(*candidate)
             if path.exists():
                 graph_path = path

@@ -985,6 +985,7 @@ class CardDesignerService:
             "selected_node_id": None,
             "selected_edge_id": None,
             "connect_source_id": None,
+            "entry_events": [],
         }
 
     def get_canvas_state(self, user_id: str, pack_id: str) -> dict[str, Any]:
@@ -999,12 +1000,15 @@ class CardDesignerService:
         canvas_nodes = state.get("canvas_nodes")
         canvas_edges = state.get("canvas_edges")
         canvas_offset = state.get("canvas_offset")
+        entry_events = state.get("entry_events")
         if not isinstance(canvas_nodes, list):
             canvas_nodes = fallback["canvas_nodes"]
         if not isinstance(canvas_edges, list):
             canvas_edges = fallback["canvas_edges"]
         if not isinstance(canvas_offset, dict):
             canvas_offset = fallback["canvas_offset"]
+        if not isinstance(entry_events, list):
+            entry_events = fallback["entry_events"]
         return {
             "canvas_nodes": canvas_nodes,
             "canvas_edges": canvas_edges,
@@ -1024,6 +1028,7 @@ class CardDesignerService:
             "connect_source_id": state.get(
                 "connect_source_id", fallback["connect_source_id"]
             ),
+            "entry_events": [str(item) for item in entry_events if str(item).strip()],
         }
 
     def save_canvas_state(
@@ -1032,8 +1037,11 @@ class CardDesignerService:
         service = self._service(user_id)
         normalized = self._canvas_state_fallback()
         raw_offset = payload.get("canvas_offset")
+        raw_entry_events = payload.get("entry_events")
         if not isinstance(raw_offset, dict):
             raw_offset = {}
+        if not isinstance(raw_entry_events, list):
+            raw_entry_events = []
         normalized.update(
             {
                 "canvas_nodes": (
@@ -1054,6 +1062,11 @@ class CardDesignerService:
                 "selected_node_id": payload.get("selected_node_id"),
                 "selected_edge_id": payload.get("selected_edge_id"),
                 "connect_source_id": payload.get("connect_source_id"),
+                "entry_events": [
+                    str(item).strip()
+                    for item in raw_entry_events
+                    if str(item).strip()
+                ],
             }
         )
         service.pack_manager.write_pack_json(

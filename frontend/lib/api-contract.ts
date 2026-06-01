@@ -251,6 +251,7 @@ export type CanvasWorkspaceState = {
   selected_node_id: string | null;
   selected_edge_id: string | null;
   connect_source_id: string | null;
+  entry_events: string[];
 };
 
 export type SaveCanvasWorkspaceRequest = CanvasWorkspaceState;

@@ -45,6 +45,31 @@ Shape:
 }
 ```
 
+## Canvas Workspace Payload
+
+Used by:
+- `GET /card-designer/packs/{pack_id}/canvas-state`
+- `PUT /card-designer/packs/{pack_id}/canvas-state`
+
+Shape:
+```json
+{
+  "canvas_nodes": [],
+  "canvas_edges": [],
+  "canvas_offset": { "x": 0, "y": 0 },
+  "canvas_scale": 1,
+  "selected_node_id": null,
+  "selected_edge_id": null,
+  "connect_source_id": null,
+  "entry_events": ["event_logic_overflow_grey_gift"]
+}
+```
+
+Notes:
+- `entry_events` is the designer-authored runtime entry list for a pack.
+- The current UI exposes a per-card entry toggle and persists the selection here.
+- Runtime reads this payload from `canvas_state.json`; `story_graph.json` is not the active source.
+
 ## Card Validation Response
 
 Shape:

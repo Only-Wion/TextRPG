@@ -113,6 +113,8 @@ Current data sources:
 - `GET /card-designer/packs/{pack_id}/card-types`
 - `GET /card-designer/packs/{pack_id}/cards`
 - `GET /card-designer/packs/{pack_id}/cards/{card_path}`
+- `GET /card-designer/packs/{pack_id}/canvas-state`
+- `PUT /card-designer/packs/{pack_id}/canvas-state`
 - `POST /card-designer/packs/{pack_id}/cards/template`
 - `POST /card-designer/packs/{pack_id}/cards`
 - `POST /card-designer/cards/validate`

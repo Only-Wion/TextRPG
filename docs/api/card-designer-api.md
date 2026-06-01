@@ -141,6 +141,34 @@ Notes:
   Example final path: `events/main_story/chapter_01/event-a.md`.
 - If `folder_path` is omitted while editing an existing card (`original_path` provided), backend keeps the card in its original nested folder by default.
 
+## `GET /card-designer/packs/{pack_id}/canvas-state`
+
+Purpose:
+- Load the pack's designer canvas state.
+
+Response shape:
+```json
+{
+  "canvas_nodes": [],
+  "canvas_edges": [],
+  "canvas_offset": { "x": 0, "y": 0 },
+  "canvas_scale": 1,
+  "selected_node_id": null,
+  "selected_edge_id": null,
+  "connect_source_id": null,
+  "entry_events": ["event_logic_overflow_grey_gift"]
+}
+```
+
+## `PUT /card-designer/packs/{pack_id}/canvas-state`
+
+Purpose:
+- Persist the pack's designer canvas state.
+
+Notes:
+- The payload now includes `entry_events`, which the Card Designer page uses to mark the current entry card.
+- Runtime reads the same `canvas_state.json` file when building pack entry points.
+
 ## `POST /card-designer/cards/validate`
 
 Purpose:

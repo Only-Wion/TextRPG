@@ -1,0 +1,148 @@
+{
+  "canvas_nodes": [
+    {
+      "id": "node-1777964347864-d1aas4",
+      "cardPath": "events/event_logic_overflow_grey_gift.md",
+      "title": "event_logic_overflow_grey_gift",
+      "cardType": "event",
+      "x": 225.90309162883017,
+      "y": 605.6411472126064
+    },
+    {
+      "id": "node-1777964375508-z93yd0",
+      "cardPath": "locations/loc-xièyā-ànxiàng.md",
+      "title": "泄压暗巷",
+      "cardType": "location",
+      "x": 305.63036435610286,
+      "y": 272.4723160437752
+    },
+    {
+      "id": "node-1777964401811-5wiupw",
+      "cardPath": "locations/loc-pèigěi-jǐng.md",
+      "title": "配给井",
+      "cardType": "location",
+      "x": 127.11088383662236,
+      "y": 406.1606277320869
+    },
+    {
+      "id": "node-1777964448524-8qyd0t",
+      "cardPath": "layers/layer_laborers_union.md",
+      "title": "劳动者工会",
+      "cardType": "layer",
+      "x": 227.15733119419633,
+      "y": 887.2637229989972
+    },
+    {
+      "id": "node-1777964487377-6v6wta",
+      "cardPath": "events/event_dream_sync_white_garden.md",
+      "title": "梦境同步 · 纯白花园",
+      "cardType": "event",
+      "x": 701.9625259993912,
+      "y": 623.6273593626333
+    },
+    {
+      "id": "node-1777964522896-it5t2k",
+      "cardPath": "layers/layer_ascended_heaven.md",
+      "title": "先进者天国",
+      "cardType": "layer",
+      "x": 746.8975909344563,
+      "y": 417.13385286912705
+    },
+    {
+      "id": "node-1777964704758-64v0da",
+      "cardPath": "events/event_identity_downgrade_red_alert.md",
+      "title": "身份降级 · 红字警报",
+      "cardType": "event",
+      "x": 1075.2092792461444,
+      "y": 645.185800921075
+    },
+    {
+      "id": "node-1777964715403-0uswuk",
+      "cardPath": "locations/loc-chǐlún-guǎngchǎng.md",
+      "title": "齿轮广场",
+      "cardType": "location",
+      "x": 1073.3910974279627,
+      "y": 380.2507359860102
+    },
+    {
+      "id": "node-1778056911569-xtj08i",
+      "cardPath": "events/event_search_operation_format_threat.md",
+      "title": "搜查行动 · 格式化威胁",
+      "cardType": "event",
+      "x": 1539.1053831422482,
+      "y": 634.7961905314646
+    },
+    {
+      "id": "node-1778056970251-dx5pbn",
+      "cardPath": "locations/loc-jiǎzǐ-fēngcháo.md",
+      "title": "甲子蜂巢",
+      "cardType": "location",
+      "x": 1529.754733791599,
+      "y": 387.5234632587374
+    }
+  ],
+  "canvas_edges": [
+    {
+      "id": "edge-1777964385948-xez0ze",
+      "fromId": "node-1777964347864-d1aas4",
+      "toId": "node-1777964375508-z93yd0",
+      "label": "发生地点"
+    },
+    {
+      "id": "edge-1777964425889-me0trg",
+      "fromId": "node-1777964347864-d1aas4",
+      "toId": "node-1777964401811-5wiupw",
+      "label": "相关地点"
+    },
+    {
+      "id": "edge-1777964478057-v6yeax",
+      "fromId": "node-1777964347864-d1aas4",
+      "toId": "node-1777964448524-8qyd0t",
+      "label": "第二层整体世界观"
+    },
+    {
+      "id": "edge-1777964515417-tdk2ka",
+      "fromId": "node-1777964347864-d1aas4",
+      "toId": "node-1777964487377-6v6wta",
+      "label": "后续事件"
+    },
+    {
+      "id": "edge-1777964548566-s0kko6",
+      "fromId": "node-1777964487377-6v6wta",
+      "toId": "node-1777964522896-it5t2k",
+      "label": "第一层世界观"
+    },
+    {
+      "id": "edge-1777964730317-ludxxm",
+      "fromId": "node-1777964704758-64v0da",
+      "toId": "node-1777964715403-0uswuk",
+      "label": "发生地点"
+    },
+    {
+      "id": "edge-1777964737975-59b88h",
+      "fromId": "node-1777964487377-6v6wta",
+      "toId": "node-1777964704758-64v0da",
+      "label": "后续事件"
+    },
+    {
+      "id": "edge-1778056926124-nge2pp",
+      "fromId": "node-1777964704758-64v0da",
+      "toId": "node-1778056911569-xtj08i",
+      "label": "后续事件"
+    },
+    {
+      "id": "edge-1778056993594-57cwy6",
+      "fromId": "node-1778056911569-xtj08i",
+      "toId": "node-1778056970251-dx5pbn",
+      "label": "事件发生地点"
+    }
+  ],
+  "canvas_offset": {
+    "x": 5.0,
+    "y": -173.22222320336846
+  },
+  "canvas_scale": 1.0,
+  "selected_node_id": "node-1777964347864-d1aas4",
+  "selected_edge_id": null,
+  "connect_source_id": null
+}
