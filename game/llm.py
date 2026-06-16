@@ -1,14 +1,19 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from .config import load_runtime_billing_context, load_runtime_llm_settings
+from .config import PROJECT_ROOT, load_runtime_billing_context, load_runtime_llm_settings
+
+
+_LLM_LOGGER = logging.getLogger("game.llm")
 
 
 def _to_non_negative_int(value: Any) -> int:
@@ -77,6 +82,67 @@ def _record_usage(scene: str, input_tokens: int, output_tokens: int) -> None:
     if not callable(callback):
         return
     callback(str(scene or "unknown"), int(input_tokens or 0), int(output_tokens or 0))
+
+
+def _ensure_llm_logger() -> logging.Logger:
+    log_dir = PROJECT_ROOT / "data" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "llm_api.log"
+
+    for handler in _LLM_LOGGER.handlers:
+        if isinstance(handler, logging.FileHandler):
+            handler_path = Path(getattr(handler, "baseFilename", ""))
+            try:
+                if handler_path.resolve() == log_path.resolve():
+                    return _LLM_LOGGER
+            except Exception:
+                continue
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+    )
+    _LLM_LOGGER.addHandler(file_handler)
+    _LLM_LOGGER.setLevel(logging.INFO)
+    _LLM_LOGGER.propagate = False
+    return _LLM_LOGGER
+
+
+def _message_log_payload(message: Any) -> Dict[str, Any]:
+    content = getattr(message, "content", message)
+    role = getattr(message, "type", None) or message.__class__.__name__
+    return {"role": str(role), "content": content}
+
+
+def _serialize_messages(messages: List[HumanMessage] | Any) -> str:
+    if not messages:
+        return "[]"
+    if isinstance(messages, list):
+        payload = [_message_log_payload(message) for message in messages]
+    else:
+        payload = [_message_log_payload(messages)]
+    return json.dumps(payload, ensure_ascii=False, default=str, indent=2)
+
+
+def _serialize_response(response: Any) -> str:
+    payload = {
+        "content": getattr(response, "content", response),
+        "usage_metadata": getattr(response, "usage_metadata", None),
+        "response_metadata": getattr(response, "response_metadata", None),
+    }
+    return json.dumps(payload, ensure_ascii=False, default=str, indent=2)
+
+
+def _log_llm_call(scene: str, phase: str, payload: str) -> None:
+    logger = _ensure_llm_logger()
+    logger.info("scene=%s phase=%s payload=%s", scene, phase, payload)
+
+
+def _invoke_llm_with_logging(llm: ChatOpenAI, scene: str, messages: List[HumanMessage]) -> Any:
+    _log_llm_call(scene, "request", _serialize_messages(messages))
+    response = llm.invoke(messages)
+    _log_llm_call(scene, "response", _serialize_response(response))
+    return response
 
 class MockLLM:
     """无 API Key 时的确定性规划/叙事替代实现。"""
@@ -302,7 +368,7 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
         return llm.plan(state)
 
     messages = build_plan_prompt(state)
-    response = llm.invoke(messages)
+    response = _invoke_llm_with_logging(llm, "turn_ops_plan", messages)
     in_tokens, out_tokens = _extract_usage_tokens(response)
     _record_usage("turn_ops_plan", in_tokens, out_tokens)
     try:
@@ -313,7 +379,7 @@ def llm_plan_ops(state: Dict[str, Any]) -> Dict[str, Any]:
             ('system', 'Return ONLY valid JSON. No markdown.'),
             ('human', '{text}')
         ]).format_messages(text=response.content)
-        response2 = llm.invoke(retry)
+        response2 = _invoke_llm_with_logging(llm, "turn_ops_plan_retry", retry)
         in_tokens, out_tokens = _extract_usage_tokens(response2)
         _record_usage("turn_ops_plan_retry", in_tokens, out_tokens)
         try:
@@ -328,7 +394,7 @@ def llm_narrate(state: Dict[str, Any]) -> str:
     if isinstance(llm, MockLLM):
         return llm.narrate(state)
     messages = build_narrate_prompt(state)
-    response = llm.invoke(messages)
+    response = _invoke_llm_with_logging(llm, "turn_narrate", messages)
     in_tokens, out_tokens = _extract_usage_tokens(response)
     _record_usage("turn_narrate", in_tokens, out_tokens)
     return response.content
@@ -342,20 +408,54 @@ def llm_narrate_stream(state: Dict[str, Any]):
         return
 
     messages = build_narrate_prompt(state)
+    _log_llm_call("turn_narrate_stream", "request", _serialize_messages(messages))
     total_in_tokens = 0
     total_out_tokens = 0
+    parts: list[str] = []
     try:
         for chunk in llm.stream(messages):
             delta = getattr(chunk, 'content', '')
             if isinstance(delta, str) and delta:
+                parts.append(delta)
                 yield delta
             in_tokens, out_tokens = _extract_usage_tokens(chunk)
             total_in_tokens = max(total_in_tokens, in_tokens)
             total_out_tokens = max(total_out_tokens, out_tokens)
         _record_usage("turn_narrate_stream", total_in_tokens, total_out_tokens)
+        _log_llm_call(
+            "turn_narrate_stream",
+            "response",
+            json.dumps(
+                {
+                    "content": "".join(parts),
+                    "usage": {
+                        "input_tokens": total_in_tokens,
+                        "output_tokens": total_out_tokens,
+                    },
+                },
+                ensure_ascii=False,
+                default=str,
+                indent=2,
+            ),
+        )
     except Exception:
         # Stream 不可用时回退到单次调用，保证行为稳定。
+        _log_llm_call(
+            "turn_narrate_stream",
+            "stream_error",
+            json.dumps({"message": "stream failed, falling back to invoke"}, ensure_ascii=False),
+        )
+        _log_llm_call(
+            "turn_narrate_stream_fallback",
+            "request",
+            _serialize_messages(messages),
+        )
         response = llm.invoke(messages)
+        _log_llm_call(
+            "turn_narrate_stream_fallback",
+            "response",
+            _serialize_response(response),
+        )
         in_tokens, out_tokens = _extract_usage_tokens(response)
         _record_usage("turn_narrate_stream_fallback", in_tokens, out_tokens)
         if response.content:
@@ -368,7 +468,7 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(llm, MockLLM):
         return llm.ui_panels(state)
     messages = build_ui_panels_prompt(state)
-    response = llm.invoke(messages)
+    response = _invoke_llm_with_logging(llm, "ui_generate_panels", messages)
     in_tokens, out_tokens = _extract_usage_tokens(response)
     _record_usage("ui_generate_panels", in_tokens, out_tokens)
     try:
@@ -378,7 +478,7 @@ def llm_generate_ui_panels(state: Dict[str, Any]) -> Dict[str, Any]:
             ('system', 'Return ONLY valid JSON. No markdown.'),
             ('human', '{text}')
         ]).format_messages(text=response.content)
-        response2 = llm.invoke(retry)
+        response2 = _invoke_llm_with_logging(llm, "ui_generate_panels_retry", retry)
         in_tokens, out_tokens = _extract_usage_tokens(response2)
         _record_usage("ui_generate_panels_retry", in_tokens, out_tokens)
         try:
@@ -421,7 +521,7 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(llm, MockLLM):
         return {'update': False, 'html': ''}
     messages = build_ui_update_prompt(state)
-    response = llm.invoke(messages)
+    response = _invoke_llm_with_logging(llm, "ui_update_panel", messages)
     in_tokens, out_tokens = _extract_usage_tokens(response)
     _record_usage("ui_update_panel", in_tokens, out_tokens)
     try:
@@ -431,7 +531,7 @@ def llm_update_ui_panel(state: Dict[str, Any]) -> Dict[str, Any]:
             ('system', 'Return ONLY valid JSON. No markdown.'),
             ('human', '{text}')
         ]).format_messages(text=response.content)
-        response2 = llm.invoke(retry)
+        response2 = _invoke_llm_with_logging(llm, "ui_update_panel_retry", retry)
         in_tokens, out_tokens = _extract_usage_tokens(response2)
         _record_usage("ui_update_panel_retry", in_tokens, out_tokens)
         try:

@@ -1,13 +1,16 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict
+import logging
 from langgraph.graph import StateGraph, END
 from langgraph.config import get_stream_writer
 
 from ..state import GameState
 from ..ops import OpsPayload
 from ..llm import llm_narrate_stream, llm_plan_ops
+from ..config import PROJECT_ROOT
 from ..infrastructure.contracts import (
     KGStoreProtocol,
     RAGStoreProtocol,
@@ -25,6 +28,30 @@ from .story_graph import (
     active_event_ids_from_world,
     event_condition_rows,
 )
+
+
+_RETRIEVE_CONTEXT_LOGGER = logging.getLogger("game.core.retrieve_context")
+
+
+def _ensure_retrieve_context_logger() -> logging.Logger:
+    log_dir = PROJECT_ROOT / "data" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "retrieve_context.log"
+    target = str(log_path.resolve())
+
+    for handler in _RETRIEVE_CONTEXT_LOGGER.handlers:
+        if isinstance(handler, logging.FileHandler):
+            if Path(getattr(handler, "baseFilename", "")).resolve() == log_path.resolve():
+                return _RETRIEVE_CONTEXT_LOGGER
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+    )
+    _RETRIEVE_CONTEXT_LOGGER.addHandler(file_handler)
+    _RETRIEVE_CONTEXT_LOGGER.setLevel(logging.INFO)
+    _RETRIEVE_CONTEXT_LOGGER.propagate = False
+    return _RETRIEVE_CONTEXT_LOGGER
 
 
 @dataclass(frozen=True)
@@ -59,10 +86,51 @@ def retrieve_context(
     rules: RuleEngine,
 ) -> Dict[str, Any]:
     """收集卡牌、记忆、世界状态与允许的动作。"""
+    context_logger = _ensure_retrieve_context_logger()
     attrs = world.all_attrs()
+
+    # 首轮且世界中尚无激活事件时，显式激活 entry 事件，避免首句对话丢失入口剧情。
+    has_active_in_world = False
+    for event_card in repo.event_cards():
+        event_attrs = attrs.get(event_card.id, {})
+        active_value = str(event_attrs.get(EVENT_ACTIVE_KEY) or "").strip().lower()
+        completed_value = str(event_attrs.get(EVENT_COMPLETED_KEY) or "").strip().lower()
+        if active_value in {"1", "true", "yes", "y", "done"} and completed_value not in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "done",
+        }:
+            has_active_in_world = True
+            break
+
+    is_first_turn = int(_get(state, "turn_id", 0) or 0) <= 1 and not _get(
+        state, "chat_history", []
+    )
+    if is_first_turn and not has_active_in_world:
+        entry_ids = repo.entry_event_ids()
+        for entry_id in entry_ids:
+            world.set_attr(entry_id, EVENT_ACTIVE_KEY, "true", "retrieve_context", 0)
+        if entry_ids:
+            attrs = world.all_attrs()
+            context_logger.info(
+                "entry activated on first turn | turn=%s | save_slot=%s | event_ids=%s",
+                _get(state, "turn_id", 0),
+                _get(state, "save_slot", ""),
+                ",".join(entry_ids),
+            )
+
     active_event_ids = active_event_ids_from_world(repo, attrs)
     active_cards = [repo.get(event_id) for event_id in active_event_ids]
     active_cards = [card for card in active_cards if card is not None]
+
+    context_logger.info(
+        "active cards resolved | turn=%s | save_slot=%s | event_ids=%s",
+        _get(state, "turn_id", 0),
+        _get(state, "save_slot", ""),
+        ",".join(active_event_ids),
+    )
 
     retrieved: list[dict[str, Any]] = []
     seen: set[str] = set()

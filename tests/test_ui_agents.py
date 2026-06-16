@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from game.core.card_repository import Card
+from game import llm as llm_module
 from game.service.ui_agents import UICardPlannerAgent, UIPanelStateAgent
 
 
@@ -105,3 +106,41 @@ def test_ui_state_agent_uses_quest_cards_when_no_quest_attrs() -> None:
     assert 'quest.quest_tavern_rumors.status' in keys
     values = {e['key']: e['value'] for e in entries}
     assert values['quest.quest_join_guild.status'].startswith('available')
+
+
+def test_llm_logging_writes_request_and_response(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(llm_module, 'PROJECT_ROOT', tmp_path)
+    monkeypatch.setattr(llm_module, '_LLM_LOGGER', llm_module.logging.getLogger('game.llm.test'))
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+            self.usage_metadata = {'input_tokens': 3, 'output_tokens': 5}
+            self.response_metadata = {'token_usage': {'prompt_tokens': 3, 'completion_tokens': 5}}
+            self.type = 'human'
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+            self.usage_metadata = {'input_tokens': 7, 'output_tokens': 11}
+            self.response_metadata = {'token_usage': {'prompt_tokens': 7, 'completion_tokens': 11}}
+
+    class DummyLLM:
+        def invoke(self, messages):
+            return DummyResponse('ok-response')
+
+    response = llm_module._invoke_llm_with_logging(
+        DummyLLM(),
+        'unit_test_scene',
+        [DummyMessage('prompt-a'), DummyMessage('prompt-b')],
+    )
+
+    assert response.content == 'ok-response'
+
+    log_path = tmp_path / 'data' / 'logs' / 'llm_api.log'
+    assert log_path.exists()
+    content = log_path.read_text(encoding='utf-8')
+    assert 'scene=unit_test_scene phase=request' in content
+    assert 'scene=unit_test_scene phase=response' in content
+    assert 'prompt-a' in content
+    assert 'ok-response' in content
