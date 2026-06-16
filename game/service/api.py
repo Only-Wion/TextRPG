@@ -672,9 +672,29 @@ class GameService:
     ) -> GameSession:
         paths = get_slot_paths(save_slot)
         metadata = self.session_metadata_store.load(paths["session_meta_path"])
-        enabled_roots = self.pack_manager.get_enabled_cards_roots()
-        repo = CardRepository(cards_dir=CARDS_DIR, extra_roots=enabled_roots)
-        repo.load()
+        enabled_documents = self.pack_manager.list_enabled_card_documents()
+        enabled_canvas_documents = (
+            self.pack_manager.list_enabled_canvas_state_documents()
+        )
+        repo = CardRepository(cards_dir=CARDS_DIR)
+        repo.load(
+            extra_documents=enabled_documents,
+            canvas_documents=enabled_canvas_documents,
+        )
+        repo_cards = list(repo.all())
+        card_type_counts: Dict[str, int] = {}
+        for card in repo_cards:
+            card_type_counts[card.type] = card_type_counts.get(card.type, 0) + 1
+        logger.warning(
+            "oss-cards session repo user=%s slot=%s enabled_docs=%d canvas_docs=%d total_cards=%d type_counts=%s card_ids=%s",
+            self.user_id,
+            save_slot,
+            len(enabled_documents),
+            len(enabled_canvas_documents),
+            len(repo_cards),
+            card_type_counts,
+            [c.id for c in repo_cards],
+        )
         with self._llm_settings_scope():
             stores = self.store_factory.create(
                 world_db_path=paths["world_db_path"],

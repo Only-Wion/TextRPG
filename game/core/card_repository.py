@@ -101,11 +101,24 @@ def parse_frontmatter(text: str) -> tuple[Dict[str, Any], str]:
     return {}, text
 
 
+@dataclass
+class CardSourceDocument:
+    path: Path
+    text: str
+
+
+@dataclass
+class CanvasStateDocument:
+    payload: Dict[str, Any]
+
+
 class CardRepository:
     """Load card content separately from pack-level canvas state structure."""
 
     def __init__(
-        self, cards_dir: Path = CARDS_DIR, extra_roots: List[Path] | None = None
+        self,
+        cards_dir: Path | None = CARDS_DIR,
+        extra_roots: List[Path] | None = None,
     ):
         self.cards_dir = cards_dir
         self.extra_roots = extra_roots or []
@@ -114,84 +127,118 @@ class CardRepository:
         self._related_cards_by_event: dict[str, list[str]] = {}
         self._next_events_by_event: dict[str, list[dict[str, Any]]] = {}
         self._graph_nodes: dict[str, dict[str, Any]] = {}
+        self._card_ids_by_path: dict[str, str] = {}
 
-    def load(self) -> None:
+    def load(
+        self,
+        extra_documents: Iterable[CardSourceDocument] | None = None,
+        canvas_documents: Iterable[CanvasStateDocument] | None = None,
+    ) -> None:
         self._cards.clear()
         self._entry_event_ids = []
         self._related_cards_by_event = {}
         self._next_events_by_event = {}
         self._graph_nodes = {}
+        self._card_ids_by_path = {}
 
-        roots = [self.cards_dir] + list(self.extra_roots)
+        roots = ([self.cards_dir] if self.cards_dir is not None else []) + list(
+            self.extra_roots
+        )
         for root in roots:
             for path in root.rglob("*.md"):
                 if "_overlay" in path.parts:
                     continue
                 text = path.read_text(encoding="utf-8")
-                fm, _ = parse_frontmatter(text)
-                card_id = str(fm.get("id") or "").strip()
-                card_type = str(fm.get("type") or "").strip()
-                if not card_id or not card_type:
-                    continue
+                self._load_card_text(path, text)
 
-                initial_relations = fm.get("initial_relations", []) or []
-                related_cards = _normalize_string_list(
-                    fm.get("related_cards") or fm.get("related_card_ids")
-                )
-                next_events = _normalize_transition_list(
-                    fm.get("next_events") or fm.get("event_branches")
-                )
-
-                for relation in initial_relations:
-                    if not isinstance(relation, dict):
-                        continue
-                    rel = str(relation.get("relation") or "").strip()
-                    obj = str(
-                        relation.get("object_id")
-                        or relation.get("target_event_id")
-                        or relation.get("event_id")
-                        or ""
-                    ).strip()
-                    if not rel or not obj:
-                        continue
-                    if rel in {"related_to", "relates_to"}:
-                        related_cards.append(obj)
-                    elif rel in {"next_event", "next_when", "precedes"}:
-                        next_events.append(
-                            {
-                                "event_id": obj,
-                                "condition_key": str(
-                                    relation.get("condition_key")
-                                    or relation.get("condition")
-                                    or ""
-                                ).strip(),
-                                "condition_label": str(
-                                    relation.get("condition_label")
-                                    or relation.get("label")
-                                    or ""
-                                ).strip(),
-                                "priority": int(relation.get("priority") or 0),
-                            }
-                        )
-
-                tags = _normalize_string_list(fm.get("tags", []))
-                hooks = _normalize_string_list(fm.get("hooks", []))
-                self._cards[card_id] = Card(
-                    id=card_id,
-                    type=card_type,
-                    tags=tags,
-                    initial_relations=initial_relations,
-                    hooks=hooks,
-                    path=path,
-                    title=str(fm.get("title") or fm.get("name") or card_id),
-                    frontmatter=fm,
-                    related_cards=list(dict.fromkeys(related_cards)),
-                    next_events=next_events,
-                    entry=bool(fm.get("entry") or fm.get("is_entry") or fm.get("start")),
-                )
+        for document in extra_documents or []:
+            if "_overlay" in document.path.parts:
+                continue
+            self._load_card_text(document.path, document.text)
 
         for root in roots:
             self._load_canvas_state_for_root(root)
+
+        for document in canvas_documents or []:
+            self._load_canvas_state_payload(document.payload)
+
+    def _load_card_text(self, path: Path, text: str) -> None:
+        fm, body = parse_frontmatter(text)
+        card_id = str(fm.get("id") or "").strip()
+        card_type = str(fm.get("type") or "").strip()
+        if not card_id or not card_type:
+            return
+
+        initial_relations = fm.get("initial_relations", []) or []
+        related_cards = _normalize_string_list(
+            fm.get("related_cards") or fm.get("related_card_ids")
+        )
+        next_events = _normalize_transition_list(
+            fm.get("next_events") or fm.get("event_branches")
+        )
+
+        for relation in initial_relations:
+            if not isinstance(relation, dict):
+                continue
+            rel = str(relation.get("relation") or "").strip()
+            obj = str(
+                relation.get("object_id")
+                or relation.get("target_event_id")
+                or relation.get("event_id")
+                or ""
+            ).strip()
+            if not rel or not obj:
+                continue
+            if rel in {"related_to", "relates_to"}:
+                related_cards.append(obj)
+            elif rel in {"next_event", "next_when", "precedes"}:
+                next_events.append(
+                    {
+                        "event_id": obj,
+                        "condition_key": str(
+                            relation.get("condition_key")
+                            or relation.get("condition")
+                            or ""
+                        ).strip(),
+                        "condition_label": str(
+                            relation.get("condition_label")
+                            or relation.get("label")
+                            or ""
+                        ).strip(),
+                        "priority": int(relation.get("priority") or 0),
+                    }
+                )
+
+        tags = _normalize_string_list(fm.get("tags", []))
+        hooks = _normalize_string_list(fm.get("hooks", []))
+        self._cards[card_id] = Card(
+            id=card_id,
+            type=card_type,
+            tags=tags,
+            initial_relations=initial_relations,
+            hooks=hooks,
+            path=path,
+            title=str(fm.get("title") or fm.get("name") or card_id),
+            frontmatter=fm,
+            related_cards=list(dict.fromkeys(related_cards)),
+            next_events=next_events,
+            entry=bool(fm.get("entry") or fm.get("is_entry") or fm.get("start")),
+            _content=body.strip(),
+        )
+        self._index_card_path(path, card_id)
+
+    def _index_card_path(self, path: Path, card_id: str) -> None:
+        normalized = str(path).replace("\\", "/")
+        keys = {normalized, normalized.lstrip("/")}
+        parts = path.parts
+        if "cards" in parts:
+            cards_index = parts.index("cards")
+            keys.add("/".join(parts[cards_index + 1 :]))
+            keys.add("/".join(parts[cards_index:]))
+        keys.add(path.name)
+        for key in keys:
+            if key:
+                self._card_ids_by_path[key] = card_id
 
     def _load_canvas_state_for_root(self, cards_root: Path) -> None:
         pack_root = cards_root.parent
@@ -207,6 +254,9 @@ class CardRepository:
             payload = json.loads(graph_path.read_text(encoding="utf-8"))
         except Exception:
             return
+        self._load_canvas_state_payload(payload)
+
+    def _load_canvas_state_payload(self, payload: Any) -> None:
         if not isinstance(payload, dict):
             return
 
@@ -215,22 +265,39 @@ class CardRepository:
                 self._entry_event_ids.append(entry_id)
 
         nodes = payload.get("nodes")
+        if not isinstance(nodes, list):
+            nodes = payload.get("canvas_nodes")
+        node_card_ids: dict[str, str] = {}
         if isinstance(nodes, list):
             for node in nodes:
                 if not isinstance(node, dict):
                     continue
                 card_id = str(node.get("card_id") or "").strip()
+                if not card_id:
+                    card_path = str(node.get("cardPath") or node.get("card_path") or "").strip()
+                    card_id = self._card_ids_by_path.get(card_path, "")
+                node_id = str(node.get("id") or "").strip()
                 if card_id and self.get(card_id):
                     self._graph_nodes[card_id] = dict(node)
+                    if node_id:
+                        node_card_ids[node_id] = card_id
 
         edges = payload.get("edges")
+        if not isinstance(edges, list):
+            edges = payload.get("canvas_edges")
         if not isinstance(edges, list):
             return
         for edge in edges:
             if not isinstance(edge, dict):
                 continue
-            source = str(edge.get("from") or edge.get("source") or "").strip()
-            target = str(edge.get("to") or edge.get("target") or "").strip()
+            source = str(
+                edge.get("from") or edge.get("source") or edge.get("fromId") or ""
+            ).strip()
+            target = str(
+                edge.get("to") or edge.get("target") or edge.get("toId") or ""
+            ).strip()
+            source = node_card_ids.get(source, source)
+            target = node_card_ids.get(target, target)
             if not source or not target or not self.get(source) or not self.get(target):
                 continue
             edge_type = str(edge.get("type") or "").strip().lower()

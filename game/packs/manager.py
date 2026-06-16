@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -11,12 +12,14 @@ import requests
 import yaml
 
 from ..config import ENGINE_VERSION, PACKS_DIR, PACK_REGISTRY_PATH, SETTINGS
+from ..core.card_repository import CardSourceDocument, CanvasStateDocument
 from .card_editor import parse_card
 from .registry import PackRecord, PackRegistry
 from .storage import OssPackStorage, PackStorageProtocol
 from .validator import PACK_ID_RE, SEMVER_RE, validate_manifest
 
 MAX_ZIP_BYTES = 50 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 class PackManager:
@@ -127,6 +130,72 @@ class PackManager:
             if root.exists():
                 roots.append(root)
         return roots
+
+    def list_enabled_card_documents(self) -> List[CardSourceDocument]:
+        documents: List[CardSourceDocument] = []
+        for record in self.registry.list():
+            if not record.enabled:
+                continue
+            if isinstance(self.storage, OssPackStorage):
+                paths = self.storage.list_card_paths(
+                    record.pack_id, record.version, record.cards_root
+                )
+                logger.warning(
+                    "oss-cards enabled pack=%s version=%s cards_root=%s object_cards=%d",
+                    record.pack_id,
+                    record.version,
+                    record.cards_root,
+                    len(paths),
+                )
+                for path in paths:
+                    documents.append(
+                        CardSourceDocument(
+                            path=path,
+                            text=self.storage.read_card_text(path),
+                        )
+                    )
+                continue
+
+            root = self.storage.get_pack_cards_root(
+                record.pack_id, record.version, record.cards_root
+            )
+            paths = list(root.rglob("*.md"))
+            logger.warning(
+                "local-cards enabled pack=%s version=%s cards_root=%s file_cards=%d",
+                record.pack_id,
+                record.version,
+                record.cards_root,
+                len(paths),
+            )
+            for path in paths:
+                documents.append(
+                    CardSourceDocument(
+                        path=path,
+                        text=path.read_text(encoding="utf-8"),
+                    )
+                )
+        return documents
+
+    def list_enabled_canvas_state_documents(self) -> List[CanvasStateDocument]:
+        documents: List[CanvasStateDocument] = []
+        for record in self.registry.list():
+            if not record.enabled:
+                continue
+            payload = self.storage.read_pack_json(
+                record.pack_id,
+                record.version,
+                "canvas_state.json",
+                default=None,
+            )
+            logger.warning(
+                "oss-canvas enabled pack=%s version=%s found=%s",
+                record.pack_id,
+                record.version,
+                isinstance(payload, dict),
+            )
+            if isinstance(payload, dict):
+                documents.append(CanvasStateDocument(payload=payload))
+        return documents
 
     def get_pack_dir(self, pack_id: str, version: str | None = None) -> Path:
         """返回指定卡包的版本目录。"""
