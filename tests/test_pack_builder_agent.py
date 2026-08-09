@@ -1,14 +1,18 @@
 from pathlib import Path
 
 from game.packs.manager import PackManager
+from game.packs.storage import LocalPackStorage
 from game.service.api import GameService
 from game.service.pack_builder_agent import ActionPlan, PackBuilderAgent
 
 
 def build_service(tmp_path: Path) -> GameService:
-    service = GameService(packs_root=tmp_path / "packs")
+    packs_root = tmp_path / "packs"
+    service = object.__new__(GameService)
     service.pack_manager = PackManager(
-        packs_root=tmp_path / "packs", registry_path=tmp_path / "registry.json"
+        packs_root=packs_root,
+        registry_path=tmp_path / "registry.json",
+        storage=LocalPackStorage(packs_root),
     )
     service.create_pack(
         {
@@ -132,3 +136,75 @@ def test_read_card_tool(tmp_path: Path) -> None:
     )
     assert any("read_card(demo_pack)" in x for x in logs)
     assert any("Event body" in x for x in logs)
+
+
+def test_edit_card_tool_preserves_omitted_fields(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    agent = PackBuilderAgent(service)
+    state = {"history": [], "selected_pack_id": "demo_pack"}
+    original = service.save_card(
+        "demo_pack",
+        "event",
+        "e1",
+        {"id": "e1", "type": "event", "title": "Original", "tags": ["main"]},
+        "Original body",
+        folder_path="main",
+    )
+
+    logs = agent._execute_actions(
+        [
+            {
+                "tool": "edit_card",
+                "args": {
+                    "pack_id": "demo_pack",
+                    "card_path": "events/main/e1.md",
+                    "body": "Updated body",
+                },
+            }
+        ],
+        state,
+    )
+
+    card = service.load_card(original, "demo_pack")
+    assert card["frontmatter"]["title"] == "Original"
+    assert card["frontmatter"]["tags"] == ["main"]
+    assert card["body"].strip() == "Updated body"
+    assert any("edit_card -> demo_pack" in line for line in logs)
+
+
+def test_edit_card_tool_can_rename_and_move_card(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    agent = PackBuilderAgent(service)
+    state = {"history": [], "selected_pack_id": "demo_pack"}
+    old_path = service.save_card(
+        "demo_pack",
+        "event",
+        "e1",
+        {"id": "e1", "type": "event", "title": "Original", "tags": []},
+        "Body",
+    )
+
+    agent._execute_actions(
+        [
+            {
+                "tool": "edit_card",
+                "args": {
+                    "pack_id": "demo_pack",
+                    "card_path": "events/e1.md",
+                    "card_id": "e2",
+                    "folder_path": "chapter_01",
+                    "frontmatter": {"title": "Renamed"},
+                },
+            }
+        ],
+        state,
+    )
+
+    root = service._pack_cards_root("demo_pack")
+    new_path = root / "events" / "chapter_01" / "e2.md"
+    assert not service.card_exists("demo_pack", old_path)
+    assert service.card_exists("demo_pack", new_path)
+    card = service.load_card(new_path, "demo_pack")
+    assert card["frontmatter"]["id"] == "e2"
+    assert card["frontmatter"]["title"] == "Renamed"
+    assert card["body"].strip() == "Body"

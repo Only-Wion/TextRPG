@@ -42,6 +42,7 @@ class PackBuilderAgent:
         "create_pack",
         "select_pack",
         "save_card",
+        "edit_card",
         "batch_save_cards",
         "delete_card",
     }
@@ -96,6 +97,18 @@ class PackBuilderAgent:
                     "card_id": "str",
                     "frontmatter": "dict",
                     "body": "str",
+                },
+            },
+            {
+                "name": "edit_card",
+                "args": {
+                    "pack_id": "str",
+                    "card_path": "str",
+                    "card_type": "str|null",
+                    "card_id": "str|null",
+                    "folder_path": "str|null",
+                    "frontmatter": "dict|null",
+                    "body": "str|null",
                 },
             },
             {"name": "delete_card", "args": {"pack_id": "str", "card_path": "str"}},
@@ -508,6 +521,25 @@ class PackBuilderAgent:
                     state,
                 ),
             ),
+            "edit_card": StructuredTool.from_function(
+                name="edit_card",
+                description=(
+                    "Edit an existing card. Omitted fields keep their current values; "
+                    "frontmatter fields are merged. card_path is relative to cards_root."
+                ),
+                func=lambda pack_id="", card_path="", card_type=None, card_id=None, folder_path=None, frontmatter=None, body=None: self._tool_edit_card(
+                    {
+                        "pack_id": pack_id,
+                        "card_path": card_path,
+                        "card_type": card_type,
+                        "card_id": card_id,
+                        "folder_path": folder_path,
+                        "frontmatter": frontmatter,
+                        "body": body,
+                    },
+                    state,
+                ),
+            ),
             "batch_save_cards": StructuredTool.from_function(
                 name="batch_save_cards",
                 description="批量保存卡牌。",
@@ -618,6 +650,56 @@ class PackBuilderAgent:
         folder = str(card_payload.get("folder_path", "") or "").strip()
         suffix = f"/{folder}" if folder else ""
         return f"save_card -> {pack_id}/{card_payload['card_type']}{suffix}/{card_payload['card_id']}"
+
+    def _tool_edit_card(self, args: Dict[str, Any], state: Dict[str, Any]) -> str:
+        pack_id = self._resolve_pack_id(str(args.get("pack_id", "")), state)
+        root = self.service._pack_cards_root(pack_id)
+        card_path = Path(str(args.get("card_path", "")).strip())
+        target = card_path if card_path.is_absolute() else (root / card_path)
+        if not self.service._is_within(target, root):
+            return "edit_card failed: card path is outside pack root"
+        if not self.service.card_exists(pack_id, target):
+            return f"edit_card failed: file not found -> {args.get('card_path', '')}"
+
+        existing = self.service.load_card(target, pack_id)
+        frontmatter = dict(existing.get("frontmatter", {}))
+        frontmatter_patch = args.get("frontmatter")
+        if frontmatter_patch is not None:
+            if not isinstance(frontmatter_patch, dict):
+                raise ValueError("edit_card frontmatter must be an object")
+            frontmatter.update(frontmatter_patch)
+
+        card_type = str(
+            args.get("card_type") or frontmatter.get("type") or "card"
+        ).strip()
+        card_id = str(
+            args.get("card_id") or frontmatter.get("id") or target.stem
+        ).strip()
+        if not card_type or not card_id:
+            raise ValueError("edit_card requires a non-empty card_type and card_id")
+        frontmatter["type"] = card_type
+        frontmatter["id"] = card_id
+
+        relative_parent = target.parent.relative_to(root)
+        existing_folder = "/".join(relative_parent.parts[1:])
+        folder_arg = args.get("folder_path")
+        folder_path = existing_folder if folder_arg is None else str(folder_arg).strip()
+        body_arg = args.get("body")
+        body = str(existing.get("body", "")) if body_arg is None else str(body_arg)
+
+        saved = self.service.save_card(
+            pack_id=pack_id,
+            card_type=card_type,
+            card_id=card_id,
+            frontmatter=frontmatter,
+            body=body,
+            folder_path=folder_path or None,
+            original_path=target,
+        )
+        state["selected_pack_id"] = pack_id
+        old_relative = str(target.relative_to(root)).replace("\\", "/")
+        new_relative = str(saved.relative_to(root)).replace("\\", "/")
+        return f"edit_card -> {pack_id}: {old_relative} -> {new_relative}"
 
     def _tool_batch_save_cards(
         self, pack_id: str, cards: List[Dict[str, Any]], state: Dict[str, Any]

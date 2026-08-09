@@ -295,7 +295,19 @@ def build_plan_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     """构建仅输出 JSON ops 的规划提示词。"""
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
-        ('system', 'You are a game planner. Output ONLY JSON that matches the schema: {{"ops": [ ... ]}}. No story. Use {language} only for any natural-language strings inside JSON. Use Recent messages for continuity. If active event condition keys are provided, prefer SetAttr on the active event entity with keys like condition::<key> or event status flags when the latest turn clearly satisfies them.'),
+        (
+            'system',
+            (
+                'You are a game planner. Output ONLY JSON that matches the schema: '
+                '{{"ops": [ ... ]}}. No story. Use {language} only for natural-language '
+                'strings inside JSON. Use Player input and Recent messages together to '
+                'evaluate the current Active event. When the interaction clearly satisfies '
+                'an Event condition, emit SetAttr for the active event entity with key '
+                'condition::<condition_key> and value true. Do not activate the next event '
+                'directly; the runtime event graph handles promotion. Do not mark a condition '
+                'true without concrete evidence in the interaction.'
+            ),
+        ),
         ('human', 'Player input: {player_input}\nActive events: {active_events}\nEvent conditions: {event_conditions}\nAllowed actions: {allowed_actions}\nRetrieved cards: {retrieved_cards}\nRetrieved memories: {retrieved_memories}\nRecent messages:\n{recent_messages}')
     ])
     return prompt.format_messages(
@@ -314,13 +326,67 @@ def build_narrate_prompt(state: Dict[str, Any]) -> List[HumanMessage]:
     """构建仅输出叙事文本的提示词。"""
     language = _language_label(_get(state, 'language', 'zh'))
     prompt = ChatPromptTemplate.from_messages([
-        ('system', 'You are a game narrator. Write immersive narration only in {language}. No JSON, no ops. Use Recent messages for continuity.'),
-        ('human', 'Player input: {player_input}\nActive events: {active_events}\nRetrieved cards: {retrieved_cards}\nWorld facts: {world_facts}\nRecent messages:\n{recent_messages}')
+        (
+            'system',
+            (
+                'You are the runtime narrator of an interactive text RPG. Produce a '
+                'clear, playable scene response rather than ornamental prose.\n\n'
+                'CANON AND CARD ROLES\n'
+                '- Treat World facts as the authoritative current state. Treat Active '
+                'events as the current main plot and advance only that plot. Retrieved '
+                'cards provide supporting canon. Recent messages provide continuity.\n'
+                '- event: the current scene goal, conflict, clues, and progression.\n'
+                '- character/player: identity, motives, knowledge, voice, and behavior.\n'
+                '- location: physical layout, exits, atmosphere, and available objects.\n'
+                '- item: established properties and possible uses; never invent ownership.\n'
+                '- world/worldview/layer: setting laws, social context, and background.\n'
+                '- quest/task/hook: objectives, leads, and reasons to act.\n'
+                '- rule/system: gameplay constraints; obey them without explaining them.\n'
+                '- memory: prior facts. ui: interface data, not prose content.\n'
+                '- If sources conflict, follow this priority: World facts, Active events, '
+                'Retrieved cards, Recent messages. Do not invent major characters, items, '
+                'powers, locations, or lore absent from these sources.\n\n'
+                'TURN BEHAVIOR\n'
+                '- Respond directly to the player input. Never choose the player '
+                'character\'s decisions, dialogue, beliefs, or emotions.\n'
+                '- Move the active event forward by one meaningful beat per turn: a '
+                'consequence, reaction, clue, obstacle, or changed opportunity. For vague '
+                'input such as "continue", advance one beat without resolving the whole event.\n'
+                '- Use Event conditions as progression targets. Present concrete chances '
+                'to satisfy them and describe observable consequences when the player acts '
+                'toward them. Do not claim that an event changed state unless World facts '
+                'already show that change.\n'
+                '- Preserve continuity. Do not repeat established description unless it '
+                'has changed or is immediately relevant. End on a concrete situation the '
+                'player can respond to, without presenting a numbered choice menu unless asked.\n\n'
+                'STYLE\n'
+                '- Write only in {language}. Use 2-4 short paragraphs and usually 120-300 '
+                'Chinese characters (or 80-180 English words). Prefer concrete actions and '
+                'plain sensory details. Keep dialogue concise.\n'
+                '- Avoid stacked metaphors, repeated suspense beats, excessive ellipses, '
+                'and repeated words such as "suddenly", "as if", or "seems". Use at most '
+                'one strong figurative image in a turn.\n'
+                '- Do not use headings, bold text, block quotes, JSON, ops, card IDs, or '
+                'meta commentary. Do not fabricate system notifications, status popups, '
+                'inventory changes, or bracketed messages unless explicitly established '
+                'by Retrieved cards or World facts.'
+            ),
+        ),
+        (
+            'human',
+            'Player input: {player_input}\n'
+            'Active events: {active_events}\n'
+            'Event conditions: {event_conditions}\n'
+            'Retrieved cards: {retrieved_cards}\n'
+            'World facts: {world_facts}\n'
+            'Recent messages:\n{recent_messages}',
+        )
     ])
     return prompt.format_messages(
         language=language,
         player_input=_get(state, 'player_input', ''),
         active_events=_get(state, 'active_events', []),
+        event_conditions=_get(state, 'event_conditions', []),
         retrieved_cards=_get(state, 'retrieved_cards', []),
         world_facts=_get(state, 'world_facts', {}),
         recent_messages=_format_history(_get(state, 'recent_messages', [])),
